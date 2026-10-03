@@ -18,6 +18,9 @@ export function validateFurnitureDraft(draft: FurnitureDraft, item: FlatFurnitur
   for (const [field, value] of [["x", x], ["z", z], ["angle", angle]] as const) {
     if (!value.valid) issues.push({ code: value.code, field });
   }
+  for (const [field, value] of [["x", x], ["z", z]] as const) {
+    if (value.valid && Math.abs(value.value) > 10000) issues.push({ code: "input.range", field, minimum: -10000, maximum: 10000 });
+  }
   if (angle.valid && (angle.value < 0 || angle.value > 360)) issues.push({ code: "input.range", field: "angle", minimum: 0, maximum: 360 });
   if (!dimensions.complete || !x.valid || !z.valid || !angle.valid || issues.length > 0) return { complete: false, issues };
   const position = { x: x.value, z: z.value };

@@ -4,6 +4,8 @@ import { DEMO_FLAT } from "../../data/flat-preset";
 import { clientToPlan, draggedPosition, nearestPlanItem } from "../../components/plan/interaction";
 import { rotationFromPoint } from "../../lib/geometry/oriented";
 import { copySnapshot, createEditorState, editorReducer } from "./state";
+import { itemChanges, placeLibraryItem } from "./layout";
+import { FURNITURE_LIBRARY } from "../../data/flat-preset";
 
 describe("immediate editor state", () => {
   it("starts in After with independently copied baseline positions", () => {
@@ -156,5 +158,112 @@ describe("multiple lock management and bounce-back", () => {
     const result = editorReducer(state, { type: "propose", item: { ...item, position: { x: 280, z: 250 } } });
     expect(result.lockNotice).toHaveLength(2);
     expect(result.current).toBe(state.current);
+  });
+});
+
+describe("library and immediate baseline comparison", () => {
+  it("adds a default-zero item to a free position in the selected room", () => {
+    const initial = editorReducer(createEditorState(), { type: "room", id: "kitchen" });
+    const state = editorReducer(initial, { type: "add-item", templateId: "chair" });
+    expect(state.current.furniture).toHaveLength(21);
+    const added = state.current.furniture.find((item) => item.id === state.selectedId)!;
+    expect(added.roomId).toBe("kitchen");
+    expect(added.orientation).toBe(0);
+    expect(analyzeLayout(DEMO_FLAT, state.current.furniture, 260)).toEqual([]);
+    expect(initial.current.furniture).toHaveLength(20);
+    expect(state.baseline.furniture).toHaveLength(20);
+  });
+
+  it("reports no free initial position without rearranging existing furniture", () => {
+    const room = DEMO_FLAT.rooms[0];
+    const occupied = [{ ...createEditorState().current.furniture[0], ...room, id: "occupied", kind: "sofa" as const, roomId: "living", height: 80 }];
+    expect(placeLibraryItem(DEMO_FLAT, occupied, FURNITURE_LIBRARY[5], "living", "new")).toBeNull();
+    expect(occupied[0].position).toEqual(room.position);
+  });
+
+  it("keeps position and angle when replacing from the library", () => {
+    const rotated = editorReducer(createEditorState(), { type: "draft", field: "angle", value: "135" });
+    const state = editorReducer(rotated, { type: "replace-item", templateId: "desk" });
+    expect(state.current.furniture[0]).toMatchObject({ id: "living-sofa", kind: "desk", width: 110, position: { x: 250, z: 270 }, orientation: 135 });
+  });
+
+  it("routes preset replacement through distance-lock rejection", () => {
+    const state = editorReducer(createEditorState(), { type: "distance-lock", firstId: "living-sofa", secondId: "living-coffee-table", minimum: "25" });
+    const result = editorReducer(state, { type: "replace-item", templateId: "double-bed" });
+    expect(result.current).toBe(state.current);
+    expect(result.lockNotice[0].code).toBe("lock.distance");
+  });
+
+  it("deletes an item and cleans position/distance locks while keeping its baseline", () => {
+    const state = editorReducer(editorReducer(createEditorState(), { type: "position-lock", id: "living-sofa" }), { type: "distance-lock", firstId: "living-sofa", secondId: "living-coffee-table", minimum: "25" });
+    const result = editorReducer(state, { type: "delete-item", id: "living-sofa" });
+    expect(result.current.furniture).toHaveLength(19);
+    expect(result.locks).toEqual({ position: [], distance: [] });
+    expect(result.baseline.furniture[0].id).toBe("living-sofa");
+    expect(itemChanges(result.baseline, result.current)["living-sofa"]).toEqual(["removed"]);
+  });
+
+  it("detects moved, rotated, resized, replaced, added and removed items", () => {
+    const state = createEditorState();
+    const current = copySnapshot(state.current);
+    current.furniture[0] = { ...current.furniture[0], kind: "desk", name: { en: "Desk", "zh-Hant": "書枱" }, position: { x: 260, z: 270 }, orientation: 30, width: 100 };
+    current.furniture.pop();
+    current.furniture.push({ ...current.furniture[0], id: "new" });
+    const changes = itemChanges(state.baseline, current);
+    expect(changes["living-sofa"]).toEqual(["moved", "rotated", "resized", "replaced"]);
+    expect(changes["new"]).toEqual(["added"]);
+    expect(changes["second-chair"]).toEqual(["removed"]);
+  });
+
+  it("sets a new independent baseline without moving the camera or clearing locks", () => {
+    const state = editorReducer(editorReducer(createEditorState(), { type: "draft", field: "angle", value: "30" }), { type: "position-lock", id: "living-sofa" });
+    const updated = editorReducer(state, { type: "baseline" });
+    expect(updated.baseline).toEqual(updated.current);
+    expect(updated.baseline.furniture).not.toBe(updated.current.furniture);
+    expect(itemChanges(updated.baseline, updated.current)).toEqual({});
+    expect(updated.cameraRevision).toBe(state.cameraRevision);
+    expect(updated.locks).toBe(state.locks);
+  });
+
+  it("does not replace the baseline from an incomplete draft or Before view", () => {
+    const incomplete = editorReducer(createEditorState(), { type: "draft", field: "width", value: "" });
+    expect(editorReducer(incomplete, { type: "baseline" })).toBe(incomplete);
+    const before = editorReducer(createEditorState(), { type: "view", view: "before" });
+    expect(editorReducer(before, { type: "add-item", templateId: "chair" })).toBe(before);
+    expect(editorReducer(before, { type: "delete-item", id: "living-sofa" })).toBe(before);
+  });
+
+  it("allows geometric warnings in a user-chosen baseline", () => {
+    const state = editorReducer(createEditorState(), { type: "draft", field: "width", value: "500" });
+    const baseline = editorReducer(state, { type: "baseline" });
+    expect(baseline.baseline.furniture[0].width).toBe(500);
+    expect(analyzeLayout(DEMO_FLAT, baseline.baseline.furniture, 260).length).toBeGreaterThan(0);
+  });
+
+  it("discards incomplete drafts when comparing, without changing accepted geometry", () => {
+    const invalid = editorReducer(editorReducer(createEditorState(), { type: "ceiling", value: "219" }), { type: "draft", field: "width", value: "" });
+    const before = editorReducer(invalid, { type: "view", view: "before" });
+    const after = editorReducer(before, { type: "view", view: "after" });
+    expect(after.ceilingInput).toBe("260");
+    expect(after.ceilingIssue).toBeNull();
+    expect(after.draft?.width).toBe("180");
+    expect(after.current).toBe(invalid.current);
+  });
+
+  it("follows a selected item into its new room but not an unrelated room-picker change", () => {
+    const state = createEditorState();
+    const moved = editorReducer(state, { type: "propose", item: { ...state.current.furniture[0], position: { x: 540, z: 100 }, orientation: 360 } });
+    expect(moved.selectedRoomId).toBe("kitchen");
+    expect(moved.current.furniture[0].orientation).toBe(0);
+    const roomPicked = editorReducer(state, { type: "room", id: "master" });
+    expect(editorReducer(roomPicked, { type: "draft", field: "height", value: "90" }).selectedRoomId).toBe("master");
+  });
+
+  it("rejects extreme finite coordinates without clamping the accepted item", () => {
+    const state = createEditorState();
+    const invalid = editorReducer(state, { type: "draft", field: "x", value: "100000000000000000000000" });
+    expect(invalid.current).toBe(state.current);
+    expect(invalid.draft?.x).toBe("100000000000000000000000");
+    expect(invalid.inputIssues[0]).toMatchObject({ field: "x", code: "input.range", maximum: 10000 });
   });
 });

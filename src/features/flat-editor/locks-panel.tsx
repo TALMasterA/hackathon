@@ -31,7 +31,7 @@ function DistanceLockRow({ lock, furniture, editable, language, onSave, onRemove
   return (
     <li className="distance-lock-row" data-testid={`lock-${lock.id}`}>
       <div className="lock-row-names"><Link2 size={15} aria-hidden="true" /><strong>{first.name[language]} / {second.name[language]}</strong><span>{lock.id}</span></div>
-      <p>{editorText(language, "locks.actual", { distance: formatCm(actual, language) })}</p>
+      <p>{editorText(language, "locks.required", { distance: formatCm(lock.minimum, language) })} · {editorText(language, "locks.actual", { distance: formatCm(actual, language) })}</p>
       <form className="lock-row-edit" noValidate onSubmit={(event) => { event.preventDefault(); onSave({ ...lock, minimum }); }}>
         <div className="dimension-field"><label htmlFor={`minimum-${lock.id}`}>{editorText(language, "locks.minimum")}</label><div className="input-with-unit"><input id={`minimum-${lock.id}`} type="text" inputMode="decimal" value={minimum} disabled={!editable} onChange={(event) => setMinimum(event.target.value)} /><span>{editorText(language, "editor.unit")}</span></div></div>
         <button type="submit" className="icon-button" disabled={!editable} aria-label={`${editorText(language, "locks.update")} ${lock.id}`} title={editorText(language, "locks.update")} data-tooltip={editorText(language, "locks.update")}><Save size={17} aria-hidden="true" /></button>

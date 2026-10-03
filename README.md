@@ -1,10 +1,10 @@
 # FitIn
 
-## Revision 2 Integration In Progress
+## Revision 2 Feature Integration Complete
 
 Revision 2 follows the team's [judge-and-fix development method](docs/DEVELOPMENT_METHOD.md). The running page now exposes the five-room whole-flat plan and synchronized 3D editor: all 20 items can be selected, dragged in 2D, precisely moved/resized through numeric input, or rotated continuously with the side-panel dial. Before/After is immediate; geometric overlap is shown as live warnings rather than rejection. The old sofa-only checker and hard-coded clear gap have been removed.
 
-The assumed flat, walls, doors, windows and item dimensions are documented in [docs/FLAT_DEMO_DATA.md](docs/FLAT_DEMO_DATA.md). Position and multiple user-defined distance locks are now exposed, including validated create/edit/remove and snap-back with attempted/required numbers. The default layout has no locks. Library controls, changed-item markers and re-baselining are the next milestone. The sections below describe historical Revision 1 and will be replaced with current complete documentation at the documentation milestone, not advertised as current functionality.
+The assumed flat, walls, doors, windows and item dimensions are documented in [docs/FLAT_DEMO_DATA.md](docs/FLAT_DEMO_DATA.md). Position and multiple user-defined distance locks are exposed with validated create/edit/remove and snap-back. The default has no locks. The library now supports free initial placement, preset replacement preserving pose, and deletion with lock cleanup. After shows baseline ghost outlines and changed/removed item markers; Set current layout as baseline copies the current layout without resetting the camera. Documentation replacement and one bounded final smoke check remain. The sections below describe historical Revision 1, not current functionality, and are being replaced at the documentation milestone.
 
 FitIn helps a non-expert household check whether a replacement sofa can occupy the position of an existing sofa before purchase. This is the first working development version for HacKU 2026, not a professional design tool or a guarantee of real-world fit.
 

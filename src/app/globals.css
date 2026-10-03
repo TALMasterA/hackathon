@@ -237,7 +237,7 @@ main { animation: arrive .4s ease-out both; }
 .layout-issue-list svg { margin-top: 2px; }
 .view-heading > span { font-size: 11px; color: var(--muted); }
 .flat-scene-stage { height: 470px; margin: 0; }
-.flat-scene-stage .scene-toolbar { justify-content: flex-end; }
+.flat-scene-stage .scene-toolbar { justify-content: flex-end; z-index: 5; }
 .scene-issue-label { display: block; background: #fff9f7ee; color: #962b26; border: 1px solid #dfbeb7; padding: 3px 5px; font-size: 11px; font-weight: 700; white-space: nowrap; border-radius: 3px; }
 .flat-workspace .demo-tag { white-space: normal; }
 .room-picker, .ceiling-control > label { font-size: 12px; color: var(--muted); }
@@ -277,6 +277,19 @@ main { animation: arrive .4s ease-out both; }
 .lock-endpoint select { width: 100%; min-width: 0; min-height: 44px; font: inherit; padding: 8px; border: 1px solid #bdc9c1; border-radius: 5px; color: var(--ink); background: white; }
 .secondary-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 1px solid #b2c5b9; background: var(--green-light); color: var(--green); padding: 10px 12px; font-weight: 600; border-radius: 5px; }
 .secondary-button:disabled { opacity: .55; cursor: not-allowed; }
+.library-panel { border-top: 1px solid var(--line); padding-top: 18px; margin-top: 23px; }
+.library-panel h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+.library-size { font-size: 11px; color: var(--muted); margin-top: 8px; }
+.library-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-top: 12px; }
+.library-actions button { font-size: 11px; }
+.delete-item-button { min-height: 44px; background: transparent; color: var(--red); border: 0; display: flex; gap: 7px; align-items: center; font-size: 12px; padding: 9px 0; margin-top: 9px; }
+.delete-item-button:disabled { opacity: .5; cursor: not-allowed; }
+.removed-item { display: flex; justify-content: space-between; gap: 10px; padding: 13px 10px; font-size: 11px; color: var(--muted); }
+.removed-item > span:first-child { text-decoration: line-through; }
+.baseline-legend { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); margin-top: 12px; }
+.baseline-swatch { width: 18px; height: 10px; border: 1px dashed #53675b; opacity: .5; }
+.baseline-button { font-size: 12px; max-width: 270px; text-align: left; }
+.baseline-button:disabled { opacity: .5; cursor: not-allowed; }
 select:focus-visible { outline: 3px solid #b35c2e; outline-offset: 3px; }
 
 @media (max-width: 1200px) { .flat-views { grid-template-columns: minmax(0, 1fr); } }

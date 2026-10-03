@@ -1,0 +1,49 @@
+import type { Flat, FlatFurniture, FurnitureTemplate, ItemChange, LayoutSnapshot, Position2D } from "../../types/domain";
+import { analyzeLayout, issueItemIds } from "../../lib/geometry/layout";
+import { GEOMETRY_EPSILON_CM } from "../../lib/geometry/footprint";
+import { normalizeAngle } from "../../lib/geometry/oriented";
+
+export function placeLibraryItem(flat: Flat, furniture: readonly FlatFurniture[], template: FurnitureTemplate, roomId: string, id: string): FlatFurniture | null {
+  const room = flat.rooms.find((entry) => entry.id === roomId);
+  if (!room || template.width > room.width || template.depth > room.depth) return null;
+  const minX = room.position.x - room.width / 2 + template.width / 2;
+  const maxX = room.position.x + room.width / 2 - template.width / 2;
+  const minZ = room.position.z - room.depth / 2 + template.depth / 2;
+  const maxZ = room.position.z + room.depth / 2 - template.depth / 2;
+  const positions: Position2D[] = [{ ...room.position }];
+  const horizontal: number[] = [];
+  const vertical: number[] = [];
+  for (let x = minX; x <= maxX; x += 20) horizontal.push(x);
+  for (let z = minZ; z <= maxZ; z += 20) vertical.push(z);
+  horizontal.push(maxX);
+  vertical.push(maxZ);
+  for (const x of horizontal) for (const z of vertical) positions.push({ x, z });
+  positions.sort((first, second) => Math.hypot(first.x - room.position.x, first.z - room.position.z) - Math.hypot(second.x - room.position.x, second.z - room.position.z));
+
+  for (const position of positions) {
+    const item: FlatFurniture = { ...template, id, roomId, position, orientation: 0, name: { ...template.name } };
+    const issues = analyzeLayout(flat, [...furniture, item], flat.height);
+    if (!issues.some((issue) => issueItemIds(issue).includes(id))) return item;
+  }
+  return null;
+}
+
+export function itemChanges(baseline: LayoutSnapshot, current: LayoutSnapshot): Record<string, ItemChange[]> {
+  const changes: Record<string, ItemChange[]> = {};
+  for (const item of current.furniture) {
+    const previous = baseline.furniture.find((entry) => entry.id === item.id);
+    if (!previous) {
+      changes[item.id] = ["added"];
+      continue;
+    }
+    const flags: ItemChange[] = [];
+    if (Math.hypot(item.position.x - previous.position.x, item.position.z - previous.position.z) > GEOMETRY_EPSILON_CM) flags.push("moved");
+    const angle = Math.abs(normalizeAngle(item.orientation) - normalizeAngle(previous.orientation));
+    if (Math.min(angle, 360 - angle) > GEOMETRY_EPSILON_CM) flags.push("rotated");
+    if ((["width", "depth", "height"] as const).some((field) => Math.abs(item[field] - previous[field]) > GEOMETRY_EPSILON_CM)) flags.push("resized");
+    if (item.kind !== previous.kind || item.name.en !== previous.name.en || item.name["zh-Hant"] !== previous.name["zh-Hant"]) flags.push("replaced");
+    if (flags.length > 0) changes[item.id] = flags;
+  }
+  for (const previous of baseline.furniture) if (!current.furniture.some((item) => item.id === previous.id)) changes[previous.id] = ["removed"];
+  return changes;
+}

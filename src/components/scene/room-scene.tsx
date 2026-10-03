@@ -97,7 +97,7 @@ function FurnitureModel({ item, flat, selected, colliding, onSelect }: { item: F
   );
 }
 
-export default function RoomScene({ flat, furniture, issues, selectedId, focusedIds, language, cameraCommand, onSelect }: RoomSceneProps) {
+export default function RoomScene({ flat, furniture, baseline, issues, selectedId, focusedIds, language, cameraCommand, onSelect }: RoomSceneProps) {
   const colliding = new Set(issues.flatMap(issueItemIds));
   const highlights = issuePolygons(issues);
   return (
@@ -106,6 +106,10 @@ export default function RoomScene({ flat, furniture, issues, selectedId, focused
       <ambientLight intensity={1.3} />
       <directionalLight position={[-3, 9, -5]} intensity={2} />
       <RoomShell flat={flat} />
+      {baseline.map((item) => {
+        const [x, , z] = scenePositionCm(item.position, flat);
+        return <mesh key={`baseline-${item.id}`} name={`baseline-${item.id}`} position={[x, 0.01, z]} rotation={[0, threeRotation(item.orientation), 0]}><boxGeometry args={[item.width / 100, 0.004, item.depth / 100]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /><Edges color="#53675b" transparent opacity={0.28} /></mesh>;
+      })}
       {furniture.map((item) => <FurnitureModel key={item.id} item={item} flat={flat} selected={selectedId === item.id || focusedIds.includes(item.id)} colliding={colliding.has(item.id)} onSelect={onSelect} />)}
       {highlights.map((highlight, index) => {
         const centre = polygonCentre(highlight.polygon);
