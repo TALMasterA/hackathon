@@ -5,9 +5,8 @@ import type { EditorAction, EditorState } from "../flat-editor/state";
 
 export type QuarterTurns = 0 | 1 | 2 | 3;
 
-/** An item's own 3D appearance. Appearance only: geometry and checks keep using the item's box. */
+/** An item's own 3D appearance, made by AI from a photo. Appearance only: geometry and checks keep using the item's box. */
 export interface Look {
-  source: "ai" | "file";
   object: Object3D;
   quarterTurns: QuarterTurns;
   name: string;

@@ -2,13 +2,13 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
-import { Camera, Check, FileBox, LoaderCircle, RotateCw, Trash2, X } from "lucide-react";
+import { Camera, Check, LoaderCircle, RotateCw, Trash2, X } from "lucide-react";
 import { SceneErrorBoundary } from "@/components/scene/scene-error-boundary";
 import { editorText, type EditorTranslationKey } from "@/i18n/editor";
 import type { FlatFurniture, FurnitureKind, Language, LocalizedName } from "@/types/domain";
 import { objectBounds } from "@/components/scene/model-object";
 import { initialQuarterTurns, type Look } from "./looks";
-import { LookError, MAX_GLB_BYTES, modelCache, parseGlb, photoHash, resizePhoto, runModelJob, type JobPhase } from "./model3d-client";
+import { LookError, modelCache, parseGlb, photoHash, resizePhoto, runModelJob, type JobPhase } from "./model3d-client";
 
 const LookPreview = dynamic(() => import("./look-preview"), { ssr: false, loading: () => <div className="look-preview-loading"><LoaderCircle className="loading-icon" size={22} aria-hidden="true" /></div> });
 
@@ -22,17 +22,15 @@ interface Target {
 
 type Job =
   | { phase: "preparing"; target: Target }
-  | { phase: "loading-file"; target: Target }
   | { phase: "confirm"; target: Target; photo: Blob; hash: string | null; name: string; photoUrl: string }
-  | { phase: JobPhase; target: Target; seconds: number };
+  | { phase: JobPhase; target: Target; started: number };
 
 type Notice = { tone: "error" | "status"; key: EditorTranslationKey; parameters?: Record<string, string | number> };
 
-function progressText(job: Job, text: (key: EditorTranslationKey, parameters?: Record<string, string | number>) => string): string | null {
+function progressText(job: Job, now: number, text: (key: EditorTranslationKey, parameters?: Record<string, string | number>) => string): string | null {
   if (job.phase === "confirm") return null;
   if (job.phase === "preparing") return text("look.preparing");
-  if (job.phase === "loading-file") return text("look.loadingFile");
-  return text(`look.phase.${job.phase}`, { seconds: job.seconds });
+  return text(`look.phase.${job.phase}`, { seconds: Math.max(0, Math.round((now - job.started) / 1000)) });
 }
 
 export interface LookPanelProps {
@@ -45,27 +43,34 @@ export interface LookPanelProps {
   onRemove: (itemId: string) => void;
 }
 
-/** "3D look (optional)": an AI look from a confirmed product photo, or an uploaded .glb, for the selected item. */
+/** "3D look (optional)": an AI look from a confirmed product photo for the selected item. */
 export function LookPanel({ item, look, editable, language, onSet, onTurn, onRemove }: LookPanelProps) {
   const [job, setJob] = useState<Job | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
+  const [now, setNow] = useState(0);
   const photoInput = useRef<HTMLInputElement>(null);
-  const glbInput = useRef<HTMLInputElement>(null);
   const abort = useRef<AbortController | null>(null);
   const text = (key: EditorTranslationKey, parameters?: Record<string, string | number>) => editorText(language, key, parameters);
   const busy = job !== null;
+  const timed = job !== null && "started" in job;
 
   useEffect(() => () => abort.current?.abort(), []);
+  // Elapsed seconds tick on their own while a job runs, not only when its phase changes.
+  useEffect(() => {
+    if (!timed) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [timed]);
 
   const fail = (error: unknown) => {
     const code = error instanceof LookError ? error.code : "failed";
     setJob(null);
-    setNotice({ tone: code === "cancelled" ? "status" : "error", key: `look.error.${code}`, parameters: { max: MAX_GLB_BYTES / 1024 / 1024 } });
+    setNotice({ tone: code === "cancelled" ? "status" : "error", key: `look.error.${code}` });
   };
 
-  const apply = async (target: Target, glb: ArrayBuffer, source: Look["source"], name: string) => {
+  const apply = async (target: Target, glb: ArrayBuffer, name: string) => {
     const object = await parseGlb(glb);
-    onSet(target.id, { source, object, quarterTurns: initialQuarterTurns(objectBounds(object), target), name, kind: target.kind });
+    onSet(target.id, { object, quarterTurns: initialQuarterTurns(objectBounds(object), target), name, kind: target.kind });
   };
 
   const choosePhoto = async (file: File) => {
@@ -78,7 +83,7 @@ export function LookPanel({ item, look, editable, language, onSet, onTurn, onRem
       const hash = await photoHash(photo);
       const cached = modelCache.get(hash);
       if (cached) {
-        await apply(target, cached, "ai", file.name);
+        await apply(target, cached, file.name);
         setJob(null);
         setNotice({ tone: "status", key: "look.cached" });
         return;
@@ -96,11 +101,12 @@ export function LookPanel({ item, look, editable, language, onSet, onTurn, onRem
     const controller = new AbortController();
     abort.current = controller;
     const started = Date.now();
-    setJob({ phase: "sending", target, seconds: 0 });
+    setNow(started);
+    setJob({ phase: "sending", target, started });
     try {
-      const glb = await runModelJob(photo, { signal: controller.signal, onPhase: (phase) => setJob({ phase, target, seconds: Math.round((Date.now() - started) / 1000) }) });
+      const glb = await runModelJob(photo, { signal: controller.signal, onPhase: (phase) => setJob({ phase, target, started }) });
       modelCache.set(hash, glb);
-      await apply(target, glb, "ai", name);
+      await apply(target, glb, name);
       setJob(null);
     } catch (error) {
       fail(error);
@@ -117,22 +123,8 @@ export function LookPanel({ item, look, editable, language, onSet, onTurn, onRem
     } else abort.current?.abort();
   };
 
-  const chooseGlb = async (file: File) => {
-    if (!item) return;
-    const target = { id: item.id, kind: item.kind, name: item.name, width: item.width, depth: item.depth };
-    setNotice(null);
-    if (file.size > MAX_GLB_BYTES) return fail(new LookError("glb-size"));
-    setJob({ phase: "loading-file", target });
-    try {
-      await apply(target, await file.arrayBuffer(), "file", file.name);
-      setJob(null);
-    } catch (error) {
-      fail(error);
-    }
-  };
-
-  const progress = job && progressText(job, text);
-  const cancellable = job && job.phase !== "preparing" && job.phase !== "loading-file" && job.phase !== "downloading";
+  const progress = job && progressText(job, now, text);
+  const cancellable = job && job.phase !== "preparing" && job.phase !== "downloading";
 
   return (
     <section className="look-panel" aria-labelledby="look-title" data-testid="look-panel">
@@ -141,7 +133,7 @@ export function LookPanel({ item, look, editable, language, onSet, onTurn, onRem
       {!item && !busy && <p className="muted-text">{text("look.none")}</p>}
       {item && look && (
         <div className="look-current">
-          <p><strong>{text("look.current", { name: look.name })}</strong><br /><span>{text(`look.source.${look.source}`)}</span></p>
+          <p><strong>{text("look.current", { name: look.name })}</strong><br /><span>{text("look.madeByAi")}</span></p>
           <div className="look-preview" role="img" aria-label={text("look.preview", { width: item.width, depth: item.depth, height: item.height })}>
             <SceneErrorBoundary key={look.object.uuid} fallback={<p className="muted-text">{text("look.previewUnavailable")}</p>}>
               <LookPreview key={`${item.width}-${item.depth}-${item.height}`} look={look} item={item} />
@@ -155,13 +147,9 @@ export function LookPanel({ item, look, editable, language, onSet, onTurn, onRem
         </div>
       )}
       {item && (
-        <div className="library-actions">
-          <button type="button" className="secondary-button" disabled={!editable || busy} onClick={() => photoInput.current?.click()}><Camera size={17} aria-hidden="true" />{text("look.fromPhoto")}</button>
-          <button type="button" className="secondary-button" disabled={!editable || busy} onClick={() => glbInput.current?.click()}><FileBox size={17} aria-hidden="true" />{text("look.uploadGlb")}</button>
-        </div>
+        <button type="button" className="secondary-button look-photo" disabled={!editable || busy} onClick={() => photoInput.current?.click()}><Camera size={17} aria-hidden="true" />{text("look.fromPhoto")}</button>
       )}
       <input ref={photoInput} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void choosePhoto(file); }} />
-      <input ref={glbInput} type="file" accept=".glb,model/gltf-binary" hidden onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void chooseGlb(file); }} />
       {job?.phase === "confirm" && (
         <div className="look-consent" role="group" aria-labelledby="look-consent-text">
           {/* eslint-disable-next-line @next/next/no-img-element -- local object URL of the resized photo */}

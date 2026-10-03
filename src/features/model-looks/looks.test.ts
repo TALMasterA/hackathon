@@ -8,7 +8,7 @@ function furnishedState(): EditorState {
   return actions.reduce(editorReducer, createEditorState());
 }
 
-const look = (name = "My sofa"): Look => ({ source: "ai", object: new Group(), quarterTurns: 0, name, kind: "sofa" });
+const look = (name = "My sofa"): Look => ({ object: new Group(), quarterTurns: 0, name, kind: "sofa" });
 
 /** Mirrors the workspace: apply an editor action, then clear a look only when that action replaced its item. */
 function step(state: EditorState, looks: Looks, action: EditorAction): [EditorState, Looks] {
