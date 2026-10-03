@@ -1,5 +1,15 @@
 # Decisions
 
+## Revision 2 Decisions (Superseding On Integration)
+
+The Revision 2 fixing prompt supersedes the single-room, sofa-only, fixed-centre, 0/90, hard-coded clear-zone and accepted-After decisions below. The initial foundation milestone keeps the old UI running while adding the new independently tested data/geometry. The old behavior is not the intended final Revision 2 surface.
+
+The generated five-room flat is 660 x 640 cm with uniform 10 cm walls, directly connected rooms and no corridor. Dimensions are assumptions; equal-sized bedrooms are deliberate, not a Housing Authority claim. Positive angles are clockwise in the X-right/Z-down plan and negative Y rotation in Three.js. Input 360 is normalised to 0, not clamped.
+
+Door collision zones use conservative square bounds for a 90-degree swing. Windows are visual only and do not cut collision walls. Before will be read-only; After will update immediately. A new/edited distance lock must already be satisfiable by the current layout; impossible locks will be rejected rather than silently moving furniture. These choices need team review after integration.
+
+Temporary geometric overlap is a warning, not rejection. Only position/distance lock violations reject an item edit, returning its last accepted state. All simultaneous lock violations are reported. The previous sofa-table preference is replaced by generic user-created distance locks; the new default has none.
+
 ## One Living / Dining-Room Demo
 
 One deterministic scenario makes the complete first-version task testable during the event. Multiple floor plans would increase measurement, attribution, UI, and verification obligations before the core task is established.

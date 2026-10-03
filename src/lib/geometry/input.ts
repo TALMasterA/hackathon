@@ -13,14 +13,18 @@ type ValidatedInput =
   | { complete: false; issues: InputIssue[] }
   | { complete: true; dimensions: Dimensions; roomHeight: number };
 
-function parseField(raw: string, field: InputField, room: Room): ParsedNumber {
+export function parseDecimalText(raw: string): { valid: true; value: number } | { valid: false; code: "input.missing" | "input.malformed" } {
   const text = raw.trim();
-  if (text === "") return { issue: { code: "input.missing", field } };
-  if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(text)) {
-    return { issue: { code: "input.malformed", field } };
-  }
+  if (text === "") return { valid: false, code: "input.missing" };
+  if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(text)) return { valid: false, code: "input.malformed" };
   const value = Number(text);
-  if (!Number.isFinite(value)) return { issue: { code: "input.malformed", field } };
+  return Number.isFinite(value) ? { valid: true, value } : { valid: false, code: "input.malformed" };
+}
+
+function parseField(raw: string, field: InputField, room: Room): ParsedNumber {
+  const parsed = parseDecimalText(raw);
+  if (!parsed.valid) return { issue: { code: parsed.code, field } };
+  const value = parsed.value;
   if (value <= 0) return { issue: { code: "input.positive", field } };
   if (field === "roomHeight") {
     if (value < room.minimumHeight || value > room.maximumHeight) {

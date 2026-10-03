@@ -1,5 +1,9 @@
 # FitIn
 
+## Revision 2 In Progress
+
+Revision 2 follows the team's [judge-and-fix development method](docs/DEVELOPMENT_METHOD.md). The first milestone adds a five-room assumed flat, exact rotated-rectangle geometry, wall opening/swing geometry, and pure lock rejection. The visible interface remains Revision 1 until the editor/rendering milestones are integrated. The new data is documented in [docs/FLAT_DEMO_DATA.md](docs/FLAT_DEMO_DATA.md); no whole-flat UI is claimed as delivered by this foundation milestone.
+
 FitIn helps a non-expert household check whether a replacement sofa can occupy the position of an existing sofa before purchase. This is the first working development version for HacKU 2026, not a professional design tool or a guarantee of real-world fit.
 
 The app is a mobile-first, English / Traditional Chinese website. It uses entered dimensions, a fixed preset room, deterministic geometry, and a simplified interactive 3D view. It does not use AI at runtime.
