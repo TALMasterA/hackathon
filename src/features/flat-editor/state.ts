@@ -9,6 +9,16 @@ import { placeLibraryItem } from "./layout";
 
 export type LayoutView = "before" | "after";
 
+export const HISTORY_LIMIT = 100;
+
+export interface EditorDocument {
+  current: LayoutSnapshot;
+  baseline: LayoutSnapshot;
+  locks: LayoutLocks;
+  nextItemNumber: number;
+  nextLockNumber: number;
+}
+
 export interface EditorState {
   current: LayoutSnapshot;
   baseline: LayoutSnapshot;
@@ -29,6 +39,10 @@ export interface EditorState {
   nextItemNumber: number;
   libraryFullRoomId: string | null;
   cameraRevision: number;
+  past: EditorDocument[];
+  future: EditorDocument[];
+  gesture: EditorDocument | null;
+  coalesceKey: string | null;
 }
 
 export function copySnapshot(snapshot: LayoutSnapshot): LayoutSnapshot {
@@ -37,7 +51,7 @@ export function copySnapshot(snapshot: LayoutSnapshot): LayoutSnapshot {
 
 export function createEditorState(): EditorState {
   const current: LayoutSnapshot = { ceilingHeight: DEMO_FLAT.height, furniture: FLAT_FURNITURE.map((item) => ({ ...item, position: { ...item.position } })) };
-  return { current, baseline: copySnapshot(current), locks: { position: [], distance: [] }, selectedId: current.furniture[0].id, selectedRoomId: "living", focusedIds: [current.furniture[0].id], language: "en", view: "after", draft: furnitureDraft(current.furniture[0]), inputIssues: [], ceilingInput: String(DEMO_FLAT.height), ceilingIssue: null, lockNotice: [], lockNoticeContext: "edit", lockSetupIssue: null, nextLockNumber: 1, nextItemNumber: 1, libraryFullRoomId: null, cameraRevision: 0 };
+  return { current, baseline: copySnapshot(current), locks: { position: [], distance: [] }, selectedId: current.furniture[0].id, selectedRoomId: "living", focusedIds: [current.furniture[0].id], language: "en", view: "after", draft: furnitureDraft(current.furniture[0]), inputIssues: [], ceilingInput: String(DEMO_FLAT.height), ceilingIssue: null, lockNotice: [], lockNoticeContext: "edit", lockSetupIssue: null, nextLockNumber: 1, nextItemNumber: 1, libraryFullRoomId: null, cameraRevision: 0, past: [], future: [], gesture: null, coalesceKey: null };
 }
 
 export type EditorAction =
@@ -56,7 +70,75 @@ export type EditorAction =
   | { type: "delete-item"; id: string }
   | { type: "baseline" }
   | { type: "view"; view: LayoutView }
-  | { type: "reset" };
+  | { type: "reset" }
+  | { type: "gesture-start" }
+  | { type: "gesture-end" }
+  | { type: "undo" }
+  | { type: "redo" };
+
+type EditAction = Exclude<EditorAction, { type: "gesture-start" | "gesture-end" | "undo" | "redo" }>;
+
+function editorDocument(state: EditorState): EditorDocument {
+  return { current: state.current, baseline: state.baseline, locks: state.locks, nextItemNumber: state.nextItemNumber, nextLockNumber: state.nextLockNumber };
+}
+
+function deepEqual(first: unknown, second: unknown): boolean {
+  if (Object.is(first, second)) return true;
+  if (typeof first !== "object" || typeof second !== "object" || first === null || second === null || Array.isArray(first) !== Array.isArray(second)) return false;
+  const firstRecord = first as Record<string, unknown>;
+  const secondRecord = second as Record<string, unknown>;
+  const keys = Object.keys(firstRecord);
+  return keys.length === Object.keys(secondRecord).length && keys.every((key) => key in secondRecord && deepEqual(firstRecord[key], secondRecord[key]));
+}
+
+function sameDocument(first: EditorDocument, second: EditorDocument): boolean {
+  if (first.current === second.current && first.baseline === second.baseline && first.locks === second.locks && first.nextItemNumber === second.nextItemNumber && first.nextLockNumber === second.nextLockNumber) return true;
+  return deepEqual(first, second);
+}
+
+function pushHistory(state: EditorState, document: EditorDocument): EditorState {
+  return { ...state, past: [...state.past, document].slice(-HISTORY_LIMIT), future: [] };
+}
+
+function endGesture(state: EditorState): EditorState {
+  if (!state.gesture) return state;
+  const ended = { ...state, gesture: null };
+  return sameDocument(state.gesture, editorDocument(state)) ? ended : pushHistory(ended, state.gesture);
+}
+
+function restoreDocument(state: EditorState, document: EditorDocument, past: EditorDocument[], future: EditorDocument[]): EditorState {
+  const item = document.current.furniture.find((entry) => entry.id === state.selectedId);
+  return { ...state, ...document, past, future, selectedId: item?.id ?? null, focusedIds: item ? [item.id] : [], draft: item ? furnitureDraft(item) : null, inputIssues: [], ceilingInput: String(document.current.ceilingHeight), ceilingIssue: null, lockNotice: [], lockSetupIssue: null, libraryFullRoomId: null, gesture: null, coalesceKey: null };
+}
+
+function coalesceKeyFor(state: EditorState, action: EditAction): string | null {
+  if (action.type === "draft") return `${state.selectedId}:${action.field}`;
+  return action.type === "ceiling" ? "ceiling" : null;
+}
+
+export function editorReducer(state: EditorState, action: EditorAction): EditorState {
+  switch (action.type) {
+    case "undo":
+      if (state.view === "before" || state.past.length === 0) return state;
+      return restoreDocument(state, state.past[state.past.length - 1], state.past.slice(0, -1), [editorDocument(state), ...state.future]);
+    case "redo":
+      if (state.view === "before" || state.future.length === 0) return state;
+      return restoreDocument(state, state.future[0], [...state.past, editorDocument(state)].slice(-HISTORY_LIMIT), state.future.slice(1));
+    case "gesture-start": {
+      const closed = endGesture(state);
+      return { ...closed, gesture: editorDocument(closed), coalesceKey: null };
+    }
+    case "gesture-end":
+      return endGesture(state);
+  }
+  const before = editorDocument(state);
+  const next = applyEdit(state, action);
+  const key = coalesceKeyFor(state, action);
+  if (key !== null && key === state.coalesceKey) return next;
+  const changed = !sameDocument(before, editorDocument(next));
+  if (changed && !(state.gesture && action.type === "propose")) return { ...pushHistory(next, before), coalesceKey: key };
+  return next.coalesceKey === null ? next : { ...next, coalesceKey: null };
+}
 
 function commitProposal(state: EditorState, proposed: FlatFurniture, rawDraft?: FurnitureDraft): EditorState {
   if (state.view === "before") return state;
@@ -67,7 +149,7 @@ function commitProposal(state: EditorState, proposed: FlatFurniture, rawDraft?: 
   return { ...state, current: { ...state.current, furniture: state.current.furniture.map((item) => item.id === result.item.id ? result.item : item) }, selectedRoomId: state.selectedId === result.item.id && previous.roomId !== result.item.roomId ? result.item.roomId : state.selectedRoomId, draft: state.selectedId === result.item.id ? rawDraft ?? furnitureDraft(result.item) : state.draft, inputIssues: [], lockNotice: [] };
 }
 
-export function editorReducer(state: EditorState, action: EditorAction): EditorState {
+function applyEdit(state: EditorState, action: EditAction): EditorState {
   switch (action.type) {
     case "select": {
       const snapshot = state.view === "before" ? state.baseline : state.current;
@@ -144,6 +226,6 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       return { ...state, view: action.view, selectedId: item?.id ?? null, focusedIds: item ? [item.id] : [], draft: item ? furnitureDraft(item) : null, inputIssues: [], ceilingInput: String(state.current.ceilingHeight), ceilingIssue: null, lockNotice: [] };
     }
     case "reset":
-      return { ...createEditorState(), language: state.language, cameraRevision: state.cameraRevision + 1 };
+      return { ...createEditorState(), language: state.language, cameraRevision: state.cameraRevision + 1, past: state.past, future: state.future };
   }
 }

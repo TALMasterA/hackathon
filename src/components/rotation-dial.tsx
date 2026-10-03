@@ -7,7 +7,7 @@ import { editorText } from "@/i18n/editor";
 import { normalizeAngle, rotationFromPoint } from "@/lib/geometry/oriented";
 import type { Language } from "@/types/domain";
 
-export function RotationDial({ angle, language, disabled, onRotate }: { angle: number; language: Language; disabled: boolean; onRotate: (angle: number) => void }) {
+export function RotationDial({ angle, language, disabled, onRotate, onGestureStart, onGestureEnd }: { angle: number; language: Language; disabled: boolean; onRotate: (angle: number) => void; onGestureStart?: () => void; onGestureEnd?: () => void }) {
   const activePointer = useRef<number | null>(null);
   const radians = angle * Math.PI / 180;
 
@@ -23,11 +23,12 @@ export function RotationDial({ angle, language, disabled, onRotate }: { angle: n
     if (activePointer.current !== event.pointerId) return;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
     activePointer.current = null;
+    onGestureEnd?.();
   }
 
   return (
     <div className="rotation-control">
-      <div className="rotation-dial" role="slider" tabIndex={disabled ? -1 : 0} aria-label={editorText(language, "editor.rotation")} aria-valuemin={0} aria-valuemax={359.999999} aria-valuenow={angle} aria-valuetext={`${formatCm(angle, language)}°`} aria-disabled={disabled} onPointerDown={(event) => { if (disabled || activePointer.current !== null || event.button !== 0) return; event.preventDefault(); activePointer.current = event.pointerId; event.currentTarget.setPointerCapture(event.pointerId); setFromPointer(event); }} onPointerMove={(event) => { if (activePointer.current === event.pointerId && !disabled) { event.preventDefault(); setFromPointer(event); } }} onPointerUp={stop} onPointerCancel={stop} onKeyDown={(event) => {
+      <div className="rotation-dial" role="slider" tabIndex={disabled ? -1 : 0} aria-label={editorText(language, "editor.rotation")} aria-valuemin={0} aria-valuemax={359.999999} aria-valuenow={angle} aria-valuetext={`${formatCm(angle, language)}°`} aria-disabled={disabled} onPointerDown={(event) => { if (disabled || activePointer.current !== null || event.button !== 0) return; event.preventDefault(); activePointer.current = event.pointerId; event.currentTarget.setPointerCapture(event.pointerId); onGestureStart?.(); setFromPointer(event); }} onPointerMove={(event) => { if (activePointer.current === event.pointerId && !disabled) { event.preventDefault(); setFromPointer(event); } }} onPointerUp={stop} onPointerCancel={stop} onKeyDown={(event) => {
         if (disabled) return;
         const amount = event.shiftKey ? 10 : 1;
         const direction = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 0;

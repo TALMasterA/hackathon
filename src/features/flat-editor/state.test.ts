@@ -3,7 +3,7 @@ import { analyzeLayout } from "../../lib/geometry/layout";
 import { DEMO_FLAT } from "../../data/flat-preset";
 import { clientToPlan, draggedPosition, nearestPlanItem } from "../../components/plan/interaction";
 import { rotationFromPoint } from "../../lib/geometry/oriented";
-import { copySnapshot, createEditorState, editorReducer } from "./state";
+import { copySnapshot, createEditorState, editorReducer, HISTORY_LIMIT, type EditorState } from "./state";
 import { itemChanges, placeLibraryItem } from "./layout";
 import { FURNITURE_LIBRARY } from "../../data/flat-preset";
 
@@ -265,5 +265,102 @@ describe("library and immediate baseline comparison", () => {
     expect(invalid.current).toBe(state.current);
     expect(invalid.draft?.x).toBe("100000000000000000000000");
     expect(invalid.inputIssues[0]).toMatchObject({ field: "x", code: "input.range", maximum: 10000 });
+  });
+});
+describe("undo and redo history", () => {
+  const sofa = (state: EditorState) => state.current.furniture.find((item) => item.id === "living-sofa")!;
+  const run = (state: EditorState, ...actions: Parameters<typeof editorReducer>[1][]) => actions.reduce(editorReducer, state);
+
+  it("records a whole drag gesture as one undo step", () => {
+    const initial = createEditorState();
+    let state = editorReducer(initial, { type: "gesture-start" });
+    for (let step = 1; step <= 50; step++) state = editorReducer(state, { type: "propose", item: { ...sofa(state), position: { x: 250 + step, z: 270 } } });
+    state = editorReducer(state, { type: "gesture-end" });
+    expect(sofa(state).position).toEqual({ x: 300, z: 270 });
+    expect(state.past).toHaveLength(initial.past.length + 1);
+    const undone = editorReducer(state, { type: "undo" });
+    expect(sofa(undone).position).toEqual({ x: 250, z: 270 });
+    expect(undone.draft?.x).toBe("250");
+  });
+
+  it("coalesces typing in one field and separates different fields", () => {
+    const initial = createEditorState();
+    const typed = run(initial, { type: "draft", field: "width", value: "1" }, { type: "draft", field: "width", value: "12" }, { type: "draft", field: "width", value: "120" });
+    expect(sofa(typed).width).toBe(120);
+    expect(typed.past).toHaveLength(initial.past.length + 1);
+    expect(sofa(editorReducer(typed, { type: "undo" })).width).toBe(180);
+    const twoFields = run(initial, { type: "draft", field: "width", value: "200" }, { type: "draft", field: "depth", value: "90" });
+    expect(twoFields.past).toHaveLength(initial.past.length + 2);
+    const once = editorReducer(twoFields, { type: "undo" });
+    expect(sofa(once)).toMatchObject({ width: 200, depth: 80 });
+    expect(sofa(editorReducer(once, { type: "undo" })).width).toBe(180);
+  });
+
+  it("starts a new step after blur and coalesces ceiling typing", () => {
+    const initial = createEditorState();
+    const state = run(initial, { type: "draft", field: "width", value: "200" }, { type: "normalise-draft" }, { type: "draft", field: "width", value: "210" }, { type: "ceiling", value: "250" }, { type: "ceiling", value: "2500" }, { type: "ceiling", value: "240" });
+    expect(state.past).toHaveLength(initial.past.length + 3);
+    expect(editorReducer(state, { type: "undo" }).current.ceilingHeight).toBe(260);
+  });
+
+  it("does not record lock-bounced, incomplete or no-op actions", () => {
+    const locked = editorReducer(createEditorState(), { type: "position-lock", id: "living-sofa" });
+    const bounced = editorReducer(locked, { type: "propose", item: { ...sofa(locked), position: { x: 300, z: 270 } } });
+    expect(bounced.lockNotice).toHaveLength(1);
+    expect(bounced.past).toBe(locked.past);
+    expect(editorReducer(locked, { type: "draft", field: "width", value: "" }).past).toBe(locked.past);
+    expect(editorReducer(locked, { type: "baseline" }).past).toBe(locked.past);
+    expect(run(locked, { type: "gesture-start" }, { type: "gesture-end" }).past).toBe(locked.past);
+  });
+
+  it("undoes and redoes add and delete steps", () => {
+    const initial = createEditorState();
+    const added = run(initial, { type: "room", id: "kitchen" }, { type: "add-item", templateId: "chair" });
+    const deleted = editorReducer(added, { type: "delete-item", id: "living-sofa" });
+    const undone = run(deleted, { type: "undo" }, { type: "undo" });
+    expect(undone.current).toEqual(initial.current);
+    expect(undone.future).toHaveLength(2);
+    const redone = run(undone, { type: "redo" }, { type: "redo" });
+    expect(redone.current).toEqual(deleted.current);
+    expect(redone.future).toEqual([]);
+  });
+
+  it("clears redo when a new action follows an undo", () => {
+    const undone = run(createEditorState(), { type: "draft", field: "angle", value: "30" }, { type: "undo" });
+    expect(undone.future).toHaveLength(1);
+    expect(editorReducer(undone, { type: "position-lock", id: "living-sofa" }).future).toEqual([]);
+  });
+
+  it("makes Reset Demo undoable", () => {
+    const edited = run(createEditorState(), { type: "draft", field: "width", value: "200" }, { type: "position-lock", id: "living-sofa" }, { type: "baseline" });
+    const reset = editorReducer(edited, { type: "reset" });
+    expect(reset.past).toHaveLength(edited.past.length + 1);
+    const undone = editorReducer(reset, { type: "undo" });
+    expect(undone.current).toEqual(edited.current);
+    expect(undone.baseline).toEqual(edited.baseline);
+    expect(undone.locks).toEqual(edited.locks);
+    expect(undone.cameraRevision).toBe(reset.cameraRevision);
+  });
+
+  it("ignores undo and redo in Before view", () => {
+    const before = run(createEditorState(), { type: "draft", field: "angle", value: "30" }, { type: "view", view: "before" });
+    expect(editorReducer(before, { type: "undo" })).toBe(before);
+    expect(editorReducer(before, { type: "redo" })).toBe(before);
+  });
+
+  it("clears the selection when undo removes the selected item", () => {
+    const added = run(createEditorState(), { type: "room", id: "kitchen" }, { type: "add-item", templateId: "chair" });
+    expect(added.selectedId).toBe("item-1");
+    const undone = editorReducer(added, { type: "undo" });
+    expect(undone.selectedId).toBeNull();
+    expect(undone.draft).toBeNull();
+    expect(undone.focusedIds).toEqual([]);
+  });
+
+  it(`caps history at ${HISTORY_LIMIT} steps`, () => {
+    let state = createEditorState();
+    for (let step = 1; step <= 120; step++) state = editorReducer(state, { type: "propose", item: { ...sofa(state), position: { x: 250 + step, z: 270 } } });
+    expect(state.past).toHaveLength(HISTORY_LIMIT);
+    expect(state.past[0].current.furniture.find((item) => item.id === "living-sofa")?.position.x).toBe(270);
   });
 });

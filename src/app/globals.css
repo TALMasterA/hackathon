@@ -288,6 +288,7 @@ main { animation: arrive .4s ease-out both; }
 .removed-item > span:first-child { text-decoration: line-through; }
 .baseline-legend { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); margin-top: 12px; }
 .baseline-swatch { width: 18px; height: 10px; border: 1px dashed #53675b; opacity: .5; }
+.history-tools { display: flex; gap: 5px; }
 .baseline-button { font-size: 12px; max-width: 270px; text-align: left; }
 .baseline-button:disabled { opacity: .5; cursor: not-allowed; }
 select:focus-visible { outline: 3px solid #b35c2e; outline-offset: 3px; }

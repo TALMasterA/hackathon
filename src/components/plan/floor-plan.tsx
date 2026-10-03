@@ -24,11 +24,13 @@ interface FloorPlanProps {
   onSelect: (id: string) => void;
   onRoom: (id: string) => void;
   onPropose: (item: FlatFurniture) => void;
+  onGestureStart: () => void;
+  onGestureEnd: () => void;
 }
 
 const points = (polygon: readonly Position2D[]) => polygon.map((point) => `${point.x},${point.z}`).join(" ");
 
-export function FloorPlan({ flat, furniture, baseline = [], issues, selectedId, focusedIds, positionLocks, language, editable, onSelect, onRoom, onPropose }: FloorPlanProps) {
+export function FloorPlan({ flat, furniture, baseline = [], issues, selectedId, focusedIds, positionLocks, language, editable, onSelect, onRoom, onPropose, onGestureStart, onGestureEnd }: FloorPlanProps) {
   const drag = useRef<{ id: string; pointerId: number; start: Position2D; origin: Position2D } | null>(null);
   const box = { minX: -20, minZ: -20, width: flat.width + 40, height: flat.depth + 40 };
   const colliding = new Set(issues.flatMap(issueItemIds));
@@ -55,6 +57,7 @@ export function FloorPlan({ flat, furniture, baseline = [], issues, selectedId, 
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     drag.current = { id: item.id, pointerId: event.pointerId, start: point, origin: { ...item.position } };
+    onGestureStart();
   }
 
   function moveDrag(event: PointerEvent<SVGSVGElement>) {
@@ -70,6 +73,7 @@ export function FloorPlan({ flat, furniture, baseline = [], issues, selectedId, 
     if (drag.current?.pointerId !== event.pointerId) return;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
     drag.current = null;
+    onGestureEnd();
   }
 
   return (

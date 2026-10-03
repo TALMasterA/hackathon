@@ -15,7 +15,7 @@ export function EditorFieldInput({ field, value, language, issue, disabled, onCh
   );
 }
 
-export function FurniturePanel({ item, draft, issues, editable, positionLocked, language, onField, onRotate, onBlur }: { item: FlatFurniture | null; draft: FurnitureDraft | null; issues: readonly EditorInputIssue[]; editable: boolean; positionLocked: boolean; language: Language; onField: (field: keyof FurnitureDraft, value: string) => void; onRotate: (angle: number) => void; onBlur: () => void }) {
+export function FurniturePanel({ item, draft, issues, editable, positionLocked, language, onField, onRotate, onBlur, onGestureStart, onGestureEnd }: { item: FlatFurniture | null; draft: FurnitureDraft | null; issues: readonly EditorInputIssue[]; editable: boolean; positionLocked: boolean; language: Language; onField: (field: keyof FurnitureDraft, value: string) => void; onRotate: (angle: number) => void; onBlur: () => void; onGestureStart: () => void; onGestureEnd: () => void }) {
   const input = (field: keyof FurnitureDraft) => <EditorFieldInput key={field} field={field} value={draft?.[field] ?? ""} language={language} issue={issues.find((issue) => issue.field === field)} disabled={!editable || (positionLocked && (field === "x" || field === "z"))} onChange={onField} onBlur={onBlur} />;
   return (
     <section className="item-detail" aria-labelledby="selected-item-title" data-testid="item-detail">
@@ -28,7 +28,7 @@ export function FurniturePanel({ item, draft, issues, editable, positionLocked, 
         <h3 className="small-heading">{editorText(language, "editor.position")}</h3>
         <div className="position-grid">{input("x")}{input("z")}</div>
         <h3 className="small-heading">{editorText(language, "editor.rotation")}</h3>
-        <div className="rotation-row"><RotationDial angle={item.orientation} language={language} disabled={!editable} onRotate={onRotate} />{input("angle")}</div>
+        <div className="rotation-row"><RotationDial angle={item.orientation} language={language} disabled={!editable} onRotate={onRotate} onGestureStart={onGestureStart} onGestureEnd={onGestureEnd} />{input("angle")}</div>
         {issues.length > 0 && <p className="input-status" role="status">{editorText(language, "editor.incomplete")}</p>}
       </>}
     </section>

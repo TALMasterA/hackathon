@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useReducer, type ComponentType } from "react";
-import { Flag } from "lucide-react";
+import { Flag, Redo2, Undo2 } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import { FloorPlan } from "@/components/plan/floor-plan";
 import { SourcePanel } from "@/components/source-panel";
@@ -47,6 +47,20 @@ export function FlatEditorApp({ SceneViewport }: { SceneViewport?: ComponentType
     document.title = `FitIn | ${editorText(state.language, "editor.title")}`;
   }, [state.language]);
 
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+      if (event.target instanceof Element && event.target.closest("input, select, textarea")) return;
+      const key = event.key.toLowerCase();
+      const type = key === "z" ? (event.shiftKey ? "redo" : "undo") : key === "y" && event.ctrlKey && !event.shiftKey ? "redo" : null;
+      if (!type) return;
+      event.preventDefault();
+      dispatch({ type });
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   return (
     <div className="app-shell" lang={state.language} data-testid="flat-editor" data-view={state.view}>
       <a className="skip-link" href="#item-details">{translate(state.language, "app.skip")}</a>
@@ -57,12 +71,13 @@ export function FlatEditorApp({ SceneViewport }: { SceneViewport?: ComponentType
           <div className="flat-main">
             <div className="layout-toolbar">
               <div className="segmented" role="group" aria-label={translate(state.language, "scene.comparison")}><button type="button" aria-pressed={state.view === "before"} onClick={() => dispatch({ type: "view", view: "before" })}>{translate(state.language, "scene.before")}</button><button type="button" aria-pressed={state.view === "after"} onClick={() => dispatch({ type: "view", view: "after" })}>{translate(state.language, "scene.after")}</button></div>
+              <div className="history-tools"><button type="button" className="icon-button" disabled={!editable || state.past.length === 0} aria-label={text("editor.undo")} title={text("editor.undo")} data-tooltip={text("editor.undo")} onClick={() => dispatch({ type: "undo" })}><Undo2 size={18} aria-hidden="true" /></button><button type="button" className="icon-button" disabled={!editable || state.future.length === 0} aria-label={text("editor.redo")} title={text("editor.redo")} data-tooltip={text("editor.redo")} onClick={() => dispatch({ type: "redo" })}><Redo2 size={18} aria-hidden="true" /></button></div>
               <button type="button" className="baseline-button quiet-button" disabled={!editable || state.inputIssues.length > 0 || Boolean(state.ceilingIssue)} onClick={() => dispatch({ type: "baseline" })}><Flag size={17} aria-hidden="true" />{text("editor.baseline")}</button>
               <label className="room-picker">{text("editor.room")}<select value={state.selectedRoomId} onChange={(event) => dispatch({ type: "room", id: event.target.value })}>{flat.rooms.map((room) => <option value={room.id} key={room.id}>{room.name[state.language]}</option>)}</select></label>
-              <div className="ceiling-control"><label htmlFor="ceiling-height">{text("editor.field.ceilingHeight")}</label><div className="input-with-unit"><input id="ceiling-height" type="text" inputMode="decimal" value={editable ? state.ceilingInput : String(snapshot.ceilingHeight)} disabled={!editable} aria-invalid={Boolean(state.ceilingIssue)} aria-describedby={`ceiling-range${state.ceilingIssue ? " ceiling-error" : ""}`} onChange={(event) => dispatch({ type: "ceiling", value: event.target.value })} /><span>{text("editor.unit")}</span></div><p id="ceiling-range">{editorText(state.language, "editor.ceilingRange", { min: flat.minimumHeight, max: flat.maximumHeight })}</p>{state.ceilingIssue && <p id="ceiling-error" className="field-error">{editorInputMessage(state.ceilingIssue, state.language)}</p>}</div>
+              <div className="ceiling-control"><label htmlFor="ceiling-height">{text("editor.field.ceilingHeight")}</label><div className="input-with-unit"><input id="ceiling-height" type="text" inputMode="decimal" value={editable ? state.ceilingInput : String(snapshot.ceilingHeight)} disabled={!editable} aria-invalid={Boolean(state.ceilingIssue)} aria-describedby={`ceiling-range${state.ceilingIssue ? " ceiling-error" : ""}`} onChange={(event) => dispatch({ type: "ceiling", value: event.target.value })} onBlur={() => dispatch({ type: "normalise-draft" })} /><span>{text("editor.unit")}</span></div><p id="ceiling-range">{editorText(state.language, "editor.ceilingRange", { min: flat.minimumHeight, max: flat.maximumHeight })}</p>{state.ceilingIssue && <p id="ceiling-error" className="field-error">{editorInputMessage(state.ceilingIssue, state.language)}</p>}</div>
             </div>
             <div className="flat-views">
-              <section aria-label={text("editor.plan")}><div className="view-heading"><h2>{text("editor.plan")}</h2><span>{flat.width} × {flat.depth} {text("editor.unit")}</span></div><FloorPlan key={state.cameraRevision} flat={flat} furniture={snapshot.furniture} baseline={editable ? state.baseline.furniture : []} issues={issues} selectedId={state.selectedId} focusedIds={state.focusedIds} positionLocks={state.locks.position} editable={editable} language={state.language} onSelect={select} onRoom={(id) => dispatch({ type: "room", id })} onPropose={(item) => dispatch({ type: "propose", item })} /></section>
+              <section aria-label={text("editor.plan")}><div className="view-heading"><h2>{text("editor.plan")}</h2><span>{flat.width} × {flat.depth} {text("editor.unit")}</span></div><FloorPlan key={state.cameraRevision} flat={flat} furniture={snapshot.furniture} baseline={editable ? state.baseline.furniture : []} issues={issues} selectedId={state.selectedId} focusedIds={state.focusedIds} positionLocks={state.locks.position} editable={editable} language={state.language} onSelect={select} onRoom={(id) => dispatch({ type: "room", id })} onPropose={(item) => dispatch({ type: "propose", item })} onGestureStart={() => dispatch({ type: "gesture-start" })} onGestureEnd={() => dispatch({ type: "gesture-end" })} /></section>
               {SceneViewport && <section aria-label={text("editor.scene")}><div className="view-heading"><h2>{text("editor.scene")}</h2></div><SceneViewport key={state.cameraRevision} flat={flat} furniture={snapshot.furniture} baseline={editable ? state.baseline.furniture : []} issues={issues} selectedId={state.selectedId} focusedIds={state.focusedIds} language={state.language} onSelect={select} /></section>}
             </div>
             {editable && <p className="baseline-legend"><span className="baseline-swatch" />{text("editor.ghosts")}</p>}
@@ -71,7 +86,7 @@ export function FlatEditorApp({ SceneViewport }: { SceneViewport?: ComponentType
             <SourcePanel language={state.language} />
           </div>
           <aside className="editor-sidebar" id="item-details" aria-label={text("editor.selected")}>
-            <FurniturePanel item={selected} draft={state.draft} issues={state.inputIssues} editable={editable} positionLocked={Boolean(selected && state.locks.position.includes(selected.id))} language={state.language} onField={(field, value) => dispatch({ type: "draft", field, value })} onRotate={(angle) => { if (selected) dispatch({ type: "propose", item: { ...selected, orientation: angle } }); }} onBlur={() => dispatch({ type: "normalise-draft" })} />
+            <FurniturePanel item={selected} draft={state.draft} issues={state.inputIssues} editable={editable} positionLocked={Boolean(selected && state.locks.position.includes(selected.id))} language={state.language} onField={(field, value) => dispatch({ type: "draft", field, value })} onRotate={(angle) => { if (selected) dispatch({ type: "propose", item: { ...selected, orientation: angle } }); }} onBlur={() => dispatch({ type: "normalise-draft" })} onGestureStart={() => dispatch({ type: "gesture-start" })} onGestureEnd={() => dispatch({ type: "gesture-end" })} />
             {state.lockNotice.length > 0 && <section className="lock-notice" role="status" data-testid="lock-notice"><h3>{text(state.lockNoticeContext === "edit" ? "locks.bounce" : "locks.notApplied")}</h3><ul>{state.lockNotice.map((issue) => <li key={issue.lockId}>{lockMessage(issue, state.current.furniture, state.language)}</li>)}</ul></section>}
             <LocksPanel key={`${state.cameraRevision}-${state.selectedId ?? "none"}`} furniture={state.current.furniture} locks={state.locks} selectedId={state.selectedId} editable={editable} language={state.language} setupIssue={state.lockSetupIssue} onPosition={(id) => dispatch({ type: "position-lock", id })} onSave={(input) => dispatch({ type: "distance-lock", ...input })} onRemove={(id) => dispatch({ type: "remove-distance-lock", id })} />
             <LibraryPanel key={state.cameraRevision} flat={flat} selectedId={state.selectedId} editable={editable} fullRoomId={state.libraryFullRoomId} language={state.language} onAdd={(templateId) => dispatch({ type: "add-item", templateId })} onReplace={(templateId) => dispatch({ type: "replace-item", templateId })} onDelete={(id) => dispatch({ type: "delete-item", id })} />

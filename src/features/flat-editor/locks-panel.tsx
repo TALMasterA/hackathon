@@ -52,7 +52,7 @@ export function LocksPanel({ furniture, locks, selectedId, editable, language, s
       <h2 id="locks-title">{editorText(language, "locks.title")}</h2>
       {selectedId && <label className="position-lock-toggle"><input type="checkbox" checked={locks.position.includes(selectedId)} disabled={!editable} onChange={() => onPosition(selectedId)} /><LockKeyhole size={16} aria-hidden="true" /><span>{editorText(language, "locks.position")}</span></label>}
       <h3 className="small-heading">{editorText(language, "locks.distance")}</h3>
-      {locks.distance.length === 0 ? <p className="muted-text">{editorText(language, "locks.none")}</p> : <ul className="distance-lock-list">{locks.distance.map((lock) => <DistanceLockRow key={lock.id} lock={lock} furniture={furniture} editable={editable} language={language} onSave={onSave} onRemove={onRemove} />)}</ul>}
+      {locks.distance.length === 0 ? <p className="muted-text">{editorText(language, "locks.none")}</p> : <ul className="distance-lock-list">{locks.distance.map((lock) => <DistanceLockRow key={`${lock.id}-${lock.minimum}`} lock={lock} furniture={furniture} editable={editable} language={language} onSave={onSave} onRemove={onRemove} />)}</ul>}
       <form className="new-distance-lock" noValidate onSubmit={(event) => { event.preventDefault(); onSave({ firstId, secondId, minimum }); }}>
         {selector("lock-first", firstId, setFirstId, "locks.first")}
         {selector("lock-second", secondId, setSecondId, "locks.second")}
