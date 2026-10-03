@@ -1,14 +1,12 @@
 import type { Object3D } from "three";
-import { objectBounds } from "../../components/scene/model-object";
-import { isJobId, MODEL3D_MAX_PHOTO_BYTES, type Model3dErrorCode, type Model3dStatus } from "../../lib/model3d/contract";
+import { matteLookMaterials, objectBounds } from "../../components/scene/model-object";
+import { MODEL3D_MAX_MODEL_BYTES, MODEL3D_MAX_PHOTO_BYTES, type Model3dErrorCode, type Model3dEvent, type Model3dStatus } from "../../lib/model3d/contract";
 
 export const PHOTO_MAX_SIDE_PX = 1024;
 export const PHOTO_JPEG_QUALITY = 0.85;
-export const POLL_INTERVAL_MS = 4000;
 export const JOB_TIMEOUT_MS = 180_000;
-export const MAX_GLB_BYTES = 30 * 1024 * 1024;
 
-export type LookErrorCode = "disabled" | "rate-limited" | "invalid-photo" | "too-large" | "upstream" | "failed" | "timeout" | "network" | "cancelled" | "glb-type" | "glb-size" | "glb-parse";
+export type LookErrorCode = "disabled" | "rate-limited" | "invalid-photo" | "too-large" | "upstream" | "failed" | "timeout" | "network" | "cancelled";
 
 export class LookError extends Error {
   constructor(readonly code: LookErrorCode) {
@@ -25,64 +23,68 @@ async function serverError(response: Response): Promise<LookError> {
   return new LookError((body?.error && SERVER_ERRORS[body.error]) || (response.status === 503 ? "disabled" : response.status === 429 ? "rate-limited" : "upstream"));
 }
 
-function wait(ms: number, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (signal.aborted) return reject(signal.reason);
-    const timer = setTimeout(() => { signal.removeEventListener("abort", onAbort); resolve(); }, ms);
-    const onAbort = () => { clearTimeout(timer); reject(signal.reason); };
-    signal.addEventListener("abort", onAbort, { once: true });
-  });
+/** One parsed event per NDJSON line of the model stream. */
+async function* streamEvents(body: ReadableStream<Uint8Array>): AsyncGenerator<Model3dEvent> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffered = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    buffered += decoder.decode(value, { stream: !done });
+    const lines = buffered.split("\n");
+    buffered = done ? "" : lines.pop() ?? "";
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        yield JSON.parse(line) as Model3dEvent;
+      } catch {
+        throw new LookError("upstream");
+      }
+    }
+    if (done) return;
+  }
+}
+
+function base64Bytes(base64: string): ArrayBuffer {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
+  return bytes.buffer;
 }
 
 export interface JobOptions {
   signal?: AbortSignal;
   onPhase?: (phase: JobPhase) => void;
   fetchImpl?: typeof fetch;
-  pollMs?: number;
   timeoutMs?: number;
 }
 
 /**
- * Sends one already-resized photo to /api/model3d, polls every 4 s and downloads the GLB through the
- * app's own route. Stops with "timeout" after 180 s and "cancelled" when the caller aborts.
+ * Sends one already-resized photo to /api/model3d and reads its stream of phases until the GLB
+ * arrives. Stops with "timeout" after 180 s and "cancelled" when the caller aborts; closing the
+ * response also lets the server cancel a job still waiting in fal's queue.
  */
-export async function runModelJob(photo: Blob, { signal, onPhase, fetchImpl = fetch, pollMs = POLL_INTERVAL_MS, timeoutMs = JOB_TIMEOUT_MS }: JobOptions = {}): Promise<ArrayBuffer> {
+export async function runModelJob(photo: Blob, { signal, onPhase, fetchImpl = fetch, timeoutMs = JOB_TIMEOUT_MS }: JobOptions = {}): Promise<ArrayBuffer> {
   const controller = new AbortController();
   let timedOut = false;
   const timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs);
   const cancel = () => controller.abort();
   signal?.addEventListener("abort", cancel, { once: true });
   if (signal?.aborted) controller.abort();
-  const request = (url: string, init: RequestInit = {}) => fetchImpl(url, { ...init, cache: "no-store", signal: controller.signal });
   try {
     onPhase?.("sending");
     const form = new FormData();
     form.append("photo", photo, "photo.jpg");
-    const submitted = await request("/api/model3d", { method: "POST", body: form });
-    if (!submitted.ok) throw await serverError(submitted);
-    const { jobId } = await submitted.json() as { jobId?: string };
-    if (typeof jobId !== "string" || !isJobId(jobId)) throw new LookError("upstream");
-    let failures = 0;
-    for (;;) {
-      await wait(pollMs, controller.signal);
-      const polled = await request(`/api/model3d/${jobId}`).catch((error: unknown) => {
-        if (controller.signal.aborted) throw error;
-        return null;
-      });
-      if (!polled?.ok) {
-        if (++failures >= 3) throw polled ? await serverError(polled) : new LookError("network");
-        continue;
-      }
-      failures = 0;
-      const { status } = await polled.json() as { status?: Model3dStatus };
-      if (status === "done") break;
-      if (status !== "queued" && status !== "running") throw new LookError("failed");
-      onPhase?.(status);
+    const response = await fetchImpl("/api/model3d", { method: "POST", body: form, cache: "no-store", signal: controller.signal });
+    if (!response.ok) throw await serverError(response);
+    if (!response.body) throw new LookError("upstream");
+    for await (const event of streamEvents(response.body)) {
+      // A model over the size cap is reported like any other unusable result.
+      if ("error" in event) throw new LookError(event.error === "upstream" ? "upstream" : "failed");
+      if (event.phase === "done") return base64Bytes(event.glb);
+      onPhase?.(event.phase);
     }
-    onPhase?.("downloading");
-    const file = await request(`/api/model3d/${jobId}/file`);
-    if (!file.ok) throw new LookError("failed");
-    return await file.arrayBuffer();
+    throw new LookError("network");
   } catch (error) {
     if (timedOut) throw new LookError("timeout");
     if (controller.signal.aborted) throw new LookError("cancelled");
@@ -91,6 +93,7 @@ export async function runModelJob(photo: Blob, { signal, onPhase, fetchImpl = fe
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener("abort", cancel);
+    controller.abort();
   }
 }
 
@@ -152,10 +155,12 @@ export const modelCache = {
 
 const GLB_MAGIC = 0x46546c67;
 
-/** Parses a binary glTF with Three.js' GLTFLoader (loaded on demand), without Draco and without any network access. */
+/**
+ * Parses an AI-made binary glTF with Three.js' GLTFLoader (loaded on demand), without Draco and without
+ * any network access, then makes its materials matte so the photo's colours show.
+ */
 export async function parseGlb(glb: ArrayBuffer): Promise<Object3D> {
-  if (glb.byteLength < 12 || new DataView(glb).getUint32(0, true) !== GLB_MAGIC) throw new LookError("glb-type");
-  if (glb.byteLength > MAX_GLB_BYTES) throw new LookError("glb-size");
+  if (glb.byteLength < 12 || glb.byteLength > MODEL3D_MAX_MODEL_BYTES || new DataView(glb).getUint32(0, true) !== GLB_MAGIC) throw new LookError("failed");
   try {
     const [{ GLTFLoader }, { LoadingManager }] = await Promise.all([import("three/examples/jsm/loaders/GLTFLoader.js"), import("three")]);
     const manager = new LoadingManager();
@@ -163,8 +168,9 @@ export async function parseGlb(glb: ArrayBuffer): Promise<Object3D> {
     manager.setURLModifier((url) => /^(data|blob):/.test(url) ? url : "data:,");
     const gltf = await new GLTFLoader(manager).parseAsync(glb.slice(0), "");
     objectBounds(gltf.scene);
+    matteLookMaterials(gltf.scene);
     return gltf.scene;
   } catch {
-    throw new LookError("glb-parse");
+    throw new LookError("failed");
   }
 }

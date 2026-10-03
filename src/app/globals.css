@@ -293,6 +293,7 @@ main { animation: arrive .4s ease-out both; }
 .look-panel h2 { font-size: 16px; font-weight: 600; }
 .look-current { margin-top: 12px; font-size: 12px; }
 .look-current span, .look-for { color: var(--muted); font-size: 11px; }
+.look-photo { display: flex; width: 100%; margin-top: 12px; }
 .look-preview { height: 180px; margin-top: 10px; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; background: #e8eeeb; }
 .look-preview-loading { height: 100%; display: grid; place-items: center; color: var(--muted); }
 .look-consent { margin-top: 12px; padding: 12px; border: 1px solid #c7d3cb; border-radius: 5px; background: #f6f8f5; font-size: 12px; line-height: 1.5; }

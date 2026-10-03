@@ -27,6 +27,26 @@ function litMaterial(material: Material): Material {
   return lit;
 }
 
+/**
+ * AI looks: glTF defaults a missing metallicFactor to 1, and a fully metallic surface renders near-black
+ * without an environment map, hiding the base-colour texture. Makes every material non-metallic and gives
+ * normal-less meshes smooth normals. Mutates `object`, so only call it on a freshly parsed model.
+ */
+export function matteLookMaterials(object: Object3D): void {
+  object.traverse((child) => {
+    if (!(child instanceof Mesh)) return;
+    const missingNormals = !child.geometry.getAttribute("normal");
+    if (missingNormals) child.geometry.computeVertexNormals();
+    for (const material of Array.isArray(child.material) ? child.material : [child.material]) {
+      if (!(material instanceof MeshStandardMaterial)) continue;
+      material.metalness = 0;
+      material.metalnessMap = null;
+      if (missingNormals) material.flatShading = false;
+      material.needsUpdate = true;
+    }
+  });
+}
+
 function tintedMaterial(material: Material): Material {
   const copy = material.clone();
   (copy as Material & { color?: Color }).color?.set(COLLISION_COLOR);
