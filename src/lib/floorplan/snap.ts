@@ -36,6 +36,8 @@ export interface EdgeSnap {
   confidence: number;
   /** Other plausible faces, best first, for "next candidate" in the review step. */
   alternatives: number[];
+  /** Where along the edge a verified window wall (frame and glazing strokes) is drawn, in pixels. */
+  window?: [number, number];
 }
 
 const LINE_COVERAGE = 0.25;
@@ -87,6 +89,7 @@ interface Candidate {
   thicknessCm: number | null;
   bandCoverage: number;
   score: number;
+  glazing: boolean;
 }
 
 const clamp = (value: number, minimum: number, maximum: number) => Math.min(maximum, Math.max(minimum, value));
@@ -127,6 +130,15 @@ class Profile {
       }
     }
     return covered / this.columns.length;
+  }
+
+  /** First and last column with ink in the rows [first, last], or null when there is none. */
+  span(first: number, last: number): [number, number] | null {
+    const inked = this.columns.filter((column) => {
+      for (let row = first; row <= last; row++) if (this.ink(column, row)) return true;
+      return false;
+    });
+    return inked.length > 0 ? [inked[0], inked[inked.length - 1] + 1] : null;
   }
 
   /** Fraction of pixels in the rows [first, last] that are paper. */
@@ -250,7 +262,7 @@ export function snapEdge(context: SnapContext, probe: EdgeProbe): EdgeSnap {
       && (isWallPen(line) && !glazing ? isWallPen(other) && other.coverage >= line.coverage * WALL_SHADOW_COVERAGE : other.coverage >= line.coverage * SHADOW_COVERAGE));
     const score = WEIGHTS.band * bandCoverage + WEIGHTS.face * line.coverage + WEIGHTS.paired * Number(paired) + WEIGHTS.pen * Number(strokes.distinct && isWallPen(line)) + WEIGHTS.heavy * Number(isHeavy(line))
       + WEIGHTS.clear * clear - WEIGHTS.distance * Math.abs(face - probe.position) / radius - WEIGHTS.shadow * Number(shadowed);
-    candidates.push({ line, face, partner, thicknessCm: paired ? thicknessCm : null, bandCoverage, score });
+    candidates.push({ line, face, partner, thicknessCm: paired ? thicknessCm : null, bandCoverage, score, glazing });
   }
   candidates.sort((first, second) => second.score - first.score);
   const best = candidates[0];
@@ -262,7 +274,11 @@ export function snapEdge(context: SnapContext, probe: EdgeProbe): EdgeSnap {
   const verified = best.bandCoverage >= VERIFIED_COVERAGE && best.thicknessCm !== null && margin >= VERIFIED_MARGIN;
   const confidence = clamp(Math.min(best.bandCoverage / 0.8, margin / 0.3), 0, 1);
   const alternatives = candidates.slice(1, 4).map((candidate) => candidate.face);
-  if (verified) return { face: best.face, status: "verified", thickness: best.thicknessCm!, confidence, alternatives };
+  if (verified) {
+    // A window wall: where along the whole edge its strokes are drawn (the core span leaves out the ends).
+    const span = best.glazing ? new Profile(context, probe, probe.from, probe.to).span(low, high) : null;
+    return { face: best.face, status: "verified", thickness: best.thicknessCm!, confidence, alternatives, ...(span ? { window: span } : {}) };
+  }
   if (best.bandCoverage >= KEPT_COVERAGE) return { face: best.face, status: "unverified", ...(best.thicknessCm ? { thickness: best.thicknessCm } : {}), confidence, alternatives };
   return { face: probe.position, status: "unverified", confidence: 0, alternatives: candidates.slice(0, 3).map((candidate) => candidate.face) };
 }
@@ -291,6 +307,20 @@ export interface SnappedRoom {
 }
 
 const FACING: [EdgeSide, EdgeSide][] = [["bottom", "top"], ["right", "left"]];
+/** A neighbour's wall face counts for a room only where it is drawn along this share of the room's edge. */
+const DERIVED_COVERAGE = 0.3;
+
+/**
+ * Whether a wall face stroke is drawn at `face` along the span of `box` (doors may cut it): a
+ * neighbour's verified wall only fixes this room's edge where the wall actually runs beside it.
+ */
+function drawnAlong(context: SnapContext, side: EdgeSide, face: number, box: Box): boolean {
+  const horizontal = side === "top" || side === "bottom";
+  const [from, to] = horizontal ? [box.minX, box.maxX] : [box.minZ, box.maxZ];
+  const probe: EdgeProbe = { orientation: horizontal ? "h" : "v", position: face, from, to, interior: 1, roomSize: 0 };
+  const reach = Math.max(1, Math.round(context.strokes.heavy / 2));
+  return new Profile(context, probe, from, to).coverage(Math.round(face) - reach, Math.round(face) + reach) >= DERIVED_COVERAGE;
+}
 const FACING_GAP_CM = 40;
 const WALL_GAP_CM = 35;
 const COLLINEAR_CM = 2;
@@ -334,10 +364,10 @@ export function snapRooms(context: SnapContext, rooms: readonly PixelRoom[], ope
           setFace(other, highSide, face);
           if (near.status !== "verified") room.edges[lowSide] = { ...room.edges[lowSide], status: "open" };
           if (far.status !== "verified") other.edges[highSide] = { ...other.edges[highSide], status: "open" };
-        } else if (near.status === "verified" && far.status !== "verified" && near.thickness) {
+        } else if (near.status === "verified" && far.status !== "verified" && near.thickness && drawnAlong(context, lowSide, near.face + px(near.thickness), other.box)) {
           setFace(other, highSide, near.face + px(near.thickness));
           other.edges[highSide] = { ...other.edges[highSide], status: "verified", thickness: near.thickness };
-        } else if (far.status === "verified" && near.status !== "verified" && far.thickness) {
+        } else if (far.status === "verified" && near.status !== "verified" && far.thickness && drawnAlong(context, lowSide, far.face - px(far.thickness), room.box)) {
           setFace(room, lowSide, far.face - px(far.thickness));
           room.edges[lowSide] = { ...room.edges[lowSide], status: "verified", thickness: far.thickness };
         }

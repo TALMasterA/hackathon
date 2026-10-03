@@ -222,16 +222,31 @@ describe("snapping whole rooms", () => {
   });
 
   it("places an edge hidden behind a door opening from the neighbour's verified wall", () => {
+    // A 60 cm door across most of a 130 cm room's edge: too little wall for the edge on its own,
+    // but the neighbour's verified wall is drawn along over half of it.
     const image = blankPlan(520, 420);
     drawWall(image, wall({ orientation: "h", centre: 90 }));
-    drawWall(image, wall({ orientation: "h", centre: 310, gaps: [[205, 275]] }));
+    drawWall(image, wall({ orientation: "h", centre: 310, gaps: [[215, 275]] }));
     drawWall(image, wall({ orientation: "v", centre: 90, from: 60, to: 340 }));
     drawWall(image, wall({ orientation: "v", centre: 410, from: 60, to: 340 }));
-    const small = { minX: 200, maxX: 280, minZ: 312, maxZ: 400 };
+    const small = { minX: 200, maxX: 330, minZ: 312, maxZ: 400 };
     expect(snapEdge(context(image), edgeProbe(small, "top")).status).toBe("unverified");
     const [, below] = snapRooms(context(image), [{ id: "a", box: ROOM }, { id: "b", box: small }]);
     expect(below.edges.top.status).toBe("verified");
     expect(below.box.minZ).toBeCloseTo(320, 0);
+  });
+
+  it("does not borrow a neighbour's wall where none is drawn beside the room", () => {
+    // The upper room's bottom wall is drawn only from x 200 on (like Harmony 1's kitchen front); the
+    // room below sits under the part with no wall at all, as the open part of an L-shaped living room.
+    const image = blankPlan(520, 420);
+    drawWall(image, wall({ orientation: "h", centre: 90 }));
+    drawWall(image, wall({ orientation: "h", centre: 310, from: 200, to: 440 }));
+    drawWall(image, wall({ orientation: "v", centre: 90, from: 60, to: 340 }));
+    drawWall(image, wall({ orientation: "v", centre: 410, from: 60, to: 340 }));
+    const [above, below] = snapRooms(context(image), [{ id: "a", box: ROOM }, { id: "b", box: { minX: 100, maxX: 190, minZ: 318, maxZ: 400 } }]);
+    expect(above.edges.bottom.status).toBe("verified");
+    expect(below.edges.top.status).toBe("unverified");
   });
 
   it("gives rooms joined as an open pair one shared face with no wall", () => {
@@ -271,5 +286,50 @@ describe("wall openings", () => {
 
   it("finds nothing when the wall has no opening near the point", () => {
     expect(measureOpening(context(roomPlan()), top, 240)).toBeNull();
+  });
+});
+
+describe("Housing Authority openings (0.5 cm per pixel)", () => {
+  const PENS: Strokes = { thin: 5, heavy: 20, pens: [5, 10, 20], distinct: true };
+  const half = (image: GrayImage): SnapContext => ({ image, cmPerPx: 0.5, strokes: PENS });
+  /** A corridor wall (faces x 600 and 660) with a 160 cm opening from y 200 to 520, closed by jamb strokes. */
+  function corridorWall() {
+    const image = blankPlan(900, 700);
+    for (const x of [600, 660]) for (const [from, to] of [[60, 200], [520, 660]]) vLine(image, x, from, to, 20);
+    for (const y of [200, 520]) hLine(image, y, 590, 670, 20);
+    return image;
+  }
+
+  it("finds the entrance door by its leaf inside a wider opening with frame lines and a side panel", () => {
+    const image = corridorWall();
+    vLine(image, 600, 200, 520, 5);
+    vLine(image, 606, 440, 520, 5);
+    hLine(image, 440, 420, 600, 6);
+    for (let step = 0; step < 24; step++) {
+      const [a, b] = [step / 24, (step + 1) / 24].map((share) => share * Math.PI / 2);
+      drawSegment(image, 600 - 180 * Math.sin(a), 440 - 180 * Math.cos(a), 600 - 180 * Math.sin(b), 440 - 180 * Math.cos(b), 4);
+    }
+    const door = measureOpening(half(image), { orientation: "v", face: 600, farFace: 660, interior: -1 }, 380);
+    expect(door).toMatchObject({ kind: "door", swing: 1 });
+    // Within 2 cm (4 px); the target for doors is ±5 cm.
+    expect(Math.abs(door!.width - 180)).toBeLessThanOrEqual(4);
+    expect(Math.abs(door!.centre - 350)).toBeLessThanOrEqual(4);
+  });
+
+  it("ignores a wide opening with no door leaf drawn in it", () => {
+    expect(measureOpening(half(corridorWall()), { orientation: "v", face: 600, farFace: 660, interior: -1 }, 380)).toBeNull();
+  });
+
+  it("measures an inner door between jamb centres even with thin lines drawn across the gap", () => {
+    const image = blankPlan(900, 400);
+    for (const y of [185, 200]) for (const [from, to] of [[50, 300], [440, 850]]) hLine(image, y, from, to, 10);
+    // Jambs drawn between the two face lines, as in Harmony 1.
+    for (const x of [300, 440]) vLine(image, x, 185, 200, 10);
+    hLine(image, 185, 300, 440, 5);
+    hLine(image, 200, 300, 440, 5);
+    const door = measureOpening(half(image), { orientation: "h", face: 200, farFace: 185, interior: 1 }, 360);
+    expect(door?.kind).toBe("door");
+    expect(Math.abs(door!.width - 140)).toBeLessThanOrEqual(2);
+    expect(door!.centre).toBeCloseTo(370, 0);
   });
 });

@@ -19,6 +19,8 @@ export interface TraceEdge {
   status: EdgeStatus;
   /** Wall thickness measured from the drawn line pair, when the snap found one. */
   thickness?: number;
+  /** Where along the edge (centimetres, from–to) the drawing shows a window wall. */
+  window?: readonly [number, number];
 }
 
 export interface TraceRoom {

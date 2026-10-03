@@ -1,14 +1,14 @@
 "use client";
 
 import { useMemo, useState, type Dispatch } from "react";
-import { ArrowRight, Check, DoorOpen, MousePointer2, Redo2, RectangleHorizontal, Trash2, Undo2, AppWindow } from "lucide-react";
+import { AppWindow, ArrowRight, Check, DoorOpen, MousePointer2, Redo2, RectangleHorizontal, ScanSearch, Trash2, Undo2 } from "lucide-react";
 import { formatCm } from "@/i18n/dictionary";
 import { traceText, type TraceTranslationKey } from "@/i18n/trace";
 import { doorGeometry, wallAxis, type Box } from "@/lib/geometry/architecture";
 import { traceGeometry } from "@/lib/floorplan/build";
 import { ROOM_KIND_NAMES, ROOM_KINDS } from "@/lib/floorplan/names";
 import { EDGE_SIDES, type EdgeSide, type EdgeStatus, type TraceRoom } from "@/lib/floorplan/trace";
-import { nearestFace, snapTraceEdge, snapTraceRooms, traceOpening } from "@/lib/floorplan/trace-snap";
+import { drawnWindows, nearestFace, scanOpenings, snapTraceEdge, snapTraceRooms, traceOpening } from "@/lib/floorplan/trace-snap";
 import { MIN_ROOM_CM } from "@/lib/floorplan/validate";
 import type { Language, Position2D, RoomKind, Wall } from "@/types/domain";
 import type { PlanAnalysis } from "./analysis";
@@ -58,7 +58,8 @@ export function ReviewStep({ state, dispatch, analysis, language }: ReviewStepPr
   const { plan, selection } = state;
   const geometry = useMemo(() => traceGeometry(plan), [plan]);
   const [mode, setMode] = useState<Mode>("select");
-  const [notice, setNotice] = useState<TraceTranslationKey | null>(null);
+  const [notice, setNotice] = useState<{ key: TraceTranslationKey; parameters?: Record<string, number>; tone: "error" | "status" } | null>(null);
+  const warn = (key: TraceTranslationKey) => setNotice({ key, tone: "error" });
   const [drawing, setDrawing] = useState<{ from: Position2D; to: Position2D } | null>(null);
   const [edgeDrag, setEdgeDrag] = useState<{ roomId: string; side: EdgeSide; position: number } | null>(null);
   const name = (traceId: string | undefined) => {
@@ -96,12 +97,27 @@ export function ReviewStep({ state, dispatch, analysis, language }: ReviewStepPr
     const opening = traceOpening(analysis.context, plan, point);
     const face = nearestFace(plan, point);
     if (!opening && !face) {
-      setNotice("review.tapWall");
+      warn("review.tapWall");
       return;
     }
     const at = opening?.at ?? (horizontal(face!.side) ? { x: point.x, z: face!.room.box[BOX_KEY[face!.side]] } : { x: face!.room.box[BOX_KEY[face!.side]], z: point.z });
     if (kind === "door") dispatch({ type: "edit", edit: { type: "door-add", door: { at, width: opening?.kind === "door" ? opening.width : DEFAULT_DOOR_CM, ...(opening?.swingInto ? { swingInto: opening.swingInto } : {}), ...(opening?.kind === "door" ? {} : { flagged: true }) } } });
     else dispatch({ type: "edit", edit: { type: "window-add", window: { at, width: opening?.kind === "window" ? opening.width : DEFAULT_WINDOW_CM, roomId: opening?.roomId ?? face!.room.id } } });
+  }
+
+  /** Adds every door and window the drawing shows along the traced rooms that the plan lacks, as one step. */
+  function findOpenings() {
+    const scanned = scanOpenings(analysis.context, plan);
+    const near = (first: Position2D, second: Position2D, limit: number) => Math.hypot(first.x - second.x, first.z - second.z) < limit;
+    const doors = scanned.filter((opening) => opening.kind === "door" && (opening.swings || opening.jambs === 2) && !plan.doors.some((door) => near(door.at, opening.at, 30)))
+      .map((opening) => ({ at: opening.at, width: opening.width, ...(opening.swingInto ? { swingInto: opening.swingInto } : {}) }));
+    const windows = drawnWindows(plan, scanned).filter((window) => !plan.windows.some((entry) => near(entry.at, window.at, 40)));
+    if (doors.length + windows.length === 0) {
+      setNotice({ key: "review.foundNone", tone: "status" });
+      return;
+    }
+    dispatch({ type: "edit", edit: { type: "openings-add", doors, windows } });
+    setNotice({ key: "review.foundOpenings", parameters: { doors: doors.length, windows: windows.length }, tone: "status" });
   }
 
   const tool = {
@@ -132,7 +148,7 @@ export function ReviewStep({ state, dispatch, analysis, language }: ReviewStepPr
         const box = { minX: Math.min(drawing.from.x, point.x), maxX: Math.max(drawing.from.x, point.x), minZ: Math.min(drawing.from.z, point.z), maxZ: Math.max(drawing.from.z, point.z) };
         setDrawing(null);
         if (box.maxX - box.minX < MIN_ROOM_CM || box.maxZ - box.minZ < MIN_ROOM_CM) {
-          setNotice("review.tooSmall");
+          warn("review.tooSmall");
           return;
         }
         const [snapped] = snapTraceRooms(analysis.context, [{ id: "new", kind: "other", box }]);
@@ -146,7 +162,7 @@ export function ReviewStep({ state, dispatch, analysis, language }: ReviewStepPr
         if (!room) return;
         const result = snapTraceEdge(analysis.context, room, edgeDrag.side, edgeDrag.position);
         if (result.box.maxX - result.box.minX < MIN_ROOM_CM || result.box.maxZ - result.box.minZ < MIN_ROOM_CM) {
-          setNotice("review.tooSmall");
+          warn("review.tooSmall");
           return;
         }
         dispatch({ type: "edit", edit: { type: "room-update", id: room.id, box: result.box, edges: { [edgeDrag.side]: result.edge } } });
@@ -224,6 +240,14 @@ export function ReviewStep({ state, dispatch, analysis, language }: ReviewStepPr
       <aside className="trace-panel" aria-labelledby="trace-review-title">
         <h2 id="trace-review-title">{t("review.title")}</h2>
         <p className="constraint-note">{state.readBy === "ai" ? t("review.readByAi", { model: state.model ?? "AI" }) : t("review.manual")}</p>
+        {state.aiNotes && (
+          <ul className="trace-checklist trace-notes">
+            <li>{t("review.found", { rooms: plan.rooms.length, doors: plan.doors.length, windows: plan.windows.length })}</li>
+            {state.aiNotes.outside > 0 && <li>{t("review.outside", { count: state.aiNotes.outside })}</li>}
+            {state.aiNotes.dropped > 0 && <li>{t("review.dropped", { count: state.aiNotes.dropped })}</li>}
+            {state.aiNotes.diagonal && <li>{t("review.diagonal")}</li>}
+          </ul>
+        )}
         <div className="trace-toolbar">
           <div className="segmented trace-modes" role="group" aria-label={t("review.tools")}>
             {modes.map((entry) => <button key={entry.mode} type="button" aria-pressed={mode === entry.mode} title={t(entry.label)} onClick={() => { setMode(entry.mode); setNotice(null); }}><entry.icon size={16} aria-hidden="true" /><span>{t(entry.label)}</span></button>)}
@@ -233,7 +257,8 @@ export function ReviewStep({ state, dispatch, analysis, language }: ReviewStepPr
             <button type="button" className="icon-button" disabled={state.future.length === 0} aria-label={t("review.redo")} title={t("review.redo")} onClick={() => dispatch({ type: "redo" })}><Redo2 size={18} aria-hidden="true" /></button>
           </div>
         </div>
-        {notice && <p className="field-error" role="status">{t(notice)}</p>}
+        <button type="button" className="secondary-button" disabled={plan.rooms.length === 0} onClick={findOpenings}><ScanSearch size={17} aria-hidden="true" />{t("review.findOpenings")}</button>
+        {notice && <p className={notice.tone === "error" ? "field-error" : "suggestion-status"} role="status">{t(notice.key, notice.parameters)}</p>}
         <p className="constraint-note">{t("review.legend")}</p>
         {plan.rooms.length === 0 ? <p className="trace-warning">{t("review.empty")}</p> : unchecked > 0 ? <p className="trace-warning" role="status">{t("review.unchecked", { count: unchecked })}</p> : <p className="trace-ok" role="status"><Check size={16} aria-hidden="true" />{t("review.allChecked")}</p>}
 

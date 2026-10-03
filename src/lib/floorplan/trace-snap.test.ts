@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { SnapContext } from "./snap";
 import { blankPlan, drawDoorSwing, drawWall, type WallDrawing } from "./test-image";
 import { edges, type TracePlan } from "./trace";
-import { nearestFace, snapTraceEdge, snapTraceRooms, traceOpening } from "./trace-snap";
+import { nearestFace, scanOpenings, snapTraceEdge, snapTraceRooms, traceOpening } from "./trace-snap";
 
 /** At 0.5 cm per pixel: a room with inner faces 50–200 × 50–150 cm, a 90 cm door in its top wall swinging in. */
 function drawing() {
@@ -44,5 +44,14 @@ describe("snapping a trace in centimetres", () => {
     const door = traceOpening(context(), plan, { x: 120, z: 48 });
     expect(door).toMatchObject({ kind: "door", at: { x: 145, z: 50 }, roomId: "room-1", swingInto: "room-1" });
     expect(Math.abs(door!.width - 90)).toBeLessThanOrEqual(1);
+  });
+
+  it("finds every drawn opening along the traced faces once", () => {
+    const plan: TracePlan = { rooms: [{ id: "room-1", kind: "living", box: { minX: 50, maxX: 200, minZ: 50, maxZ: 150 }, edges: edges("verified", 20) }], openPairs: [], doors: [], windows: [] };
+    const found = scanOpenings(context(), plan);
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatchObject({ kind: "door", at: { x: 145, z: 50 }, swings: true, swingInto: "room-1" });
+    const unchecked = { ...plan, rooms: [{ ...plan.rooms[0], edges: edges("unverified") }] };
+    expect(scanOpenings(context(), unchecked)).toEqual([]);
   });
 });

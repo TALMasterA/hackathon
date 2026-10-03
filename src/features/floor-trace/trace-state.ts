@@ -34,6 +34,16 @@ export interface UnitState {
   measuredAngle: number | null;
 }
 
+/** What the AI reading left out or approximated, shown in the review. */
+export interface AiNotes {
+  /** Rooms placed outside the user's box, left out. */
+  outside: number;
+  /** Doors and windows dropped as malformed. */
+  dropped: number;
+  diagonal: boolean;
+  repaired: boolean;
+}
+
 export type Selection = { kind: "room" | "door" | "window"; id: string } | { kind: "wall"; id: string; rooms: readonly [string, string] | null } | null;
 
 interface TraceDocument {
@@ -49,6 +59,7 @@ export interface TraceState extends TraceDocument {
   /** Set once the review has a plan to edit: read by the AI, or traced by hand. */
   readBy: "ai" | "manual" | null;
   model: string | null;
+  aiNotes: AiNotes | null;
   past: TraceDocument[];
   future: TraceDocument[];
   selection: Selection;
@@ -68,7 +79,8 @@ export type PlanEdit =
   | { type: "window-add"; window: Omit<TraceWindow, "id"> }
   | { type: "window-update"; id: string; patch: Partial<Omit<TraceWindow, "id">> }
   | { type: "window-delete"; id: string }
-  | { type: "open-pair"; rooms: readonly [string, string]; open: boolean };
+  | { type: "open-pair"; rooms: readonly [string, string]; open: boolean }
+  | { type: "openings-add"; doors: Omit<TraceDoor, "id">[]; windows: Omit<TraceWindow, "id">[] };
 
 export type TraceAction =
   | { type: "reset" }
@@ -82,7 +94,7 @@ export type TraceAction =
   | { type: "flat-type"; flatType: FlatType | null }
   | { type: "measured-angle"; angle: number | null }
   | { type: "rotation"; rotation: number }
-  | { type: "start"; plan: TracePlan; readBy: "ai" | "manual"; model?: string | null }
+  | { type: "start"; plan: TracePlan; readBy: "ai" | "manual"; model?: string | null; notes?: AiNotes }
   | { type: "edit"; edit: PlanEdit }
   | { type: "undo" }
   | { type: "redo" }
@@ -102,6 +114,7 @@ export function createTraceState(): TraceState {
     unit: { box: null, flatType: null, rotation: 0, measuredAngle: null },
     readBy: null,
     model: null,
+    aiNotes: null,
     plan: EMPTY_PLAN,
     nextId: 1,
     past: [],
@@ -183,6 +196,12 @@ function applyPlanEdit(document: TraceDocument, edit: PlanEdit): TraceDocument &
       return { nextId, plan: { ...plan, windows: plan.windows.map((window) => window.id === edit.id ? { ...window, ...edit.patch } : window) } };
     case "window-delete":
       return { nextId, plan: { ...plan, windows: plan.windows.filter((window) => window.id !== edit.id) } };
+    case "openings-add": {
+      let next = nextId;
+      const doors = edit.doors.map((door) => ({ ...door, id: `door-${next++}` }));
+      const windows = edit.windows.map((window) => ({ ...window, id: `window-${next++}` }));
+      return { nextId: next, plan: { ...plan, doors: [...plan.doors, ...doors], windows: [...plan.windows, ...windows] } };
+    }
     case "open-pair": {
       const others = plan.openPairs.filter((pair) => !samePair(pair, edit.rooms));
       return { nextId, plan: { ...plan, openPairs: edit.open ? [...others, edit.rooms] : others } };
@@ -229,7 +248,7 @@ export function traceReducer(state: TraceState, action: TraceAction): TraceState
     case "rotation":
       return { ...state, unit: { ...state.unit, rotation: action.rotation } };
     case "start":
-      return { ...state, plan: action.plan, nextId: nextIdFor(action.plan), readBy: action.readBy, model: action.model ?? null, past: [], future: [], selection: null, checkedEdges: false, step: "review" };
+      return { ...state, plan: action.plan, nextId: nextIdFor(action.plan), readBy: action.readBy, model: action.model ?? null, aiNotes: action.notes ?? null, past: [], future: [], selection: null, checkedEdges: false, step: "review" };
     case "edit": {
       const before: TraceDocument = { plan: state.plan, nextId: state.nextId };
       const after = applyPlanEdit(before, action.edit);
