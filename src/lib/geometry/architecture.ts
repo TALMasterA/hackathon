@@ -58,3 +58,91 @@ export function doorGeometry(door: Door, flat: Flat) {
 export function containingRoom(flat: Flat, position: Position2D): FlatRoom | undefined {
   return flat.rooms.find((room) => position.x >= room.position.x - room.width / 2 && position.x <= room.position.x + room.width / 2 && position.z >= room.position.z - room.depth / 2 && position.z <= room.position.z + room.depth / 2);
 }
+
+export interface Box {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+}
+
+/** A gap between facing room edges up to this width is wall or opening, never space outside the flat. */
+export const WALL_GAP_MAX_CM = 35;
+/** Uncovered strips narrower than this are rounding left between traced walls, not a real notch. */
+const VOID_MIN_CM = 5;
+const COVER_TOLERANCE_CM = 0.01;
+
+export function rectangleBox(rectangle: OrientedRectangle): Box {
+  return { minX: rectangle.position.x - rectangle.width / 2, maxX: rectangle.position.x + rectangle.width / 2, minZ: rectangle.position.z - rectangle.depth / 2, maxZ: rectangle.position.z + rectangle.depth / 2 };
+}
+
+export function boxRectangle(box: Box): OrientedRectangle {
+  return { position: { x: (box.minX + box.maxX) / 2, z: (box.minZ + box.maxZ) / 2 }, width: box.maxX - box.minX, depth: box.maxZ - box.minZ, orientation: 0 };
+}
+
+function wallBox(wall: Wall): Box {
+  const half = wall.thickness / 2;
+  return wallAxis(wall) === "x"
+    ? { minX: Math.min(wall.start.x, wall.end.x), maxX: Math.max(wall.start.x, wall.end.x), minZ: wall.start.z - half, maxZ: wall.start.z + half }
+    : { minX: wall.start.x - half, maxX: wall.start.x + half, minZ: Math.min(wall.start.z, wall.end.z), maxZ: Math.max(wall.start.z, wall.end.z) };
+}
+
+/** Strips between pairs of rooms that face each other across a wall-sized gap. */
+function facingStrips(rooms: readonly Box[]): Box[] {
+  const strips: Box[] = [];
+  for (const first of rooms) {
+    for (const second of rooms) {
+      const gapX = second.minX - first.maxX;
+      const overlapZ = [Math.max(first.minZ, second.minZ), Math.min(first.maxZ, second.maxZ)];
+      if (gapX > 0 && gapX <= WALL_GAP_MAX_CM && overlapZ[1] > overlapZ[0]) strips.push({ minX: first.maxX, maxX: second.minX, minZ: overlapZ[0], maxZ: overlapZ[1] });
+      const gapZ = second.minZ - first.maxZ;
+      const overlapX = [Math.max(first.minX, second.minX), Math.min(first.maxX, second.maxX)];
+      if (gapZ > 0 && gapZ <= WALL_GAP_MAX_CM && overlapX[1] > overlapX[0]) strips.push({ minX: overlapX[0], maxX: overlapX[1], minZ: first.maxZ, maxZ: second.minZ });
+    }
+  }
+  return strips;
+}
+
+type VoidSource = Pick<Flat, "width" | "depth" | "rooms" | "walls">;
+const voidCache = new WeakMap<readonly FlatRoom[], { walls: readonly Wall[]; width: number; depth: number; voids: OrientedRectangle[] }>();
+
+/**
+ * Parts of the flat's bounding box that are neither a room, a wall nor a gap between facing rooms,
+ * e.g. the notch of an L-shaped flat. The envelope check alone only knows the bounding box.
+ */
+export function flatVoids(flat: VoidSource): OrientedRectangle[] {
+  const cached = voidCache.get(flat.rooms);
+  if (cached && cached.walls === flat.walls && cached.width === flat.width && cached.depth === flat.depth) return cached.voids;
+  const rooms = flat.rooms.map(rectangleBox);
+  const covered = [...rooms, ...flat.walls.map(wallBox), ...facingStrips(rooms)];
+  const clampTo = (value: number, size: number) => Math.min(size, Math.max(0, value));
+  const xs = [...new Set([0, flat.width, ...covered.flatMap((box) => [clampTo(box.minX, flat.width), clampTo(box.maxX, flat.width)])])].sort((first, second) => first - second);
+  const zs = [...new Set([0, flat.depth, ...covered.flatMap((box) => [clampTo(box.minZ, flat.depth), clampTo(box.maxZ, flat.depth)])])].sort((first, second) => first - second);
+  const isCovered = (x: number, z: number) => covered.some((box) => x >= box.minX - COVER_TOLERANCE_CM && x <= box.maxX + COVER_TOLERANCE_CM && z >= box.minZ - COVER_TOLERANCE_CM && z <= box.maxZ + COVER_TOLERANCE_CM);
+  // Uncovered grid cells joined into runs along each row, then runs with equal ends stacked down the rows.
+  let open: Box[] = [];
+  const voids: Box[] = [];
+  for (let row = 0; row < zs.length - 1; row++) {
+    const runs: Box[] = [];
+    for (let column = 0; column < xs.length - 1; column++) {
+      if (isCovered((xs[column] + xs[column + 1]) / 2, (zs[row] + zs[row + 1]) / 2)) continue;
+      const last = runs.at(-1);
+      if (last && last.maxX === xs[column]) last.maxX = xs[column + 1];
+      else runs.push({ minX: xs[column], maxX: xs[column + 1], minZ: zs[row], maxZ: zs[row + 1] });
+    }
+    const next: Box[] = [];
+    for (const run of runs) {
+      const above = open.find((box) => box.minX === run.minX && box.maxX === run.maxX);
+      if (above) {
+        above.maxZ = run.maxZ;
+        next.push(above);
+      } else next.push(run);
+    }
+    voids.push(...open.filter((box) => !next.includes(box)));
+    open = next;
+  }
+  voids.push(...open);
+  const result = voids.filter((box) => Math.min(box.maxX - box.minX, box.maxZ - box.minZ) >= VOID_MIN_CM).map(boxRectangle);
+  voidCache.set(flat.rooms, { walls: flat.walls, width: flat.width, depth: flat.depth, voids: result });
+  return result;
+}

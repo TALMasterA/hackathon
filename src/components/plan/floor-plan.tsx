@@ -5,7 +5,7 @@ import { LockKeyhole, Maximize, ZoomIn, ZoomOut } from "lucide-react";
 import { FURNITURE_COLORS } from "@/components/scene/palette";
 import { formatCm, translate } from "@/i18n/dictionary";
 import { editorText } from "@/i18n/editor";
-import { containingRoom, doorGeometry, wallAxis, wallParts } from "@/lib/geometry/architecture";
+import { containingRoom, doorGeometry, flatVoids, wallAxis, wallParts } from "@/lib/geometry/architecture";
 import { issueItemIds, issuePolygons } from "@/lib/geometry/layout";
 import { polygonBounds, polygonCentre, rectanglePolygon } from "@/lib/geometry/oriented";
 import type { Flat, FlatFurniture, Language, LayoutViolation, Position2D } from "@/types/domain";
@@ -213,7 +213,9 @@ export function FloorPlan({ flat, furniture, baseline = [], issues, selectedId, 
       </div>
       <div className="plan-stage" data-testid="plan-stage">
         <svg ref={svg} className="flat-plan" style={{ aspectRatio: `${frame.home.width} / ${frame.home.height}` }} viewBox={`${view.minX} ${view.minZ} ${view.width} ${view.height}`} role="group" aria-label={editorText(language, "editor.plan")} data-testid="floor-plan" data-zoom={(1 / k).toFixed(2)} onPointerDown={startPointer} onPointerMove={movePointer} onPointerUp={endPointer} onPointerCancel={endPointer}>
+          <defs><pattern id="plan-outside-hatch" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="12" height="12" fill="#d3d9d3" /><line x1="0" y1="0" x2="0" y2="12" stroke="#a9b3ac" strokeWidth="4" /></pattern></defs>
           <rect x="0" y="0" width={flat.width} height={flat.depth} fill="#e5eae4" />
+          {flatVoids(flat).map((area, index) => <rect key={`void-${index}`} x={area.position.x - area.width / 2} y={area.position.z - area.depth / 2} width={area.width} height={area.depth} fill="url(#plan-outside-hatch)"><title>{editorText(language, "plan.outside")}</title></rect>)}
           {flat.rooms.map((room) => <rect key={room.id} x={room.position.x - room.width / 2} y={room.position.z - room.depth / 2} width={room.width} height={room.depth} fill="#f6f7f2" stroke="#d4ddd3" vectorEffect="non-scaling-stroke" />)}
           {wallParts(flat).map((wall) => <polygon key={wall.id} points={points(rectanglePolygon(wall))} fill="#6b756f" />)}
           {flat.windows.map((window) => {

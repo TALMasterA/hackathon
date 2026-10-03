@@ -39,13 +39,16 @@ export function initialQuarterTurns(bounds: ObjectBounds, item: { width: number;
 export type LooksAction =
   | { type: "set"; itemId: string; look: Look }
   | { type: "turn"; itemId: string }
-  | { type: "remove"; itemId: string };
+  | { type: "remove"; itemId: string }
+  | { type: "clear" };
 
 /**
  * Looks live outside the editor reducer and its undo history. They are keyed by item ID and kept
- * when an item is deleted or the demo is reset, so undo brings an item back with its look.
+ * when an item is deleted or the demo is reset, so undo brings an item back with its look. Switching
+ * to another flat clears them all, since that also clears the history and item IDs start over.
  */
 export function looksReducer(looks: Looks, action: LooksAction): Looks {
+  if (action.type === "clear") return looks.size === 0 ? looks : new Map();
   const next = new Map(looks);
   if (action.type === "set") next.set(action.itemId, action.look);
   else if (action.type === "remove") next.delete(action.itemId);

@@ -1,5 +1,5 @@
 import type { BoundarySide, Flat, FlatFurniture, LayoutViolation, Position2D } from "../../types/domain";
-import { doorGeometry, wallParts } from "./architecture";
+import { doorGeometry, flatVoids, wallParts } from "./architecture";
 import { GEOMETRY_EPSILON_CM } from "./footprint";
 import { clipPolygon, polygonBounds, polygonOverlap, rectanglePolygon } from "./oriented";
 
@@ -8,6 +8,7 @@ export function analyzeLayout(flat: Flat, furniture: readonly FlatFurniture[], c
   const polygons = furniture.map(rectanglePolygon);
   const walls = wallParts(flat).map((part) => ({ ...part, polygon: rectanglePolygon(part) }));
   const doors = flat.doors.map((door) => ({ id: door.id, polygon: rectanglePolygon(doorGeometry(door, flat).zone) }));
+  const voids = flatVoids(flat).map((area, index) => ({ id: `void-${index}`, polygon: rectanglePolygon(area) }));
 
   for (let index = 0; index < furniture.length; index++) {
     const item = furniture[index];
@@ -18,6 +19,10 @@ export function analyzeLayout(flat: Flat, furniture: readonly FlatFurniture[], c
       if (excess <= GEOMETRY_EPSILON_CM) continue;
       const region = outsideRegion(side, bounds, flat);
       violations.push({ code: "envelope", id: `envelope-${item.id}-${side}`, itemId: item.id, side, excess, polygon: clipPolygon(polygon, region) });
+    }
+    for (const area of voids) {
+      const overlap = polygonOverlap(polygon, area.polygon);
+      if (overlap) violations.push({ code: "outside", id: `outside-${item.id}-${area.id}`, itemId: item.id, ...overlap });
     }
     if (item.height > ceilingHeight) violations.push({ code: "height", id: `height-${item.id}`, itemId: item.id, excess: item.height - ceilingHeight });
 

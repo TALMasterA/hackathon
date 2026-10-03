@@ -431,3 +431,9 @@ select:focus-visible { outline: 3px solid #b35c2e; outline-offset: 3px; }
   .inspector-navigation { padding-top: 8px; }
   .app-shell[data-testid="flat-editor"] .app-footer { margin: 0 16px; font-size: 12px; }
 }
+.flat-menu .layout-settings-body { left: 0; right: auto; width: 300px; gap: 12px; }
+.flat-menu-current { font-size: 14px; color: var(--muted); }
+.flat-menu-actions { display: grid; gap: 8px; }
+.flat-menu-actions .secondary-button { justify-content: flex-start; }
+.flat-menu-confirm { display: grid; gap: 12px; font-size: 14px; }
+.flat-menu-body .field-error, .flat-menu-body .suggestion-status { margin-top: 0; font-size: 14px; }

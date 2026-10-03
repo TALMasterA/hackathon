@@ -5,7 +5,7 @@ import { ChevronDown, Flag, LockKeyhole, PanelRight, Redo2, Settings2, Undo2, X 
 import { AppHeader } from "@/components/app-header";
 import { FloorPlan, type PlanRequest } from "@/components/plan/floor-plan";
 import { SourcePanel } from "@/components/source-panel";
-import { DEMO_FLAT, FURNITURE_LIBRARY } from "@/data/flat-preset";
+import { FURNITURE_LIBRARY } from "@/data/flat-preset";
 import { translate } from "@/i18n/dictionary";
 import { editorText } from "@/i18n/editor";
 import { editorInputMessage, lockMessage } from "@/i18n/editor-messages";
@@ -15,6 +15,7 @@ import { lookClearedBy, visibleLooks, type Looks } from "@/features/model-looks/
 import { useLooks } from "@/features/model-looks/use-looks";
 import type { Flat, FlatFurniture, Language, LayoutViolation } from "@/types/domain";
 import { FurniturePanel } from "./furniture-panel";
+import { FlatMenu } from "./flat-menu";
 import { CheckStatus, IssuesPanel } from "./issues-panel";
 import { ItemList } from "./item-list";
 import { LocksPanel } from "./locks-panel";
@@ -42,7 +43,7 @@ export interface EditorSceneProps {
 export function FlatEditorApp({ SceneViewport }: { SceneViewport?: ComponentType<EditorSceneProps> }) {
   const [state, dispatch] = useReducer(editorReducer, undefined, createEditorState);
   const snapshot = state.view === "before" ? state.baseline : state.current;
-  const flat = { ...DEMO_FLAT, height: snapshot.ceilingHeight };
+  const flat = { ...state.flat, height: snapshot.ceilingHeight };
   const issues = analyzeLayout(flat, snapshot.furniture, snapshot.ceilingHeight);
   const selected = snapshot.furniture.find((item) => item.id === state.selectedId) ?? null;
   const editable = state.view === "after";
@@ -88,6 +89,13 @@ export function FlatEditorApp({ SceneViewport }: { SceneViewport?: ComponentType
     setInspectorOpen(false);
     inspectorTrigger.current?.focus();
   };
+  const switchFlat = (next: Flat) => {
+    dispatch({ type: "use-flat", flat: next });
+    looks.update({ type: "clear" });
+    setFocus((previous) => ({ id: null, revision: previous.revision + 1 }));
+    setTab("furniture");
+  };
+  const switchNeedsConfirm = state.current.furniture.length > 0 || state.baseline.furniture.length > 0 || state.past.length > 0 || state.future.length > 0;
   const lockRemoved = removedLockFrom !== null && state.past.at(-1)?.locks === removedLockFrom;
   const libraryProps = { flat, selectedId: selected?.id ?? null, editable, fullRoomId: state.libraryFullRoomId, language: state.language, templateId, onTemplate: setTemplateId, onAdd: (id: string) => { if (focus.id) dispatch({ type: "room", id: focus.id }); dispatch({ type: "add-item", templateId: id }); }, onReplace: replaceItem, onDelete: (id: string) => dispatch({ type: "delete-item", id }) };
   const tabs = ["furniture", "selected", "constraints"] as const;
@@ -125,8 +133,9 @@ export function FlatEditorApp({ SceneViewport }: { SceneViewport?: ComponentType
       <a className="skip-link" href="#item-details" onClick={() => { setTab("selected"); setInspectorOpen(true); requestAnimationFrame(() => document.getElementById("panel-selected")?.focus()); }}>{translate(state.language, "app.skip")}</a>
       <AppHeader language={state.language} onLanguage={(language) => dispatch({ type: "language", language })} onReset={() => { dispatch({ type: "reset" }); setFocus((previous) => ({ id: null, revision: previous.revision + 1 })); }} />
       <main id="main" className="editor-main">
-        <div className="overview"><div><p className="eyebrow">{text("editor.category")}</p><h1>{text("editor.title")}</h1></div><span className="demo-tag"><span />{text("editor.assumptions")}</span></div>
+        <div className="overview"><div><p className="eyebrow">{text("editor.category")}</p><h1>{text("editor.title")}</h1></div><span className="demo-tag"><span />{text(state.flat.dimensionSource === "user-traced" ? "editor.traced" : "editor.assumptions")}</span></div>
             <div className="layout-toolbar" aria-label={text("editor.title")}>
+              <FlatMenu flat={flat} needsConfirm={switchNeedsConfirm} language={state.language} onUse={switchFlat} />
               <div className="segmented" role="group" aria-label={translate(state.language, "scene.comparison")}><button type="button" aria-pressed={state.view === "before"} onClick={() => dispatch({ type: "view", view: "before" })}>{translate(state.language, "scene.before")}</button><button type="button" aria-pressed={state.view === "after"} onClick={() => dispatch({ type: "view", view: "after" })}>{translate(state.language, "scene.after")}</button></div>
               <div className="history-tools"><button type="button" className="icon-button" disabled={!editable || state.past.length === 0} aria-label={text("editor.undo")} title={text("editor.undo")} data-tooltip={text("editor.undo")} onClick={() => dispatch({ type: "undo" })}><Undo2 size={18} aria-hidden="true" /></button><button type="button" className="icon-button" disabled={!editable || state.future.length === 0} aria-label={text("editor.redo")} title={text("editor.redo")} data-tooltip={text("editor.redo")} onClick={() => dispatch({ type: "redo" })}><Redo2 size={18} aria-hidden="true" /></button></div>
               <label className="room-picker">{text("editor.room")}<select value={focus.id ?? "all"} onChange={(event) => focusRoom(event.target.value === "all" ? null : event.target.value)}><option value="all">{text("plan.wholeFlat")}</option>{flat.rooms.map((room) => <option value={room.id} key={room.id}>{room.name[state.language]}</option>)}</select></label>
@@ -150,7 +159,7 @@ export function FlatEditorApp({ SceneViewport }: { SceneViewport?: ComponentType
             </div>
             {editable && <p className="baseline-legend"><span className="baseline-swatch" />{text("editor.ghosts")}</p>}
             <IssuesPanel issues={issues} flat={flat} furniture={snapshot.furniture} language={state.language} onFocus={(issue) => selectAndReveal(issue.itemId, issueItemIds(issue))} />
-            <SourcePanel language={state.language} />
+            <SourcePanel language={state.language} flat={flat} />
           </div>
           <aside ref={sidebar} className="editor-sidebar" id="item-details" data-open={inspectorOpen} aria-label={text("editor.inspector")} onKeyDown={(event) => { if (event.key === "Escape") closeInspector(); }}>
             <div className="inspector-navigation">

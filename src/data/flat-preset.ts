@@ -1,7 +1,7 @@
-import type { Flat, FlatFurniture, FlatRoom, FurnitureTemplate } from "../types/domain";
+import type { Flat, FlatFurniture, FlatRoom, FurnitureTemplate, RoomKind } from "../types/domain";
 
-function room(id: string, en: string, zh: string, x: number, z: number, width: number, depth: number): FlatRoom {
-  return { id, name: { en, "zh-Hant": zh }, position: { x, z }, width, depth, orientation: 0 };
+function room(id: string, kind: RoomKind, en: string, zh: string, x: number, z: number, width: number, depth: number): FlatRoom {
+  return { id, name: { en, "zh-Hant": zh }, kind, position: { x, z }, width, depth, orientation: 0 };
 }
 
 export const DEMO_FLAT: Flat = {
@@ -15,11 +15,11 @@ export const DEMO_FLAT: Flat = {
   dimensionSource: "team-demo-assumptions",
   wallThickness: 10,
   rooms: [
-    room("living", "Living / dining room", "客飯廳", 215, 170, 410, 320),
-    room("kitchen", "Kitchen", "廚房", 540, 97.5, 220, 175),
-    room("bathroom", "Bathroom", "浴室", 540, 262.5, 220, 135),
-    room("master", "Master bedroom", "主人房", 167.5, 485, 315, 290),
-    room("second", "Second bedroom", "睡房", 492.5, 485, 315, 290),
+    room("living", "living", "Living / dining room", "客飯廳", 215, 170, 410, 320),
+    room("kitchen", "kitchen", "Kitchen", "廚房", 540, 97.5, 220, 175),
+    room("bathroom", "bathroom", "Bathroom", "浴室", 540, 262.5, 220, 135),
+    room("master", "bedroom", "Master bedroom", "主人房", 167.5, 485, 315, 290),
+    room("second", "bedroom", "Second bedroom", "睡房", 492.5, 485, 315, 290),
   ],
   walls: [
     { id: "front-wall", name: { en: "Front outer wall", "zh-Hant": "前方外牆" }, start: { x: 0, z: 5 }, end: { x: 660, z: 5 }, thickness: 10, outer: true },

@@ -4,35 +4,48 @@ import { analyzeLayout, issueItemIds } from "../../lib/geometry/layout";
 import { GEOMETRY_EPSILON_CM } from "../../lib/geometry/footprint";
 import { distanceLockViolations } from "../../lib/geometry/locks";
 import { normalizeAngle } from "../../lib/geometry/oriented";
+import { isDemoFlat, placeAgainstWall, preferredWall, suggestionSlots } from "./suggestions";
 
 export interface SuggestionResult {
   added: FlatFurniture[];
   skipped: { item: FlatFurniture; reason: SuggestionSkipReason }[];
 }
 
-/** Adds the team's fixed example placements for a room (or all rooms) without moving any existing furniture. */
+/**
+ * Adds example furniture to a room (or all rooms) without moving any existing furniture: the team's
+ * fixed placements on the demo flat, or per-room-kind sets probed wall-first on a traced flat.
+ */
 export function suggestFurniture(flat: Flat, furniture: readonly FlatFurniture[], locks: LayoutLocks, roomId: string): SuggestionResult {
   const result: SuggestionResult = { added: [], skipped: [] };
   let layout = [...furniture];
-  for (const suggestion of SUGGESTED_FURNITURE.filter((entry) => roomId === "all" || entry.roomId === roomId)) {
-    if (layout.some((entry) => entry.id === suggestion.id)) {
-      result.skipped.push({ item: suggestion, reason: "present" });
-      continue;
-    }
-    const item: FlatFurniture = { ...suggestion, name: { ...suggestion.name }, position: { ...suggestion.position } };
+  const add = (item: FlatFurniture) => {
     const next = [...layout, item];
     const issue = analyzeLayout(flat, next, flat.height).find((entry) => issueItemIds(entry).includes(item.id));
-    if (issue) {
-      result.skipped.push({ item, reason: issue.code });
-      continue;
-    }
     const related = locks.distance.filter((lock) => (lock.firstId === item.id || lock.secondId === item.id) && [lock.firstId, lock.secondId].every((id) => next.some((entry) => entry.id === id)));
-    if (distanceLockViolations(next, related).length > 0) {
-      result.skipped.push({ item, reason: "lock" });
+    const reason: SuggestionSkipReason | null = issue ? issue.code : distanceLockViolations(next, related).length > 0 ? "lock" : null;
+    if (reason) result.skipped.push({ item, reason });
+    else {
+      result.added.push(item);
+      layout = next;
+    }
+  };
+  if (isDemoFlat(flat)) {
+    for (const suggestion of SUGGESTED_FURNITURE.filter((entry) => roomId === "all" || entry.roomId === roomId)) {
+      if (layout.some((entry) => entry.id === suggestion.id)) result.skipped.push({ item: suggestion, reason: "present" });
+      else add({ ...suggestion, name: { ...suggestion.name }, position: { ...suggestion.position } });
+    }
+    return result;
+  }
+  for (const slot of suggestionSlots(flat).filter((entry) => roomId === "all" || entry.roomId === roomId)) {
+    const room = flat.rooms.find((entry) => entry.id === slot.roomId)!;
+    const nominal: FlatFurniture = { ...slot.template, id: slot.id, roomId: room.id, position: { ...room.position }, orientation: 0, name: slot.name };
+    if (layout.some((entry) => entry.id === slot.id)) {
+      result.skipped.push({ item: nominal, reason: "present" });
       continue;
     }
-    result.added.push(item);
-    layout = next;
+    const placed = (slot.againstWall ? placeAgainstWall(flat, layout, slot.template, room, slot.id, preferredWall(slot, layout)) : null) ?? placeLibraryItem(flat, layout, slot.template, room.id, slot.id);
+    if (placed) add({ ...placed, name: slot.name });
+    else add(nominal);
   }
   return result;
 }

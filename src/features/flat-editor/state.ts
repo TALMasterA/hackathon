@@ -4,7 +4,7 @@ import { furnitureDraft, validateFurnitureDraft } from "../../lib/geometry/edit"
 import { validateInput } from "../../lib/geometry/input";
 import { normalizeAngle } from "../../lib/geometry/oriented";
 import { proposeItemEdit, validateDistanceLock, type LockSetupIssue } from "../../lib/geometry/locks";
-import type { EditorInputIssue, FlatFurniture, FurnitureDraft, Language, LayoutLocks, LayoutSnapshot, LockViolation, SuggestionReport } from "../../types/domain";
+import type { EditorInputIssue, Flat, FlatFurniture, FurnitureDraft, Language, LayoutLocks, LayoutSnapshot, LockViolation, SuggestionReport } from "../../types/domain";
 import { placeLibraryItem, suggestFurniture } from "./layout";
 
 export type LayoutView = "before" | "after";
@@ -20,6 +20,8 @@ export interface EditorDocument {
 }
 
 export interface EditorState {
+  /** The flat being furnished; replacing it starts a new document (see "use-flat"). */
+  flat: Flat;
   current: LayoutSnapshot;
   baseline: LayoutSnapshot;
   locks: LayoutLocks;
@@ -50,9 +52,14 @@ export function copySnapshot(snapshot: LayoutSnapshot): LayoutSnapshot {
   return { ceilingHeight: snapshot.ceilingHeight, furniture: snapshot.furniture.map((item) => ({ ...item, name: { ...item.name }, position: { ...item.position } })) };
 }
 
-export function createEditorState(): EditorState {
-  const current: LayoutSnapshot = { ceilingHeight: DEMO_FLAT.height, furniture: [] };
-  return { current, baseline: copySnapshot(current), locks: { position: [], distance: [] }, selectedId: null, selectedRoomId: "living", focusedIds: [], language: "en", view: "after", draft: null, inputIssues: [], ceilingInput: String(DEMO_FLAT.height), ceilingIssue: null, lockNotice: [], lockNoticeContext: "edit", lockSetupIssue: null, nextLockNumber: 1, nextItemNumber: 1, libraryFullRoomId: null, suggestionReport: null, cameraRevision: 0, past: [], future: [], gesture: null, coalesceKey: null };
+/** The room new library items go to by default: the first living room, else the first room. */
+export function defaultRoomId(flat: Flat): string {
+  return (flat.rooms.find((room) => room.kind === "living") ?? flat.rooms[0])?.id ?? "";
+}
+
+export function createEditorState(flat: Flat = DEMO_FLAT): EditorState {
+  const current: LayoutSnapshot = { ceilingHeight: flat.height, furniture: [] };
+  return { flat, current, baseline: copySnapshot(current), locks: { position: [], distance: [] }, selectedId: null, selectedRoomId: defaultRoomId(flat), focusedIds: [], language: "en", view: "after", draft: null, inputIssues: [], ceilingInput: String(flat.height), ceilingIssue: null, lockNotice: [], lockNoticeContext: "edit", lockSetupIssue: null, nextLockNumber: 1, nextItemNumber: 1, libraryFullRoomId: null, suggestionReport: null, cameraRevision: 0, past: [], future: [], gesture: null, coalesceKey: null };
 }
 
 export type EditorAction =
@@ -76,9 +83,10 @@ export type EditorAction =
   | { type: "gesture-start" }
   | { type: "gesture-end" }
   | { type: "undo" }
-  | { type: "redo" };
+  | { type: "redo" }
+  | { type: "use-flat"; flat: Flat };
 
-type EditAction = Exclude<EditorAction, { type: "gesture-start" | "gesture-end" | "undo" | "redo" }>;
+type EditAction = Exclude<EditorAction, { type: "gesture-start" | "gesture-end" | "undo" | "redo" | "use-flat" }>;
 
 function editorDocument(state: EditorState): EditorDocument {
   return { current: state.current, baseline: state.baseline, locks: state.locks, nextItemNumber: state.nextItemNumber, nextLockNumber: state.nextLockNumber };
@@ -132,6 +140,9 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     }
     case "gesture-end":
       return endGesture(state);
+    case "use-flat":
+      // Furniture, locks and history from one flat make no sense in another, so this is a fresh start, not an undoable step.
+      return { ...createEditorState(action.flat), language: state.language, cameraRevision: state.cameraRevision + 1 };
   }
   const before = editorDocument(state);
   const next = applyEdit(state, action);
@@ -145,7 +156,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 
 function commitProposal(state: EditorState, proposed: FlatFurniture, rawDraft?: FurnitureDraft): EditorState {
   if (state.view === "before") return state;
-  const candidate = { ...proposed, orientation: normalizeAngle(proposed.orientation), roomId: containingRoom(DEMO_FLAT, proposed.position)?.id ?? proposed.roomId };
+  const candidate = { ...proposed, orientation: normalizeAngle(proposed.orientation), roomId: containingRoom(state.flat, proposed.position)?.id ?? proposed.roomId };
   const result = proposeItemEdit(state.current.furniture, candidate, state.locks);
   if (!result.accepted) return { ...state, draft: state.selectedId === result.item.id ? furnitureDraft(result.item) : state.draft, inputIssues: [], lockNotice: result.violations, lockNoticeContext: "edit" };
   const previous = state.current.furniture.find((item) => item.id === result.item.id)!;
@@ -170,7 +181,7 @@ function applyEdit(state: EditorState, action: EditAction): EditorState {
       const item = state.current.furniture.find((entry) => entry.id === state.selectedId);
       if (!item) return state;
       const draft = { ...state.draft, [action.field]: action.value };
-      const result = validateFurnitureDraft(draft, item, DEMO_FLAT);
+      const result = validateFurnitureDraft(draft, item, state.flat);
       return result.complete ? commitProposal(state, result.item, draft) : { ...state, draft, inputIssues: result.issues, lockNotice: [] };
     }
     case "normalise-draft": {
@@ -179,7 +190,7 @@ function applyEdit(state: EditorState, action: EditAction): EditorState {
     }
     case "ceiling": {
       if (state.view === "before") return state;
-      const result = validateInput({ width: "1", depth: "1", height: "1", roomHeight: action.value, orientation: 0 }, DEMO_FLAT);
+      const result = validateInput({ width: "1", depth: "1", height: "1", roomHeight: action.value, orientation: 0 }, state.flat);
       return result.complete
         ? { ...state, ceilingInput: action.value, ceilingIssue: null, current: { ...state.current, ceilingHeight: result.roomHeight } }
         : { ...state, ceilingInput: action.value, ceilingIssue: { ...result.issues[0], field: "ceilingHeight" } };
@@ -205,7 +216,7 @@ function applyEdit(state: EditorState, action: EditAction): EditorState {
       if (state.view === "before") return state;
       const template = FURNITURE_LIBRARY.find((entry) => entry.id === action.templateId);
       if (!template) return state;
-      const item = placeLibraryItem({ ...DEMO_FLAT, height: state.current.ceilingHeight }, state.current.furniture, template, state.selectedRoomId, `item-${state.nextItemNumber}`);
+      const item = placeLibraryItem({ ...state.flat, height: state.current.ceilingHeight }, state.current.furniture, template, state.selectedRoomId, `item-${state.nextItemNumber}`);
       if (!item) return { ...state, libraryFullRoomId: state.selectedRoomId };
       return { ...state, current: { ...state.current, furniture: [...state.current.furniture, item] }, selectedId: item.id, focusedIds: [item.id], draft: furnitureDraft(item), inputIssues: [], libraryFullRoomId: null, nextItemNumber: state.nextItemNumber + 1, lockNotice: [] };
     }
@@ -223,7 +234,7 @@ function applyEdit(state: EditorState, action: EditAction): EditorState {
     }
     case "suggest": {
       if (state.view === "before") return state;
-      const result = suggestFurniture({ ...DEMO_FLAT, height: state.current.ceilingHeight }, state.current.furniture, state.locks, action.roomId);
+      const result = suggestFurniture({ ...state.flat, height: state.current.ceilingHeight }, state.current.furniture, state.locks, action.roomId);
       const suggestionReport: SuggestionReport = { roomId: action.roomId, added: result.added.map((item) => item.id), skipped: result.skipped.map(({ item, reason }) => ({ id: item.id, name: item.name, reason })) };
       return { ...state, current: result.added.length > 0 ? { ...state.current, furniture: [...state.current.furniture, ...result.added] } : state.current, suggestionReport, libraryFullRoomId: null, lockNotice: [] };
     }
@@ -235,6 +246,6 @@ function applyEdit(state: EditorState, action: EditAction): EditorState {
       return { ...state, view: action.view, selectedId: item?.id ?? null, focusedIds: item ? [item.id] : [], draft: item ? furnitureDraft(item) : null, inputIssues: [], ceilingInput: String(state.current.ceilingHeight), ceilingIssue: null, lockNotice: [] };
     }
     case "reset":
-      return { ...createEditorState(), language: state.language, cameraRevision: state.cameraRevision + 1, past: state.past, future: state.future };
+      return { ...createEditorState(state.flat), language: state.language, cameraRevision: state.cameraRevision + 1, past: state.past, future: state.future };
   }
 }

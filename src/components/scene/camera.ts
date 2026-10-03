@@ -19,14 +19,29 @@ export interface CameraFrame {
 }
 
 const DEFAULT_DIRECTION: Vector3Tuple = [INITIAL_CAMERA_POSITION[0] - WHOLE_FLAT_TARGET[0], INITIAL_CAMERA_POSITION[1] - WHOLE_FLAT_TARGET[1], INITIAL_CAMERA_POSITION[2] - WHOLE_FLAT_TARGET[2]];
+/** The longer side of the demo flat the initial camera was tuned for. */
+const REFERENCE_FLAT_CM = 660;
+const FLAT_SCALE = { min: 0.6, max: 2 };
 
-export function cameraDistanceLimits(room: FlatRoom | null) {
-  return room ? ROOM_DISTANCE : WHOLE_FLAT_DISTANCE;
+/** How far the whole-flat camera backs off for this flat compared with the demo flat (1 for the demo). */
+export function wholeFlatScale(envelope: { width: number; depth: number }): number {
+  return Math.min(FLAT_SCALE.max, Math.max(FLAT_SCALE.min, Math.max(envelope.width, envelope.depth) / REFERENCE_FLAT_CM));
+}
+
+export function cameraDistanceLimits(room: FlatRoom | null, envelope?: { width: number; depth: number }) {
+  if (room) return ROOM_DISTANCE;
+  const scale = envelope ? wholeFlatScale(envelope) : 1;
+  return scale === 1 ? WHOLE_FLAT_DISTANCE : { min: WHOLE_FLAT_DISTANCE.min * scale, max: WHOLE_FLAT_DISTANCE.max * scale };
 }
 
 /** Frames one room (or the whole flat for null), keeping the viewing direction the camera already has. */
 export function roomCameraFrame(room: FlatRoom | null, envelope: { width: number; depth: number }, direction: readonly number[] = DEFAULT_DIRECTION): CameraFrame {
-  if (!room) return { target: [...WHOLE_FLAT_TARGET], position: [...INITIAL_CAMERA_POSITION], minDistance: WHOLE_FLAT_DISTANCE.min, maxDistance: WHOLE_FLAT_DISTANCE.max };
+  if (!room) {
+    const scale = wholeFlatScale(envelope);
+    const limits = cameraDistanceLimits(null, envelope);
+    const position = INITIAL_CAMERA_POSITION.map((value, axis) => WHOLE_FLAT_TARGET[axis] + (value - WHOLE_FLAT_TARGET[axis]) * scale) as Vector3Tuple;
+    return { target: [...WHOLE_FLAT_TARGET], position: scale === 1 ? [...INITIAL_CAMERA_POSITION] : position, minDistance: limits.min, maxDistance: limits.max };
+  }
   const [x, , z] = scenePositionCm(room.position, envelope);
   const distance = Math.min(ROOM_DISTANCE.max, Math.max(ROOM_DISTANCE.min, Math.max(room.width, room.depth) * METRES_PER_CM * ROOM_DISTANCE_FACTOR));
   const length = Math.hypot(direction[0], direction[1], direction[2]);

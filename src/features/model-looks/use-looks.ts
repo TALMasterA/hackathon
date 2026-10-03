@@ -23,12 +23,13 @@ export function useLooks() {
     latest.current = looks;
   }, [looks]);
   const update = useCallback((action: LooksAction) => {
-    const previous = action.type === "turn" ? undefined : latest.current.get(action.itemId);
-    const next = looksReducer(latest.current, action);
+    const before = latest.current;
+    const next = looksReducer(before, action);
     latest.current = next;
     setLooks(next);
     // A replaced or removed look's GPU resources are freed once the scene no longer draws it.
-    if (previous && next.get(action.itemId)?.object !== previous.object) setTimeout(() => disposeObject(previous.object), 1000);
+    const retained = new Set([...next.values()].map((look) => look.object));
+    for (const look of before.values()) if (!retained.has(look.object)) setTimeout(() => disposeObject(look.object), 1000);
   }, []);
   return { looks, update };
 }

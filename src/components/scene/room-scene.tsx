@@ -7,12 +7,12 @@ import { DoubleSide } from "three";
 import type { EditorSceneProps } from "@/features/flat-editor/workspace";
 import { formatCm } from "@/i18n/dictionary";
 import { editorText } from "@/i18n/editor";
-import { doorGeometry, wallAxis, wallParts } from "@/lib/geometry/architecture";
+import { doorGeometry, flatVoids, wallAxis, wallParts } from "@/lib/geometry/architecture";
 import { issueItemIds, issuePolygons } from "@/lib/geometry/layout";
 import { floorTrianglePositions, polygonCentre, rectanglePolygon, scenePositionCm, threeRotation } from "@/lib/geometry/oriented";
 import type { Look } from "@/features/model-looks/looks";
 import type { Flat, FlatFurniture, Position2D } from "@/types/domain";
-import { cameraDistanceLimits, INITIAL_CAMERA_POSITION, roomCameraFrame, WHOLE_FLAT_TARGET } from "./camera";
+import { cameraDistanceLimits, roomCameraFrame, WHOLE_FLAT_TARGET } from "./camera";
 import { FurnitureMesh } from "./furniture-mesh";
 import type { FurnitureAppearance } from "./furniture-models";
 import { RESERVED_COLOR, SCENE_BACKGROUND } from "./palette";
@@ -31,7 +31,7 @@ function CameraControls({ command, flat, focusRoomId }: { command: CameraCommand
   const controls = useRef<ComponentRef<typeof OrbitControls>>(null);
   const { camera, invalidate } = useThree();
   const room = flat.rooms.find((entry) => entry.id === focusRoomId) ?? null;
-  const limits = cameraDistanceLimits(room);
+  const limits = cameraDistanceLimits(room, flat);
 
   useEffect(() => {
     const control = controls.current;
@@ -67,6 +67,7 @@ function RoomShell({ flat }: { flat: Flat }) {
     <group name="room-shell">
       <mesh position={[0, -0.04, 0]}><boxGeometry args={[flat.width / 100, 0.08, flat.depth / 100]} /><meshStandardMaterial color="#cdd9d0" roughness={1} /><Edges color="#a5b4a9" /></mesh>
       {flat.rooms.map((room) => <FloorPolygon key={room.id} polygon={rectanglePolygon(room)} flat={flat} color="#ecf0e8" opacity={0.85} elevation={0.002} />)}
+      {flatVoids(flat).map((area, index) => <FloorPolygon key={`void-${index}`} polygon={rectanglePolygon(area)} flat={flat} color="#7d8a82" opacity={0.6} elevation={0.003} />)}
       {wallParts(flat).map((wall) => {
         const [x, , z] = scenePositionCm(wall.position, flat);
         return <mesh key={wall.id} name={wall.id} position={[x, flat.height / 200, z]}><boxGeometry args={[wall.width / 100, flat.height / 100, wall.depth / 100]} /><meshStandardMaterial color={wall.outer ? "#cfd9d2" : "#d8dfd5"} transparent opacity={wall.outer ? 0.22 : 0.38} roughness={1} depthWrite={false} /><Edges color="#a8b6aa" /></mesh>;
@@ -100,7 +101,7 @@ export default function RoomScene({ flat, furniture, baseline, issues, selectedI
   const colliding = new Set(issues.flatMap(issueItemIds));
   const highlights = issuePolygons(issues);
   return (
-    <Canvas frameloop="demand" dpr={[1, 1.5]} camera={{ position: INITIAL_CAMERA_POSITION, fov: 40, near: 0.1, far: 80 }} gl={{ antialias: true, alpha: false, powerPreference: "low-power" }}>
+    <Canvas frameloop="demand" dpr={[1, 1.5]} camera={{ position: roomCameraFrame(null, flat).position, fov: 40, near: 0.1, far: 80 }} gl={{ antialias: true, alpha: false, powerPreference: "low-power" }}>
       <color attach="background" args={[SCENE_BACKGROUND]} />
       <ambientLight intensity={1.3} />
       <directionalLight position={[-3, 9, -5]} intensity={2} />

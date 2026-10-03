@@ -18,7 +18,7 @@ export interface Room extends Dimensions {
   name: LocalizedName;
   minimumHeight: number;
   maximumHeight: number;
-  dimensionSource: "team-demo-assumptions";
+  dimensionSource: "team-demo-assumptions" | "user-traced";
 }
 
 export type InputField = keyof Dimensions | "roomHeight";
@@ -56,9 +56,12 @@ export interface FlatFurniture extends Dimensions, OrientedRectangle {
   roomId: string;
 }
 
+export type RoomKind = "living" | "bedroom" | "kitchen" | "bathroom" | "other";
+
 export interface FlatRoom extends OrientedRectangle {
   id: string;
   name: LocalizedName;
+  kind?: RoomKind;
 }
 
 export interface Wall {
@@ -91,12 +94,25 @@ export interface FlatWindow {
   height: number;
 }
 
+/** How a user-traced flat was measured, shown in the source panel; never includes the picture itself. */
+export interface FlatTrace {
+  sourceName: string;
+  scaleMethod: "scale-bar" | "known-length";
+  /** Calibrated centimetres per picture unit (PDF point or image pixel). */
+  cmPerUnit: number;
+  readBy: "ai" | "manual";
+  model?: string;
+  /** Room edges the user accepted without a match against the drawn wall lines. */
+  uncheckedEdges: number;
+}
+
 export interface Flat extends Room {
   wallThickness: number;
   rooms: readonly FlatRoom[];
   walls: readonly Wall[];
   doors: readonly Door[];
   windows: readonly FlatWindow[];
+  trace?: FlatTrace;
 }
 
 export interface FurnitureTemplate extends Dimensions {
@@ -117,6 +133,7 @@ export interface PolygonOverlap {
 export type LayoutViolation =
   | ({ code: "furniture" | "wall" | "door"; id: string; itemId: string; obstacleId: string } & PolygonOverlap)
   | { code: "envelope"; id: string; itemId: string; side: BoundarySide; excess: number; polygon: Position2D[] }
+  | ({ code: "outside"; id: string; itemId: string } & PolygonOverlap)
   | { code: "height"; id: string; itemId: string; excess: number };
 
 export interface DistanceLock {

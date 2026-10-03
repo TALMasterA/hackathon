@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEMO_FLAT } from "../../data/flat-preset";
-import { INITIAL_CAMERA_POSITION, ROOM_DISTANCE, roomCameraFrame, WHOLE_FLAT_DISTANCE, WHOLE_FLAT_TARGET } from "./camera";
+import { cameraDistanceLimits, INITIAL_CAMERA_POSITION, ROOM_DISTANCE, roomCameraFrame, WHOLE_FLAT_DISTANCE, WHOLE_FLAT_TARGET } from "./camera";
 
 const unit = (vector: readonly number[]) => vector.map((value) => value / Math.hypot(...vector));
 
@@ -23,6 +23,13 @@ describe("3D room-focus camera framing", () => {
     expect(distance).toBeCloseTo(Math.max(room.width, room.depth) / 100 * 1.6, 10);
     unit(offset).forEach((value, index) => expect(value).toBeCloseTo(unit(direction)[index], 10));
     expect([frame.minDistance, frame.maxDistance]).toEqual([ROOM_DISTANCE.min, ROOM_DISTANCE.max]);
+  });
+
+  it("backs off for a larger flat along the same direction, with scaled distance limits", () => {
+    const frame = roomCameraFrame(null, { width: 990, depth: 500 });
+    INITIAL_CAMERA_POSITION.forEach((value, axis) => expect(frame.position[axis]).toBeCloseTo(WHOLE_FLAT_TARGET[axis] + (value - WHOLE_FLAT_TARGET[axis]) * 1.5, 10));
+    expect([frame.minDistance, frame.maxDistance]).toEqual([WHOLE_FLAT_DISTANCE.min * 1.5, WHOLE_FLAT_DISTANCE.max * 1.5]);
+    expect(cameraDistanceLimits(null, { width: 99999, depth: 1 })).toEqual({ min: WHOLE_FLAT_DISTANCE.min * 2, max: WHOLE_FLAT_DISTANCE.max * 2 });
   });
 
   it("frames the 2.2 m bathroom close up and defaults to the initial viewing direction", () => {
