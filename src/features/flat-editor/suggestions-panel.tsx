@@ -2,7 +2,7 @@ import { House, Sofa } from "lucide-react";
 import { editorText } from "@/i18n/editor";
 import { suggestionMessage } from "@/i18n/editor-messages";
 import type { Flat, FlatFurniture, Language, SuggestionReport } from "@/types/domain";
-import { isDemoFlat, suggestionIds } from "./suggestions";
+import { isPresetFlat, suggestionIds } from "./suggestions";
 
 export function SuggestionsPanel({ flat, roomId, furniture, editable, report, language, onSuggest }: { flat: Flat; roomId: string; furniture: readonly FlatFurniture[]; editable: boolean; report: SuggestionReport | null; language: Language; onSuggest: (roomId: string) => void }) {
   const room = flat.rooms.find((entry) => entry.id === roomId);
@@ -10,7 +10,7 @@ export function SuggestionsPanel({ flat, roomId, furniture, editable, report, la
   return (
     <section className="suggestions-panel" aria-labelledby="suggestions-title" data-testid="suggestions-panel">
       <h2 id="suggestions-title">{editorText(language, "suggest.title")}</h2>
-      <p className="constraint-note">{editorText(language, isDemoFlat(flat) ? "suggest.note" : "suggest.noteTraced")}</p>
+      <p className="constraint-note">{editorText(language, isPresetFlat(flat) ? "suggest.note" : "suggest.noteTraced")}</p>
       <div className="suggestion-actions">
         <button type="button" className="primary-button" disabled={!editable || complete} onClick={() => onSuggest("all")}><House size={17} aria-hidden="true" />{editorText(language, "suggest.all")}</button>
         {room && <button type="button" className="secondary-button" disabled={!editable} onClick={() => onSuggest(room.id)}><Sofa size={17} aria-hidden="true" />{editorText(language, "suggest.room", { room: room.name[language] })}</button>}

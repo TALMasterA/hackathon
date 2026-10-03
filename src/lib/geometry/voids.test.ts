@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEMO_FLAT, SUGGESTED_FURNITURE } from "../../data/flat-preset";
+import { HARMONY_EXAMPLES, HARMONY_FLAT } from "../../data/harmony-preset";
 import { layoutMessage } from "../../i18n/editor-messages";
 import { L_FLAT } from "../floorplan/test-flats";
 import type { Flat } from "../../types/domain";
@@ -11,6 +12,11 @@ const chair = SUGGESTED_FURNITURE.find((item) => item.kind === "chair")!;
 describe("space inside the bounding box but outside the flat", () => {
   it("finds no voids in the demo flat, so its checks are unchanged", () => {
     expect(flatVoids(DEMO_FLAT)).toEqual([]);
+  });
+
+  it("leaves a flat with a traced outline to the outline check, diagonal bay included", () => {
+    expect(flatVoids(HARMONY_FLAT)).toEqual([]);
+    expect(analyzeLayout(HARMONY_FLAT, HARMONY_EXAMPLES, 260)).toEqual([]);
   });
 
   it("finds the notch of an L-shaped flat as one rectangle", () => {

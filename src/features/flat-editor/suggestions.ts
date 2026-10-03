@@ -1,4 +1,5 @@
-import { DEMO_FLAT, FURNITURE_LIBRARY, SUGGESTED_FURNITURE } from "../../data/flat-preset";
+import { FURNITURE_LIBRARY } from "../../data/flat-preset";
+import { examplesForFlat } from "../../data/flat-scenarios";
 import { rectangleBox, type Box } from "../../lib/geometry/architecture";
 import { analyzeLayout, issueItemIds } from "../../lib/geometry/layout";
 import type { Flat, FlatFurniture, FlatRoom, FurnitureKind, FurnitureTemplate, LocalizedName, Position2D, RoomKind } from "../../types/domain";
@@ -30,8 +31,9 @@ const ROOM_SETS: Record<RoomKind, readonly (readonly [templateId: string, count:
   other: [],
 };
 
-export function isDemoFlat(flat: Pick<Flat, "id" | "dimensionSource">): boolean {
-  return flat.id === DEMO_FLAT.id && flat.dimensionSource === "team-demo-assumptions";
+/** A built-in flat (the demo or Harmony) offers the team's fixed placements instead of per-room-kind sets. */
+export function isPresetFlat(flat: Pick<Flat, "id" | "dimensionSource">): boolean {
+  return examplesForFlat(flat) !== undefined;
 }
 
 function template(id: string): FurnitureTemplate {
@@ -66,7 +68,7 @@ export function suggestionSlots(flat: Pick<Flat, "rooms">): SuggestionSlot[] {
 
 /** IDs of every suggestion the flat offers, used to tell when all of them are already placed. */
 export function suggestionIds(flat: Flat): string[] {
-  return isDemoFlat(flat) ? SUGGESTED_FURNITURE.map((item) => item.id) : suggestionSlots(flat).map((slot) => slot.id);
+  return examplesForFlat(flat)?.map((item) => item.id) ?? suggestionSlots(flat).map((slot) => slot.id);
 }
 
 /** Positions along one wall, middle first, with the item's back against the room edge. */

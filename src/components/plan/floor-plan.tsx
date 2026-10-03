@@ -5,7 +5,7 @@ import { LockKeyhole, Maximize, ZoomIn, ZoomOut } from "lucide-react";
 import { FURNITURE_COLORS } from "@/components/scene/palette";
 import { formatCm, translate } from "@/i18n/dictionary";
 import { editorText } from "@/i18n/editor";
-import { containingRoom, doorGeometry, flatVoids, wallAxis, wallParts } from "@/lib/geometry/architecture";
+import { containingRoom, doorGeometry, flatVoids, openingEndpoints, planWallParts } from "@/lib/geometry/architecture";
 import { issueItemIds, issuePolygons } from "@/lib/geometry/layout";
 import { polygonBounds, polygonCentre, rectanglePolygon } from "@/lib/geometry/oriented";
 import type { Flat, FlatFurniture, Language, LayoutViolation, Position2D } from "@/types/domain";
@@ -214,18 +214,18 @@ export function FloorPlan({ flat, furniture, baseline = [], issues, selectedId, 
       <div className="plan-stage" data-testid="plan-stage">
         <svg ref={svg} className="flat-plan" style={{ aspectRatio: `${frame.home.width} / ${frame.home.height}` }} viewBox={`${view.minX} ${view.minZ} ${view.width} ${view.height}`} role="group" aria-label={editorText(language, "editor.plan")} data-testid="floor-plan" data-zoom={(1 / k).toFixed(2)} onPointerDown={startPointer} onPointerMove={movePointer} onPointerUp={endPointer} onPointerCancel={endPointer}>
           <defs><pattern id="plan-outside-hatch" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="12" height="12" fill="#d3d9d3" /><line x1="0" y1="0" x2="0" y2="12" stroke="#a9b3ac" strokeWidth="4" /></pattern></defs>
-          <rect x="0" y="0" width={flat.width} height={flat.depth} fill="#e5eae4" />
+          {flat.outline ? <polygon points={points(flat.outline)} fill="#f4f6ef" data-testid="flat-outline" /> : <rect x="0" y="0" width={flat.width} height={flat.depth} fill="#e5eae4" />}
           {flatVoids(flat).map((area, index) => <rect key={`void-${index}`} x={area.position.x - area.width / 2} y={area.position.z - area.depth / 2} width={area.width} height={area.depth} fill="url(#plan-outside-hatch)"><title>{editorText(language, "plan.outside")}</title></rect>)}
-          {flat.rooms.map((room) => <rect key={room.id} x={room.position.x - room.width / 2} y={room.position.z - room.depth / 2} width={room.width} height={room.depth} fill="#f6f7f2" stroke="#d4ddd3" vectorEffect="non-scaling-stroke" />)}
-          {wallParts(flat).map((wall) => <polygon key={wall.id} points={points(rectanglePolygon(wall))} fill="#6b756f" />)}
+          {flat.rooms.map((room) => <polygon key={room.id} points={points(room.outline ?? rectanglePolygon(room))} fill={flat.outline ? "#f4f6ef" : "#f6f7f2"} stroke="#d4ddd3" strokeDasharray={flat.outline ? "3 4" : undefined} vectorEffect="non-scaling-stroke" />)}
+          {planWallParts(flat).map((wall) => <polygon key={wall.id} points={points(rectanglePolygon(wall))} fill={flat.outline ? "#6f7a73" : "#6b756f"} data-wall-id={wall.wallId} />)}
           {flat.windows.map((window) => {
             const wall = flat.walls.find((entry) => entry.id === window.wallId)!;
-            const axis = wallAxis(wall);
-            return <g key={window.id}><title>{`${window.name[language]} · ${formatCm(window.sillHeight, language)} ${editorText(language, "editor.unit")}`}</title><line x1={window.position.x - (axis === "x" ? window.width / 2 : 0)} y1={window.position.z - (axis === "z" ? window.width / 2 : 0)} x2={window.position.x + (axis === "x" ? window.width / 2 : 0)} y2={window.position.z + (axis === "z" ? window.width / 2 : 0)} stroke="#4d9fa9" strokeWidth="8" /></g>;
+            const endpoints = openingEndpoints(window, wall);
+            return <g key={window.id} data-opening-id={window.id}><title>{`${window.name[language]} · ${formatCm(window.sillHeight, language)} ${editorText(language, "editor.unit")}`}</title><line x1={endpoints.start.x} y1={endpoints.start.z} x2={endpoints.end.x} y2={endpoints.end.z} stroke={flat.outline ? "#67a9b4" : "#4d9fa9"} strokeWidth="8" /></g>;
           })}
           {flat.doors.map((door) => {
             const geometry = doorGeometry(door, flat);
-            return <g key={door.id} className="plan-door"><title>{`${door.name[language]} · ${door.width} ${editorText(language, "editor.unit")}`}</title><polygon points={points(rectanglePolygon(geometry.zone))} fill="#ead99c" fillOpacity="0.26" stroke="#9d7d2e" strokeWidth="1" strokeDasharray="4 3" vectorEffect="non-scaling-stroke" /><path d={`M ${geometry.closedEnd.x} ${geometry.closedEnd.z} A ${door.width} ${door.width} 0 0 ${geometry.sweep} ${geometry.openEnd.x} ${geometry.openEnd.z}`} fill="none" stroke="#9d7d2e" strokeWidth="1.5" /><line x1={geometry.hinge.x} y1={geometry.hinge.z} x2={geometry.openEnd.x} y2={geometry.openEnd.z} stroke="#9d7d2e" strokeWidth="3" /></g>;
+            return <g key={door.id} className="plan-door"><title>{`${door.name[language]} · ${formatCm(door.width, language)} ${editorText(language, "editor.unit")}`}</title><polygon points={points(rectanglePolygon(geometry.zone))} fill="#ead99c" fillOpacity="0.26" stroke="#9d7d2e" strokeWidth="1" strokeDasharray="4 3" vectorEffect="non-scaling-stroke" /><path d={`M ${geometry.closedEnd.x} ${geometry.closedEnd.z} A ${door.width} ${door.width} 0 0 ${geometry.sweep} ${geometry.openEnd.x} ${geometry.openEnd.z}`} fill="none" stroke="#9d7d2e" strokeWidth="1.5" /><line x1={geometry.hinge.x} y1={geometry.hinge.z} x2={geometry.openEnd.x} y2={geometry.openEnd.z} stroke="#9d7d2e" strokeWidth="3" /></g>;
           })}
           {flat.rooms.map((room) => <text key={`name-${room.id}`} x={room.position.x - room.width / 2 + 12 * k} y={room.position.z - room.depth / 2 + 19 * k} className="plan-room-name" style={{ fontSize: 14 * k }}>{room.name[language]}</text>)}
           {editable && flat.rooms.filter((room) => !furniture.some((item) => item.roomId === room.id)).map((room) => <text key={`empty-${room.id}`} x={room.position.x} y={room.position.z} textAnchor="middle" dominantBaseline="middle" className="plan-empty-hint" style={{ fontSize: 13 * k }}>{editorText(language, "plan.empty")}</text>)}
@@ -246,6 +246,7 @@ export function FloorPlan({ flat, furniture, baseline = [], issues, selectedId, 
           })}
           {highlights.map((highlight) => <polygon key={highlight.id} points={points(highlight.polygon)} fill="#de3935" fillOpacity="0.55" stroke="#aa352d" strokeWidth="1" vectorEffect="non-scaling-stroke" pointerEvents="none" />)}
           {highlights.map((highlight, index) => {
+            if (highlight.value === null) return null;
             const centre = polygonCentre(highlight.polygon);
             const text = `${formatCm(highlight.value, language)} ${editorText(language, "editor.unit")}`;
             const labelWidth = (text.length * 8 + 10) * k;

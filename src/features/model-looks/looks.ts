@@ -40,15 +40,32 @@ export type LooksAction =
   | { type: "set"; itemId: string; look: Look }
   | { type: "turn"; itemId: string }
   | { type: "remove"; itemId: string }
-  | { type: "clear" };
+  | { type: "clear"; scope: string };
+
+export function lookKey(scope: string, itemId: string): string {
+  return JSON.stringify([scope, itemId]);
+}
+
+function scopePrefix(scope: string): string {
+  return JSON.stringify([scope]).slice(0, -1) + ",";
+}
+
+export function scopedLooks(looks: Looks, scope: string): Looks {
+  const prefix = scopePrefix(scope);
+  return new Map([...looks].filter(([key]) => key.startsWith(prefix)).map(([key, look]) => [JSON.parse(key)[1] as string, look]));
+}
 
 /**
  * Looks live outside the editor reducer and its undo history. They are keyed by item ID and kept
- * when an item is deleted or the demo is reset, so undo brings an item back with its look. Switching
- * to another flat clears them all, since that also clears the history and item IDs start over.
+ * when an item is deleted or the demo is reset, so undo brings an item back with its look. Replacing
+ * the user's own flat clears that scope, since it also clears the history and item IDs start over.
  */
 export function looksReducer(looks: Looks, action: LooksAction): Looks {
-  if (action.type === "clear") return looks.size === 0 ? looks : new Map();
+  if (action.type === "clear") {
+    const prefix = scopePrefix(action.scope);
+    const kept = new Map([...looks].filter(([key]) => !key.startsWith(prefix)));
+    return kept.size === looks.size ? looks : kept;
+  }
   const next = new Map(looks);
   if (action.type === "set") next.set(action.itemId, action.look);
   else if (action.type === "remove") next.delete(action.itemId);

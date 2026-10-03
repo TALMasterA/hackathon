@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { DEMO_FLAT, SUGGESTED_FURNITURE } from "../../data/flat-preset";
+import { HARMONY_FLAT } from "../../data/harmony-preset";
 import { rectangleBox } from "../../lib/geometry/architecture";
 import { analyzeLayout } from "../../lib/geometry/layout";
 import { polygonBounds, rectanglePolygon } from "../../lib/geometry/oriented";
 import { L_FLAT } from "../../lib/floorplan/test-flats";
 import type { FlatFurniture } from "../../types/domain";
 import { createEditorState, editorReducer, type EditorAction, type EditorState } from "./state";
-import { isDemoFlat, suggestionIds, suggestionSlots } from "./suggestions";
+import { isPresetFlat, suggestionIds, suggestionSlots } from "./suggestions";
 
 const run = (state: EditorState, ...actions: EditorAction[]) => actions.reduce(editorReducer, state);
 
@@ -49,8 +50,11 @@ describe("switching flats", () => {
 
 describe("suggestions on a traced flat", () => {
   it("plans a set per room kind with stable IDs and a double bed in the largest bedroom", () => {
-    expect(isDemoFlat(DEMO_FLAT)).toBe(true);
-    expect(isDemoFlat(L_FLAT)).toBe(false);
+    expect(isPresetFlat(DEMO_FLAT)).toBe(true);
+    expect(isPresetFlat(HARMONY_FLAT)).toBe(true);
+    expect(isPresetFlat(L_FLAT)).toBe(false);
+    // A traced flat that happens to reuse a built-in id still gets per-room-kind suggestions.
+    expect(isPresetFlat({ id: DEMO_FLAT.id, dimensionSource: "user-traced" })).toBe(false);
     expect(suggestionSlots(L_FLAT).map((slot) => slot.id)).toEqual(["living-sofa", "living-coffee-table", "living-tv-console", "living-dining-table", "living-chair-1", "living-chair-2", "bedroom-double-bed", "bedroom-wardrobe", "bedroom-desk", "kitchen-kitchen-counter", "kitchen-fridge"]);
     expect(suggestionIds(DEMO_FLAT)).toEqual(SUGGESTED_FURNITURE.map((item) => item.id));
   });

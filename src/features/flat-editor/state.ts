@@ -1,4 +1,5 @@
 import { DEMO_FLAT, FURNITURE_LIBRARY } from "../../data/flat-preset";
+import { FLAT_SCENARIOS, type ScenarioId } from "../../data/flat-scenarios";
 import { containingRoom } from "../../lib/geometry/architecture";
 import { furnitureDraft, validateFurnitureDraft } from "../../lib/geometry/edit";
 import { validateInput } from "../../lib/geometry/input";
@@ -248,4 +249,47 @@ function applyEdit(state: EditorState, action: EditAction): EditorState {
     case "reset":
       return { ...createEditorState(state.flat), language: state.language, cameraRevision: state.cameraRevision + 1, past: state.past, future: state.future };
   }
+}
+
+/** A built-in plan, or "own": the one traced or opened flat, which the next trace or flat file replaces. */
+export type SessionId = ScenarioId | "own";
+
+export interface ScenarioSessions {
+  activeId: SessionId;
+  sessions: Record<ScenarioId, EditorState> & { own?: EditorState };
+}
+
+/** Edits to the active document; a new flat goes through the session's own "use-flat" instead. */
+export type SessionEditAction = Exclude<EditorAction, { type: "use-flat" }>;
+
+export type SessionAction =
+  | { type: "switch"; id: SessionId }
+  | { type: "use-flat"; flat: Flat }
+  | { type: "edit"; action: SessionEditAction };
+
+export function createScenarioSessions(): ScenarioSessions {
+  return { activeId: "harmony", sessions: { demo: createEditorState(FLAT_SCENARIOS.demo.flat), harmony: createEditorState(FLAT_SCENARIOS.harmony.flat) } };
+}
+
+/** The active plan's document; "own" only becomes active once it exists. */
+export function activeSession(state: ScenarioSessions): EditorState {
+  return state.sessions[state.activeId]!;
+}
+
+export function sessionReducer(state: ScenarioSessions, action: SessionAction): ScenarioSessions {
+  const active = activeSession(state);
+  if (action.type === "switch") {
+    if (action.id === state.activeId || !state.sessions[action.id]) return state;
+    return { activeId: action.id, sessions: { ...state.sessions, [state.activeId]: endGesture(active) } };
+  }
+  if (action.type === "use-flat") {
+    // Only the user's own flat is replaced, as a fresh document; the built-in plans keep their work.
+    const sessions = { ...state.sessions, [state.activeId]: endGesture(active) };
+    return { activeId: "own", sessions: { ...sessions, own: editorReducer(sessions.own ?? active, { type: "use-flat", flat: action.flat }) } };
+  }
+  if (action.action.type === "language") {
+    const { demo, harmony, own } = state.sessions;
+    return { ...state, sessions: { demo: editorReducer(demo, action.action), harmony: editorReducer(harmony, action.action), ...(own ? { own: editorReducer(own, action.action) } : {}) } };
+  }
+  return { ...state, sessions: { ...state.sessions, [state.activeId]: editorReducer(active, action.action) } };
 }

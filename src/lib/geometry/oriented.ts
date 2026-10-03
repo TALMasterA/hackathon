@@ -1,3 +1,4 @@
+import { ShapeUtils, Vector2 } from "three";
 import type { OrientedRectangle, PolygonOverlap, Position2D } from "../../types/domain";
 import { GEOMETRY_EPSILON_CM } from "./footprint";
 
@@ -145,10 +146,34 @@ export function polygonCentre(polygon: readonly Position2D[]): Position2D {
   return { x: polygon.reduce((sum, point) => sum + point.x, 0) / polygon.length, z: polygon.reduce((sum, point) => sum + point.z, 0) / polygon.length };
 }
 
+export function polygonTriangles(polygon: readonly Position2D[]): Position2D[][] {
+  return ShapeUtils.triangulateShape(polygon.map((point) => new Vector2(point.x, point.z)), []).map((indices) => {
+    const triangle = indices.map((index) => polygon[index]);
+    const [first, second, third] = triangle;
+    return (second.x - first.x) * (third.z - first.z) - (second.z - first.z) * (third.x - first.x) < 0 ? triangle.reverse() : triangle;
+  });
+}
+
+export function polygonOutsideArea(footprint: readonly Position2D[], outline: readonly Position2D[]): number {
+  const inside = polygonTriangles(outline).reduce((area, triangle) => area + polygonArea(clipPolygon(footprint, triangle)), 0);
+  return Math.max(0, polygonArea(footprint) - inside);
+}
+
+export function pointInPolygon(point: Position2D, polygon: readonly Position2D[]): boolean {
+  if (polygon.some((start, index) => pointSegmentDistance(point, start, polygon[(index + 1) % polygon.length]) <= GEOMETRY_EPSILON_CM)) return true;
+  let inside = false;
+  for (let index = 0; index < polygon.length; index++) {
+    const start = polygon[index];
+    const end = polygon[(index + 1) % polygon.length];
+    if ((start.z > point.z) !== (end.z > point.z) && point.x < (end.x - start.x) * (point.z - start.z) / (end.z - start.z) + start.x) inside = !inside;
+  }
+  return inside;
+}
+
 export function floorTrianglePositions(polygon: readonly Position2D[], envelope: { width: number; depth: number }, elevation = 0.012): Float32Array {
   const positions: number[] = [];
-  for (let index = 1; index < polygon.length - 1; index++) {
-    for (const point of [polygon[0], polygon[index + 1], polygon[index]]) {
+  for (const triangle of polygonTriangles(polygon)) {
+    for (const point of [...triangle].reverse()) {
       const [x, , z] = scenePositionCm(point, envelope);
       positions.push(x, elevation, z);
     }

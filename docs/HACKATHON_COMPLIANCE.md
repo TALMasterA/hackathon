@@ -48,7 +48,7 @@ There are no fake APIs, predetermined fit outcomes, hidden layout solving, or un
 | Vitest | Automated deterministic tests |
 | ESLint / eslint-config-next | Static quality checks |
 
-The npm lockfile records direct and transitive dependencies and upstream licences. README contains versions and upstream credits. Fourteen CC0 furniture models from the Kenney Furniture Kit 2.0 are redistributed in `public/models/furniture/` with the kit's licence file and a README credit. No other externally downloaded model, texture, reference-plan image or PDF is redistributed; the Housing Authority plan used to verify the trace was kept outside the repository, and no traced flat is committed. No project software licence has been added without the owner's request.
+The npm lockfile records direct and transitive dependencies and upstream licences. README contains versions and upstream credits. Fourteen CC0 furniture models from the Kenney Furniture Kit 2.0 are redistributed in `public/models/furniture/` with the kit's licence file and a README credit. No other externally downloaded model, texture, reference-plan image or PDF is redistributed, except the user-supplied isolated Harmony SVG reference in `public/plans/` that the Harmony preset links to; the Housing Authority plan used to verify the trace was kept outside the repository, and no traced flat is committed. No project software licence has been added without the owner's request.
 
 ## AI Coding-Assistant Disclosure and Review
 
