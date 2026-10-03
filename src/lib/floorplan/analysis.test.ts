@@ -8,7 +8,7 @@ import { strokeWidths, type Strokes } from "./strokes";
 import { blankPlan, drawDoorSwing, drawSegment, drawWall, fillRect, hLine, vLine, type WallDrawing } from "./test-image";
 
 /** Synthetic plans at 1 cm per pixel: 4 px wall strokes, 1 px fixture strokes. */
-const STROKES: Strokes = { thin: 1, heavy: 4, distinct: true };
+const STROKES: Strokes = { thin: 1, heavy: 4, pens: [1, 4], distinct: true };
 const context = (image: GrayImage): SnapContext => ({ image, cmPerPx: 1, strokes: STROKES });
 const wall = (overrides: Partial<WallDrawing> & Pick<WallDrawing, "orientation" | "centre">): WallDrawing => ({ from: 60, to: 440, thickness: 20, line: 4, ...overrides });
 
@@ -166,6 +166,51 @@ describe("snapping one room edge to the drawn wall", () => {
     const snap = snapEdge(context(image), topProbe(115));
     expect(snap.face).toBeCloseTo(100, 0);
     expect(snap.thickness).toBeCloseTo(20, 0);
+  });
+});
+
+describe("Housing Authority drawing conventions (0.5 cm per pixel, pens as in Harmony 1)", () => {
+  // Thin 0.36 pt (fixtures, glazing), medium 0.72 pt (partitions), heavy 1.44 pt (structure), at 0.5 cm/px.
+  const PENS: Strokes = { thin: 5, heavy: 20, pens: [5, 10, 20], distinct: true };
+  const half = (image: GrayImage): SnapContext => ({ image, cmPerPx: 0.5, strokes: PENS });
+
+  /** Inner faces x 200–800, y 200–600 px: a medium-pen partition above, merged glazing left, heavy walls right and below. */
+  function plan(): GrayImage {
+    const image = blankPlan(1000, 760);
+    hLine(image, 185, 100, 900, 10);
+    hLine(image, 200, 100, 900, 10);
+    vLine(image, 160, 150, 650, 5);
+    // Glazing strokes 3–4 px apart merge into one 16 px band, as Harmony 1's do (17 px), wider than a medium pen.
+    for (const x of [189, 193, 197, 200]) vLine(image, x, 150, 650, 5);
+    hLine(image, 600, 100, 900, 20);
+    hLine(image, 650, 100, 900, 20);
+    vLine(image, 800, 150, 700, 20);
+    vLine(image, 850, 150, 700, 20);
+    // Glazing in a small window gap beside the partition's outer stroke must not pull its centre.
+    hLine(image, 175, 400, 470, 5);
+    return image;
+  }
+  const box = { minX: 200, maxX: 800, minZ: 200, maxZ: 600 };
+
+  it.each([
+    ["top", "a partition drawn as two medium strokes 7.5 cm apart", 200, 7.5],
+    ["left", "a window wall of merged glazing strokes, at the innermost one", 200, 20],
+    ["bottom", "a structural wall of two heavy strokes", 600, 25],
+    ["right", "a structural wall from inside the room", 800, 25],
+  ] as const)("verifies the %s edge: %s", (side, _, face, thickness) => {
+    const probe = edgeProbe(box, side);
+    const snap = snapEdge(half(plan()), { ...probe, position: probe.position + probe.interior * 20 });
+    expect(snap.status).toBe("verified");
+    expect(Math.abs(snap.face - face)).toBeLessThanOrEqual(0.5);
+    expect(snap.thickness).toBeCloseTo(thickness, 0);
+  });
+
+  it("measures the pens of such a drawing", () => {
+    const strokes = strokeWidths(plan(), 30);
+    expect(strokes.distinct).toBe(true);
+    // Anti-aliasing turns a 5 px stroke into 4 or 5 px ink runs.
+    expect(Math.abs(strokes.thin - 5)).toBeLessThanOrEqual(1.2);
+    expect(Math.abs(strokes.heavy - 20)).toBeLessThanOrEqual(1.2);
   });
 });
 

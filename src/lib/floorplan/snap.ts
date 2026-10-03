@@ -39,7 +39,10 @@ export interface EdgeSnap {
 }
 
 const LINE_COVERAGE = 0.25;
-const WALL_CM = { min: 5, max: 35, pairedMin: 7 };
+const STROKE_CORE = 0.5;
+const WEAK_STROKE_SHARE = 0.6;
+/** Face-to-face spacing of a wall: Housing Authority partitions are about 7 cm, structural walls 20–30 cm. */
+const WALL_CM = { min: 4, max: 35, pairedMin: 5 };
 const SEARCH_CM = { min: 25, base: 40, max: 80 };
 const SEARCH_IMAGE_SHARE = 0.04;
 const SEARCH_ROOM_SHARE = 0.4;
@@ -50,9 +53,23 @@ const VERIFIED_COVERAGE = 0.5;
 const KEPT_COVERAGE = 0.35;
 const VERIFIED_MARGIN = 0.15;
 const SHADOW_COVERAGE = 0.6;
+/** A wall stroke cut by a door still marks the face beyond it as a far face. */
+const WALL_SHADOW_COVERAGE = 0.35;
 const HEAVY_SHARE = 0.7;
 const SOLID_SHARE = 1.6;
-const WEIGHTS = { band: 1, face: 0.5, paired: 0.4, heavy: 0.3, clear: 0.2, distance: 0.6, shadow: 0.8 };
+/** Strokes this much wider than the thinnest pen are wall pens (partitions or structure), not fixtures. */
+const WALL_PEN_RATIO = 1.6;
+/**
+ * A stroke within 15 % (or 1.2 px) of a pen width is one stroke; anything else is several merged
+ * strokes. Tight enough that merged glazing (17 px in Harmony 1 at 0.5 cm/px) is not a 21 px wall pen.
+ */
+const PEN_MATCH = 0.15;
+const PEN_MATCH_PX = 1.2;
+/** A window wall is drawn as a group of at least this many parallel strokes (frame and glazing). */
+const GLAZING_LINES = 3;
+const MERGED_SHARE = 1.5;
+const GROUP_COVERAGE = 0.6;
+const WEIGHTS = { band: 1, face: 0.5, paired: 0.4, pen: 0.15, heavy: 0.15, clear: 0.2, distance: 0.6, shadow: 0.8 };
 
 interface Line {
   start: number;
@@ -138,20 +155,40 @@ class Profile {
       rows.push({ row, coverage: ink / count, dark: dark / count });
     }
     const lines: Line[] = [];
+    const line = (from: number, to: number): Line => {
+      const around = rows.slice(Math.max(0, from - 1), Math.min(rows.length, to + 2));
+      const total = around.reduce((sum, entry) => sum + entry.dark, 0);
+      const plateau = rows.slice(from, to + 1).map((entry) => entry.dark).sort((first, second) => first - second)[Math.floor((to - from) / 2)];
+      return {
+        start: rows[from].row,
+        end: rows[to].row,
+        centre: around.reduce((sum, entry) => sum + entry.dark * (entry.row + 0.5), 0) / total,
+        width: plateau > 0 ? total / plateau : to - from + 1,
+        coverage: this.coverage(rows[from].row, rows[to].row),
+      };
+    };
     for (let index = 0; index < rows.length; index++) {
       if (rows[index].coverage < LINE_COVERAGE) continue;
       let end = index;
       while (end + 1 < rows.length && rows[end + 1].coverage >= LINE_COVERAGE) end++;
-      const around = rows.slice(Math.max(0, index - 1), Math.min(rows.length, end + 2));
-      const total = around.reduce((sum, entry) => sum + entry.dark, 0);
-      const plateau = [...rows.slice(index, end + 1).map((entry) => entry.dark)].sort((first, second) => first - second)[Math.floor((end - index) / 2)];
-      lines.push({
-        start: rows[index].row,
-        end: rows[end].row,
-        centre: around.reduce((sum, entry) => sum + entry.dark * (entry.row + 0.5), 0) / total,
-        width: plateau > 0 ? total / plateau : end - index + 1,
-        coverage: this.coverage(rows[index].row, rows[end].row),
-      });
+      // A stroke is the rows with at least half the run's best coverage, so a weaker neighbour (glazing
+      // in a window gap right beside a wall stroke) becomes its own line instead of dragging the centre.
+      const peak = Math.max(...rows.slice(index, end + 1).map((entry) => entry.coverage));
+      for (let cursor = index; cursor <= end; cursor++) {
+        const strong = (row: number) => rows[row].coverage >= Math.max(LINE_COVERAGE, peak * STROKE_CORE);
+        if (!strong(cursor)) {
+          let weakEnd = cursor;
+          while (weakEnd + 1 <= end && !strong(weakEnd + 1)) weakEnd++;
+          // Only a weak run as thick as a real stroke is one; a row or two is a stroke's anti-aliased fringe.
+          if (weakEnd - cursor + 1 >= Math.max(2, this.context.strokes.thin * WEAK_STROKE_SHARE)) lines.push(line(cursor, weakEnd));
+          cursor = weakEnd;
+          continue;
+        }
+        let strongEnd = cursor;
+        while (strongEnd + 1 <= end && strong(strongEnd + 1)) strongEnd++;
+        lines.push(line(cursor, strongEnd));
+        cursor = strongEnd;
+      }
       index = end;
     }
     return lines;
@@ -169,31 +206,49 @@ export function snapEdge(context: SnapContext, probe: EdgeProbe): EdgeSnap {
   const lines = profile.lines(Math.floor(probe.position - reach), Math.ceil(probe.position + reach));
   const exterior = -probe.interior;
   const { strokes } = context;
-  const isHeavy = (line: Line) => strokes.distinct ? line.width >= strokes.heavy * HEAVY_SHARE : true;
+  const isWallPen = (line: Line) => !strokes.distinct || line.width >= strokes.thin * WALL_PEN_RATIO;
+  const isHeavy = (line: Line) => strokes.distinct && line.width >= strokes.heavy * HEAVY_SHARE;
+  const singlePen = (line: Line) => strokes.pens.some((pen) => Math.abs(line.width - pen) <= Math.max(PEN_MATCH_PX, pen * PEN_MATCH));
+  /** Thin strokes a line holds: one when it matches a pen, more for a band of merged thin strokes. */
+  const thinStrokes = (line: Line) => strokes.distinct && !singlePen(line) && line.width >= strokes.thin * MERGED_SHARE ? Math.round((line.width - strokes.thin) / strokes.thin) + 1 : 1;
 
   const candidates: Candidate[] = [];
   for (const line of lines) {
-    const solid = line.width > strokes.heavy * SOLID_SHARE && line.width > px(WALL_CM.min);
-    // A wide solid band is two merged face strokes (or a filled wall): its face is half a stroke inside the band's edge.
-    const face = solid ? line.centre + probe.interior * (line.width / 2 - strokes.heavy / 2) : line.centre;
-    if (Math.abs(face - probe.position) > radius) continue;
     const beyond = (other: Line, direction: number) => {
       const distance = (other.centre - line.centre) * direction;
       return distance >= Math.max(px(WALL_CM.min), (line.width + other.width) / 2) && distance <= px(WALL_CM.max);
     };
-    // A wall's far face is the strongest stroke beyond it within a wall's width; a thin fixture stroke
-    // (a bath rim, a counter) never pairs with a wall stroke when the plan's pens tell them apart.
-    const partner = solid || !isHeavy(line) ? null : lines.filter((other) => other !== line && beyond(other, exterior) && isHeavy(other))
-      .sort((first, second) => second.coverage - first.coverage || Math.abs(first.centre - line.centre) - Math.abs(second.centre - line.centre))[0] ?? null;
-    const thicknessCm = solid ? (line.width - strokes.heavy) * context.cmPerPx : partner ? Math.abs(partner.centre - line.centre) * context.cmPerPx : null;
+    const strongest = (options: Line[]) => options.sort((first, second) => second.coverage - first.coverage || Math.abs(first.centre - line.centre) - Math.abs(second.centre - line.centre))[0] ?? null;
+    const solid = !singlePen(line) && line.width > strokes.heavy * SOLID_SHARE && line.width > px(WALL_CM.min);
+    // The far face: the strongest wall stroke within a wall's width beyond this one, so a thin fixture
+    // stroke (a bath rim, a counter) never pairs with a wall stroke when the pens tell them apart.
+    let partner = solid || !isWallPen(line) ? null : strongest(lines.filter((other) => other !== line && beyond(other, exterior) && isWallPen(other)));
+    let glazing = false;
+    if (!solid && !partner) {
+      // A window wall: frame and glazing strokes in any pen, three or more counting merged ones.
+      const group = lines.filter((other) => other !== line && beyond(other, exterior) && other.coverage >= line.coverage * GROUP_COVERAGE);
+      if (group.length + thinStrokes(line) >= GLAZING_LINES) {
+        partner = group.length > 0 ? group.reduce((far, other) => (other.centre - far.centre) * exterior > 0 ? other : far) : null;
+        glazing = true;
+      }
+    }
+    // One stroke (or a paired wall stroke): its centre. Merged wall strokes or a filled wall: half a wall
+    // pen inside the band's edge. Merged glazing: half a thin pen inside, the innermost stroke's centre.
+    const inset = solid ? strokes.heavy / 2 : glazing && thinStrokes(line) > 1 ? strokes.thin / 2 : line.width / 2;
+    const face = line.centre + probe.interior * (line.width / 2 - inset);
+    if (Math.abs(face - probe.position) > radius) continue;
+    const farEdge = partner && glazing ? partner.centre + exterior * (partner.width / 2 - strokes.thin / 2) : partner?.centre;
+    const thicknessCm = solid ? (line.width - strokes.heavy) * context.cmPerPx : farEdge !== undefined ? Math.abs(farEdge - face) * context.cmPerPx : glazing ? (line.width - strokes.thin) * context.cmPerPx : null;
     const paired = thicknessCm !== null && thicknessCm >= WALL_CM.pairedMin && thicknessCm <= WALL_CM.max;
     const bandCoverage = partner ? profile.coverage(Math.min(line.start, partner.start), Math.max(line.end, partner.end)) : line.coverage;
-    const stripStart = face + probe.interior * (line.width / 2 + px(CLEAR_STRIP_CM[0]));
-    const stripEnd = face + probe.interior * (line.width / 2 + px(CLEAR_STRIP_CM[1]));
+    const stripStart = face + probe.interior * (inset + px(CLEAR_STRIP_CM[0]));
+    const stripEnd = face + probe.interior * (inset + px(CLEAR_STRIP_CM[1]));
     const clear = profile.clear(Math.round(stripStart), Math.round(stripEnd));
-    // A wall stroke on the room's side within a wall's width means this line is the far face, not the near one.
-    const shadowed = !solid && lines.some((other) => other !== line && beyond(other, probe.interior) && other.coverage >= line.coverage * SHADOW_COVERAGE && isHeavy(other));
-    const score = WEIGHTS.band * bandCoverage + WEIGHTS.face * line.coverage + WEIGHTS.paired * Number(paired) + WEIGHTS.heavy * Number(strokes.distinct && isHeavy(line))
+    // A stroke on the room's side within a wall's width means this line is a far face, not the near one.
+    // Only wall pens can hide a wall-pen stroke (even one cut by a door); any stroke can hide glazing.
+    const shadowed = !solid && lines.some((other) => other !== line && beyond(other, probe.interior)
+      && (isWallPen(line) && !glazing ? isWallPen(other) && other.coverage >= line.coverage * WALL_SHADOW_COVERAGE : other.coverage >= line.coverage * SHADOW_COVERAGE));
+    const score = WEIGHTS.band * bandCoverage + WEIGHTS.face * line.coverage + WEIGHTS.paired * Number(paired) + WEIGHTS.pen * Number(strokes.distinct && isWallPen(line)) + WEIGHTS.heavy * Number(isHeavy(line))
       + WEIGHTS.clear * clear - WEIGHTS.distance * Math.abs(face - probe.position) / radius - WEIGHTS.shadow * Number(shadowed);
     candidates.push({ line, face, partner, thicknessCm: paired ? thicknessCm : null, bandCoverage, score });
   }
@@ -237,6 +292,7 @@ export interface SnappedRoom {
 
 const FACING: [EdgeSide, EdgeSide][] = [["bottom", "top"], ["right", "left"]];
 const FACING_GAP_CM = 40;
+const WALL_GAP_CM = 35;
 const COLLINEAR_CM = 2;
 
 function overlaps(first: Box, second: Box, side: EdgeSide): boolean {
@@ -270,11 +326,14 @@ export function snapRooms(context: SnapContext, rooms: readonly PixelRoom[], ope
         if (gap < -px(COLLINEAR_CM) || gap > px(FACING_GAP_CM)) continue;
         const [near, far] = [room.edges[lowSide], other.edges[highSide]];
         if (open.has(`${room.id}|${other.id}`)) {
-          const middle = (near.face + far.face) / 2;
-          setFace(room, lowSide, middle);
-          setFace(other, highSide, middle);
-          room.edges[lowSide] = { ...room.edges[lowSide], status: "open" };
-          other.edges[highSide] = { ...other.edges[highSide], status: "open" };
+          // One space traced as two rectangles: the shared edges meet. A verified face (a wall along part
+          // of the edge) wins; the other edge is marked open, since no wall separates the two parts.
+          if (near.status === "verified" && far.status === "verified") continue;
+          const face = near.status === "verified" ? near.face : far.status === "verified" ? far.face : (near.face + far.face) / 2;
+          setFace(room, lowSide, face);
+          setFace(other, highSide, face);
+          if (near.status !== "verified") room.edges[lowSide] = { ...room.edges[lowSide], status: "open" };
+          if (far.status !== "verified") other.edges[highSide] = { ...other.edges[highSide], status: "open" };
         } else if (near.status === "verified" && far.status !== "verified" && near.thickness) {
           setFace(other, highSide, near.face + px(near.thickness));
           other.edges[highSide] = { ...other.edges[highSide], status: "verified", thickness: near.thickness };
@@ -283,6 +342,22 @@ export function snapRooms(context: SnapContext, rooms: readonly PixelRoom[], ope
           room.edges[lowSide] = { ...room.edges[lowSide], status: "verified", thickness: far.thickness };
         }
       }
+    }
+  }
+
+  // An edge with no evidence of its own (e.g. a wide window or duct opening in an outer wall) moves
+  // onto the collinear verified face of a room beside it on the same wall line, but stays flagged.
+  const spans: Record<EdgeSide, [keyof Box, keyof Box]> = { top: ["minX", "maxX"], bottom: ["minX", "maxX"], left: ["minZ", "maxZ"], right: ["minZ", "maxZ"] };
+  for (const room of result) {
+    for (const side of EDGE_SIDES) {
+      const edge = room.edges[side];
+      if (edge.status !== "unverified" || edge.confidence > 0) continue;
+      const [low, high] = spans[side];
+      const reach = searchRadius(context, side === "top" || side === "bottom" ? room.box.maxZ - room.box.minZ : room.box.maxX - room.box.minX);
+      const neighbour = result.filter((other) => other !== room && other.edges[side].status === "verified" && Math.abs(other.edges[side].face - edge.face) <= reach
+        && Math.max(other.box[low], room.box[low]) - Math.min(other.box[high], room.box[high]) <= px(WALL_GAP_CM))
+        .sort((first, second) => Math.abs(first.edges[side].face - edge.face) - Math.abs(second.edges[side].face - edge.face))[0];
+      if (neighbour) setFace(room, side, neighbour.edges[side].face);
     }
   }
 
