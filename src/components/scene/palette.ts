@@ -1,10 +1,19 @@
-import type { FurnitureItem } from "@/types/domain";
+import type { FurnitureKind } from "@/types/domain";
 
-export const FURNITURE_COLORS: Record<FurnitureItem["kind"], string> = {
+export const FURNITURE_COLORS: Record<FurnitureKind, string> = {
   sofa: "#75958b",
   "coffee-table": "#bc795f",
   "tv-console": "#5e6863",
   "side-table": "#d0aa54",
+  "dining-table": "#b39662",
+  chair: "#879a79",
+  bed: "#7b8d9c",
+  wardrobe: "#a59787",
+  desk: "#b6846e",
+  "kitchen-counter": "#8b9998",
+  fridge: "#b7c5c8",
+  toilet: "#d5d7d4",
+  vanity: "#8daea8",
 };
 
 export const CANDIDATE_COLOR = "#33765d";

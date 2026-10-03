@@ -16,3 +16,5 @@ Work on the existing main branch, commit coherent checked milestones, fetch befo
 | 2 | hackathon-2-fixing-prompt.md | Whole-flat, arbitrary-angle editor, live issues, generic locks, library and baseline comparison; implementation milestones in progress |
 
 Revision 2 milestones: data/geometry/tests; plan drag/rotation; 3D sync/issues; locks/bounce; library/baseline; current documentation/final verification. A foundation commit does not imply that its future UI is already exposed.
+
+Data/geometry is delivered in 84ac6f0. The plan-editor milestone supplies a tested reducer, pointer-capture SVG plan, circular/keyboard rotation dial, precise numeric controls, bilingual issues and item list. The public entry still uses Revision 1 until the 3D integration milestone replaces it; library and lock-management controls are not yet offered.

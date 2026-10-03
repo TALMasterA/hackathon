@@ -115,6 +115,15 @@ function pointSegmentDistance(point: Position2D, start: Position2D, end: Positio
   return Math.hypot(point.x - start.x - ratio * (end.x - start.x), point.z - start.z - ratio * (end.z - start.z));
 }
 
+export function pointPolygonDistance(point: Position2D, polygon: readonly Position2D[]): number {
+  if (pointInside(point, polygon)) return 0;
+  return Math.min(...polygon.map((start, index) => pointSegmentDistance(point, start, polygon[(index + 1) % polygon.length])));
+}
+
+export function rotationFromPoint(point: Position2D, centre: Position2D): number {
+  return normalizeAngle(Math.atan2(point.z - centre.z, point.x - centre.x) * 180 / Math.PI);
+}
+
 export function polygonDistance(first: readonly Position2D[], second: readonly Position2D[]): number {
   if (polygonOverlap(first, second) || first.some((point) => pointInside(point, second)) || second.some((point) => pointInside(point, first))) return 0;
   let distance = Infinity;
