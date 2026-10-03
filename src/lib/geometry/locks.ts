@@ -1,6 +1,22 @@
 import type { DistanceLock, FlatFurniture, LayoutLocks, LockViolation } from "../../types/domain";
 import { GEOMETRY_EPSILON_CM } from "./footprint";
+import { parseDecimalText } from "./input";
 import { polygonDistance, rectanglePolygon } from "./oriented";
+
+export type LockSetupIssue = "same-items" | "missing-items" | "minimum-input";
+
+export function validateDistanceLock(furniture: readonly FlatFurniture[], input: { id: string; firstId: string; secondId: string; minimum: string }):
+  | { status: "input"; issue: LockSetupIssue }
+  | { status: "violated"; violations: LockViolation[] }
+  | { status: "valid"; lock: DistanceLock } {
+  if (input.firstId === input.secondId) return { status: "input", issue: "same-items" };
+  if (![input.firstId, input.secondId].every((id) => furniture.some((item) => item.id === id))) return { status: "input", issue: "missing-items" };
+  const minimum = parseDecimalText(input.minimum);
+  if (!minimum.valid || minimum.value < 0) return { status: "input", issue: "minimum-input" };
+  const lock: DistanceLock = { id: input.id, firstId: input.firstId, secondId: input.secondId, minimum: minimum.value };
+  const violations = distanceLockViolations(furniture, [lock]);
+  return violations.length > 0 ? { status: "violated", violations } : { status: "valid", lock };
+}
 
 export function distanceLockViolations(furniture: readonly FlatFurniture[], locks: readonly DistanceLock[]): LockViolation[] {
   return locks.flatMap((lock) => {

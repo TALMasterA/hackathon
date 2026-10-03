@@ -13,6 +13,7 @@ import type { Flat, FlatFurniture, Language, LayoutViolation } from "@/types/dom
 import { FurniturePanel } from "./furniture-panel";
 import { IssuesPanel } from "./issues-panel";
 import { ItemList } from "./item-list";
+import { LocksPanel } from "./locks-panel";
 import { createEditorState, editorReducer } from "./state";
 
 export interface EditorSceneProps {
@@ -64,7 +65,8 @@ export function FlatEditorApp({ SceneViewport }: { SceneViewport?: ComponentType
           </div>
           <aside className="editor-sidebar" id="item-details" aria-label={text("editor.selected")}>
             <FurniturePanel item={selected} draft={state.draft} issues={state.inputIssues} editable={editable} positionLocked={Boolean(selected && state.locks.position.includes(selected.id))} language={state.language} onField={(field, value) => dispatch({ type: "draft", field, value })} onRotate={(angle) => { if (selected) dispatch({ type: "propose", item: { ...selected, orientation: angle } }); }} onBlur={() => dispatch({ type: "normalise-draft" })} />
-            {state.lockNotice.length > 0 && <section className="lock-notice" role="status" data-testid="lock-notice"><h3>{text("locks.bounce")}</h3><ul>{state.lockNotice.map((issue) => <li key={issue.lockId}>{lockMessage(issue, state.current.furniture, state.language)}</li>)}</ul></section>}
+            {state.lockNotice.length > 0 && <section className="lock-notice" role="status" data-testid="lock-notice"><h3>{text(state.lockNoticeContext === "edit" ? "locks.bounce" : "locks.notApplied")}</h3><ul>{state.lockNotice.map((issue) => <li key={issue.lockId}>{lockMessage(issue, state.current.furniture, state.language)}</li>)}</ul></section>}
+            <LocksPanel key={state.selectedId ?? "none"} furniture={state.current.furniture} locks={state.locks} selectedId={state.selectedId} editable={editable} language={state.language} setupIssue={state.lockSetupIssue} onPosition={(id) => dispatch({ type: "position-lock", id })} onSave={(input) => dispatch({ type: "distance-lock", ...input })} onRemove={(id) => dispatch({ type: "remove-distance-lock", id })} />
             <ItemList furniture={snapshot.furniture} selectedId={state.selectedId} positionLocks={state.locks.position} language={state.language} onSelect={select} />
           </aside>
         </div>

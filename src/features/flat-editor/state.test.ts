@@ -94,3 +94,67 @@ describe("pointer and dial math", () => {
     expect(rotationFromPoint({ x, z }, { x: 0, z: 0 })).toBe(angle);
   });
 });
+
+describe("multiple lock management and bounce-back", () => {
+  const gapAction = { type: "distance-lock", firstId: "living-sofa", secondId: "living-coffee-table", minimum: "25" } as const;
+
+  it("creates, edits and removes a satisfiable distance lock", () => {
+    const created = editorReducer(createEditorState(), gapAction);
+    expect(created.locks.distance).toHaveLength(1);
+    const edited = editorReducer(created, { ...gapAction, id: "distance-1", minimum: "30" });
+    expect(edited.locks.distance[0].minimum).toBe(30);
+    expect(editorReducer(edited, { type: "remove-distance-lock", id: "distance-1" }).locks.distance).toEqual([]);
+  });
+
+  it("does not apply an impossible lock or move items to satisfy it", () => {
+    const initial = createEditorState();
+    const state = editorReducer(initial, { ...gapAction, minimum: "100" });
+    expect(state.locks.distance).toEqual([]);
+    expect(state.current).toBe(initial.current);
+    expect(state.lockNotice).toContainEqual(expect.objectContaining({ code: "lock.distance", required: 100, actual: 32.5 }));
+    expect(state.lockNoticeContext).toBe("setup");
+  });
+
+  it("keeps the old lock when an edited minimum is impossible", () => {
+    const created = editorReducer(createEditorState(), gapAction);
+    expect(editorReducer(created, { ...gapAction, id: "distance-1", minimum: "100" }).locks.distance[0].minimum).toBe(25);
+  });
+
+  it.each(["", "-1", "Infinity", "10cm"])("rejects bad minimum input %j", (minimum) => {
+    const state = editorReducer(createEditorState(), { ...gapAction, minimum });
+    expect(state.locks.distance).toEqual([]);
+    expect(state.lockSetupIssue).toBe("minimum-input");
+  });
+
+  it("rejects same/missing item endpoints", () => {
+    expect(editorReducer(createEditorState(), { ...gapAction, secondId: "living-sofa" }).lockSetupIssue).toBe("same-items");
+    expect(editorReducer(createEditorState(), { ...gapAction, secondId: "missing" }).lockSetupIssue).toBe("missing-items");
+  });
+
+  it("maintains multiple position locks and still permits rotation", () => {
+    const first = editorReducer(createEditorState(), { type: "position-lock", id: "living-sofa" });
+    const state = editorReducer(first, { type: "position-lock", id: "living-coffee-table" });
+    expect(state.locks.position).toHaveLength(2);
+    expect(editorReducer(state, { type: "draft", field: "angle", value: "30" }).current.furniture[0].orientation).toBe(30);
+  });
+
+  it("returns the last accepted drag position after a locked threshold is crossed", () => {
+    const initial = editorReducer(createEditorState(), gapAction);
+    const original = initial.current.furniture[0];
+    const valid = editorReducer(initial, { type: "propose", item: { ...original, position: { x: 250, z: 268 } } });
+    const rejected = editorReducer(valid, { type: "propose", item: { ...original, position: { x: 250, z: 250 } } });
+    expect(rejected.current.furniture[0].position).toEqual({ x: 250, z: 268 });
+    expect(rejected.lockNotice).toContainEqual(expect.objectContaining({ required: 25, actual: 12.5 }));
+    expect(rejected.draft?.z).toBe("268");
+  });
+
+  it("supports several user-defined distance locks on the same item", () => {
+    const first = editorReducer(createEditorState(), gapAction);
+    const state = editorReducer(first, { type: "distance-lock", firstId: "living-sofa", secondId: "living-side-table", minimum: "5" });
+    expect(state.locks.distance).toHaveLength(2);
+    const item = state.current.furniture[0];
+    const result = editorReducer(state, { type: "propose", item: { ...item, position: { x: 280, z: 250 } } });
+    expect(result.lockNotice).toHaveLength(2);
+    expect(result.current).toBe(state.current);
+  });
+});
