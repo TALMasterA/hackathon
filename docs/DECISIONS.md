@@ -1,71 +1,62 @@
 # Decisions
 
-## Revision 2 Decisions (Superseding On Integration)
+## Revision 2 Team Decisions
 
-The Revision 2 fixing prompt supersedes the single-room, sofa-only, fixed-centre, 0/90, hard-coded clear-zone and accepted-After decisions below. The initial foundation milestone keeps the old UI running while adding the new independently tested data/geometry. The old behavior is not the intended final Revision 2 surface.
+The fixing prompt supersedes Revision 1's single-room, sofa-only, fixed-centre, 0/90, fixed clear-gap and gated-After rules. Their code/tests/text are removed or migrated. This revision implements exactly the listed whole-flat editor features; subsequent changes require another judge/fix prompt.
 
-The generated five-room flat is 660 x 640 cm with uniform 10 cm walls, directly connected rooms and no corridor. Dimensions are assumptions; equal-sized bedrooms are deliberate, not a Housing Authority claim. Positive angles are clockwise in the X-right/Z-down plan and negative Y rotation in Three.js. Input 360 is normalised to 0, not clamped.
+- Whole flat, no corridor; five rooms with walls, door openings/swing zones and visual windows, including an entrance.
+- Every item is movable/rotatable/resizable/replaceable; a preset library and manual numeric dimensions are retained.
+- Pointer Events for 2D mouse/touch movement and numeric X/Z; 3D remains view-only for dragging with existing camera controls.
+- Continuous default-zero [0, 360) rotation, circular side-panel dial and numeric entry; exact oblique footprint geometry.
+- Multiple position locks and optional user-created minimum edge-distance locks; no wall-distance rule or forced clearance.
+- Lock-breaking edits bounce to the last accepted state; geometric overlap remains an allowed, visible warning.
+- Immediate Before/After in both views, current changes/ghosts/issues, new baseline action and no separate Check gate.
+- Complete English / Traditional Chinese data/control/messages; no backend, deployment, scanning, accounts, paid runtime API, analytics or undo/redo.
 
-Door collision zones use conservative square bounds for a 90-degree swing. Windows are visual only and do not cut collision walls. Before will be read-only; After will update immediately. A new/edited distance lock must already be satisfiable by the current layout; impossible locks will be rejected rather than silently moving furniture. These choices need team review after integration.
+## Assumed Flat And Architecture
 
-Temporary geometric overlap is a warning, not rejection. Only position/distance lock violations reject an item edit, returning its last accepted state. All simultaneous lock violations are reported. The previous sofa-table preference is replaced by generic user-created distance locks; the new default has none.
+The generated envelope is 660 x 640 cm with uniform 10 cm walls and 20 initial zero-degree items. The two bedrooms have equal assumed area; master/second distinguish use, not certified sizes. The default is warning-free, with no locks. All dimensions are in FLAT_DEMO_DATA and sanity-tested.
 
-## One Living / Dining-Room Demo
+Concord 1 Option 1, 2B is a scenario reference only. Its typical full-floor PDF does not supply reliable individual-flat dimensions. No extraction, exact-reconstruction claim, embedding or redistribution is performed. Code/UI/README label assumptions in both languages and retain official links and measurement caution.
 
-One deterministic scenario makes the complete first-version task testable during the event. Multiple floor plans would increase measurement, attribution, UI, and verification obligations before the core task is established.
+Door openings are true gaps in wall rectangles. A conservative width-square swing zone sits inside the swing room, with a quarter-turn arc/open leaf for illustration. It is not an exact sweep or regulation. Windows are visual panels/marks with sill height and do not cut collision walls; window clearance is explicitly not modelled.
 
-## Dimensions Are Assumptions
+## Coordinates And Numerical Choices
 
-Concord 1 Option 1, 2B is a public scenario reference. Its typical full-floor PDF is not a dimensioned individual-flat plan. The 420 x 300 x 260 cm room and furniture positions come from the team's earlier demo specification, not pixel extraction or Housing Authority certification. The data includes an explicit `team-demo-assumptions` dimension source, and both UI languages carry the limitation.
+Domain units are cm, global origin front-left floor corner, X right, Z depth and Y up. Positive angle is clockwise in the X-right/Z-down plan; Three.js uses negative Y radians. The 360 input alias becomes 0. A 0.000001 cm epsilon applies to contact and lock comparisons, not physical uncertainty. Change detection also ignores micro-degree/numeric noise of that magnitude; ceiling comparisons remain direct.
 
-## Sofa-Only Replacement
+SAT, containment-correct translation/penetration, convex clipping/area and exact convex edge distance are pure functions returning codes, IDs and numbers. No render approximation or language string decides acceptance. Width/depth <=1000 cm, height <=500 cm and ceiling 220-350 are retained. Numeric positions are allowed outside the envelope but restricted to +/-10000 cm to avoid extreme finite-number rendering overflow. All bounds reject rather than clamp; minimum distances accept any finite nonnegative decimal.
 
-Replacing a known sofa is one complete household purchase task. Furniture categories and replaceable flags remain data-driven, but broader replacement controls or category-specific models are not silently implemented.
+## Lock Policy
 
-## Fixed-Centre Replacement
+All default locks are empty. Position locks fix only the centre; rotation/size still pass optional distance locks. Several locks may involve the same item or pair. Zero minimum permits overlap with a separate geometry warning. Only locks reject complete item proposals; all simultaneous violations are displayed.
 
-The replacement stays at X = 200, Z = 250. This avoids claiming to solve layouts or search alternative positions. The old sofa alone is excluded from obstacles; every other furniture item remains fixed. Corrections never recommend moving fixed furniture.
+Bounce-back uses an immediate snap, allowed by the prompt, rather than animation or undo history. Every drag proposal checks locks, so rejected proposals never replace accepted state and release/cancel cannot leave a bad pose. Numeric/rotation/preset replacement uses the same function and resets fields on rejection.
 
-## Only 0 / 90 Degrees
+New/edited distance locks must already be satisfiable; otherwise old locks/layout remain unchanged and required/current numbers are reported. There is no automatic movement to create clearance. Deleting an endpoint removes its related locks, including position locks, so constraints cannot reference missing items. Editing lock drafts separately from their saved required/actual readout avoids presenting a rejected minimum as applied.
 
-These orientations support predictable product comparison while retaining exact axis-aligned footprint calculations. Arbitrary-angle collision detection would require different geometry and additional tests; it is out of scope.
+## Library And Comparison
 
-## Input Strings and Incomplete Results
+New library items default to zero and probe a bounded 20 cm grid, room centre and edge candidates for a clear initial position. This places only the new item, imposes no wall margin, never moves existing items and is not a layout solver. Failure reports no placement and adds nothing. Preset replacement keeps ID/centre/rotation/room; manual dimensions are also replacement inputs.
 
-Text inputs with decimal input mode preserve blanks, malformed values, and pasted content for explicit validation. Automatic browser number-input sanitization could make malformed input indistinguishable from missing data. Width/depth/height and room height share the pure parser. Limits reject extreme values instead of silently clamping them. Invalid input is not evidence of an invalid spatial fit.
+Baseline stores independent copies of furniture/name/position and ceiling, not historical locks. Before is read-only; After is immediately editable. Setting baseline may include geometry warnings but is blocked by incomplete numeric drafts. Camera is unchanged by comparing/re-baselining. Switching views discards incomplete drafts without mutating accepted poses. Reset restores the original snapshots, locks/counters/transient forms and camera, keeping language.
 
-## No Backend or Persistence
+Changed markers are value-derived: moved, rotated, resized, added, removed, plus replaced when preset kind/name changes. Manual dimension-only replacement is marked resized because no product identity exists. After draws all baseline footprint outlines; removed items remain marked in the list. Item room membership follows a real centre move into another room, not an unrelated room-picker choice.
 
-The task needs only preset data, user-entered numbers, deterministic geometry, and local state. A backend, database, account, or API would add privacy and operational costs without helping this version. Reload may reset the app. Next is used for its App Router/toolchain and static page/assets, not server-side fit checking.
+Stable item IDs accompany names in the list and lock endpoint options so several identical library presets remain distinguishable in either language.
 
-## No Photorealism or Scanning
+## Rendering And Existing Conventions
 
-Dimensionally accurate simplified boxes communicate the geometric task without implying recognition or measurement accuracy. There are no photos, OCR, AI models, camera permissions, AR, textures, or downloaded furniture models. Visual appearance is illustrative.
+Existing header, bilingual toggle, reset actions, palette/font conventions and sofa composition are preserved. Walls are translucent full-height boxes so all five rooms remain inspectable; collision geometry stays opaque mathematically. Colliding models are translucent red so exact floor regions can be seen. Numeric labels sit below camera-toolbar stacking and use no postprocessing/shadows. The 3D scene is client-only with demand rendering and capped pixel ratio; camera reset still flushes damping.
 
-## Reserved Zones Are Preferences
+No dependency upgrade was needed. Existing stable Next/React/R3F/Drei/Three/npm pins remain. ESLint 9 stays compatible with the pinned Next plugins despite its support-status warning; no peer bypass is used. The upstream Clock deprecation is not suppressed. No project licence or deployment config is added.
 
-Both entrance and sofa-table zones are configured demo preferences. In particular, the 27.5 cm sofa-table strip is not a building regulation, accessibility clearance, or universal safety standard. The checker enforces only the configured rectangles.
+## Decisions Needing Team Review
 
-## Accepted Result Is Separate From Current Input
+- Generated dimensions/equal-sized bedrooms and conservative square door swings rather than exact arcs.
+- Translucent walls/models as illustrative visibility aids, without changing physical collision geometry.
+- Read-only Before; satisfiable-on-create locks; deletion cleans related locks; snap rather than a 200 ms animation.
+- Bounded 20 cm initial-placement probing may miss a tight feasible spot; failure is not proof of impossibility.
+- +/-10000 cm position input bound, 360 alias, incomplete-draft discard on comparison, and dimension-only replacement marker policy.
 
-Editing any relevant input invalidates acceptance immediately. A previous successful scene must never be confused with unchecked new values. The reducer tests this contract independently of rendering. Current values are still recomputed for input feedback, and a new explicit Check is required to enable After again.
-
-## Stable Compatible Dependencies
-
-Stable Next.js 16.3.8 supports React 19.3.0. Stable R3F 9.8.1 supports this React version; Drei 10.7.9 targets R3F 9. All direct versions are pinned with an npm lockfile. No alpha R3F or force/legacy peer override is used.
-
-ESLint 10 was checked but rejected: Next's bundled import/react/accessibility plugins declare peer ranges that exclude it. ESLint 9.39.5 resolves the actual peer graph, although npm reports this major as out of support. Upgrade the complete lint stack when stable compatible plugins/configuration are available rather than forcing the major. The upstream Three.js Clock deprecation warning is not suppressed and does not produce an application error.
-
-## Lightweight, Inspectable Rendering
-
-Centimetres convert to metres at the renderer boundary only. The sofa's composed bounding dimensions match the domain data. Demand rendering, capped pixel ratio, no shadows, one directional light, and no post-processing keep the scene restrained. Orbit is bounded to the open front, zoom distance/elevation are limited, and reset flushes damping so it is deterministic.
-
-Local operating-system font families avoid font-network dependencies. Lucide supplies UI tool icons. The static FitIn icon is original project markup, not an external asset. Next-generated agent metadata and the floating dev indicator are disabled to avoid unintended root files and obstructed captions.
-
-## No Repository Licence Added
-
-The owner has not requested a software licence. Upstream libraries retain their own licences and attribution. The team must decide project licensing separately.
-
-## No Deployment or Benchmark Claims
-
-Only local development and production-build verification are included. There is no cloud deployment. Browser verification is not a household user study, an official event approval, or a measured comparison with the manual method.
+These are recorded smallest-scope choices for the team's next judgement, not blockers or newly advertised capabilities.

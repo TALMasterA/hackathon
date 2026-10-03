@@ -1,101 +1,72 @@
-# Test Plan
+# Test Plan (Revision 2)
 
-## Automated Gates
+## Cheap Verification Policy
 
-```sh
-npm run lint
-npm run typecheck
-npm run test:run
-npm run build
-```
+Run `npm run typecheck` and `npm run test:run` after meaningful changes, `npm run lint` before each commit, and `npm run build` only before milestone pushes. A check is limited to roughly three minutes; a stalled check is stopped and recorded as unverified before continuing. Browser automation is not the default. Reserve one final smoke per milestone with no more than five browser calls, no polling/screenshot loops and no repeated failing action beyond twice.
 
-Vitest runs pure TypeScript tests in Node; it needs no DOM, GPU, backend, account, or secret. The committed suite contains **50 cases across three test files**: 33 geometry/input, 11 reducer, and 6 translation/message cases.
+The latest completed automated suite has **113 cases in seven files**. Obsolete fixed-sofa/gated-After cases were removed; relevant input, reset/language and geometry coverage was migrated, not ignored. No DOM/GPU/backend/API/secret is required by Vitest.
 
-## Required Geometry Outcomes
+## Required Automated Coverage
 
-| Case | Expected result |
+| Required category | Observable tested outcome |
 | --- | --- |
-| Default 220 x 90 x 85, orientation 0 | Valid, four passing checks, centre 200 / 250 |
-| Replacement overlaps the old sofa's footprint | Valid because old-sofa is excluded |
-| Blank or whitespace-only dimension | Incomplete with missing-field issue |
-| Zero or negative dimension | Incomplete with positive-value issue |
-| NaN, infinity, malformed text, units, comma, scientific notation | Incomplete, never accepted as a fit |
-| Value above UI maximum | Incomplete; no silent clamp |
-| Multiple missing fields | All input issues returned |
-| Width 450 | Left overflow 25 cm, right overflow 5 cm, other relevant violations retained |
-| Height 280 with room height 260 | Height excess 20 cm |
-| Width 250 | Side-table collision, X overlap 5 cm, Z overlap 40 cm |
-| Depth 100 | Configured clear-zone entry, Z overlap 5 cm |
-| Width 240 | Exact side-table edge touch allowed |
-| Depth 100 with no reserved zones | Exact back boundary touch allowed |
-| Candidate matches room footprint at centred test location | All four room-side touches allowed |
-| Orientation 90 | Footprint dimensions swap; default back overflow 60 cm |
-| Width 500, depth 260, height 280 | Boundary, collision, reserved, and height violations all returned |
-| Sub-epsilon edge overlap / larger real overlap | First accepted; latter rejected |
-| Height 250 with room height 260 then 220 | Valid then invalid by 30 cm |
-| Room height outside 220-350 or missing/nonfinite | Incomplete |
-| Decimal dimensions | Preserved without silent rounding |
-| Boundary reduction at fixed centre | Twice maximum side overflow, not just overflow |
-| Entrance-zone overlap in a focused alternate test fixture | Reserved violation with zone ID |
-| Exact configured-zone edge contact | Allowed |
+| SAT 0/30/45/90/135/360 | Rotated overlap vs separated rectangles; 360 equals zero |
+| Touching/epsilon | Edge/corner contact allowed; sub-epsilon noise ignored and larger penetration detected |
+| Penetration/area | Known 2 cm translation, 20 square-cm overlap, containment depth 6, 45-degree octagon area |
+| Convex edge distance | Separated diagonal 5 cm, rotated known clearance, contact/overlap zero, symmetry |
+| Architecture | Solid wall hit, furniture fitting a true door gap, front-door swing, envelope region/excess |
+| Height | Excess changes from none at 260 to 30 cm at 220 for a 250 cm item |
+| Position locks | More than one position lock; movement blocked, size/rotation allowed unless another lock fails |
+| Distance locks | Satisfied/violated minimums, zero minimum, multiple locks on one item and all failures |
+| Bounce-back | Continuous valid drag followed by failure returns last accepted position/draft; rotate/replace rejection |
+| Temporary overlap | No-lock collision edit accepted, with a live warning |
+| Manual validation | Blank/zero/negative/nonfinite/malformed/range inputs rejected without clamping; decimals preserved |
+| Library/baseline | Free add/default angle, no-free result, pose-preserving replace, lock-cleaning delete, deep baseline and every change marker |
+| Flat sanity | Five/no corridor, no overlapping rooms, known walls/openings within lengths, direct connections, valid default items and warning-free preset |
+| 2D/3D transforms | Clockwise sign, cm-to-metres axes, triangle area/upward winding/elevation |
+| Bilingual output | Complete keys/placeholders, new field/object names and actual numeric issue/lock values |
 
-Additional reducer tests ensure After cannot be enabled without acceptance; all relevant edits clear acceptance and select Before; language changes preserve results; invalid checks retain Before; and Reset Demo restores defaults/language/camera revision correctly.
+Additional state cases cover incomplete drafts, readonly Before, shared ceiling input, language/reset, impossible lock creation/edit, missing/same endpoints, re-baselining warnings, comparison draft discard, room following, and extreme coordinate rejection.
 
-Translation tests assert nonempty identical keys, identical template parameters, localized input fields and obstacle names, numeric explanations, and orientation-correct correction wording.
+## Desktop Judge Checklist
 
-## Desktop Checklist
+1. Start locally; confirm five rooms, walls with real openings, entrance, windows and twenty items in both views.
+2. Select any item in plan/list/3D; drag only in the plan, including release outside its original bounds.
+3. Enter exact X/Z and dimensions; edit obliquely with dial and numeric angles at 0/30/45/90/135/360.
+4. Overlap furniture/wall/swing/envelope and exceed ceiling; inspect red tint, true floor region, near-region numbers, Issues and item focus.
+5. Toggle several position locks; ensure X/Z and drag are blocked but eligible rotation/size works.
+6. Create several edge-distance locks, edit/delete them, exercise valid and rejected moves/rotations/resizes/replacements, and compare required/attempted/restored numbers.
+7. Add/replace/delete every library kind, including a room with no preset-size free position and a deleted lock endpoint.
+8. Compare Before/After immediately, inspect ghosts and changed/removed markers, set a baseline, and verify camera does not reset on those actions.
+9. Reset Demo and Reset View; verify original snapshots/ceiling/empty locks and retained language.
+10. Test blank/malformed/maximum input and keyboard focus/error associations; confirm last accepted geometry is not clamped or replaced by bad text.
 
-1. Start with `npm run dev`; load the room and confirm all four furniture items and both reserved-zone markers are visible from Reset View.
-2. Submit defaults; check four passes and a visible replacement in After.
-3. Toggle Before/After; check original width 180 vs replacement 220 and distinct canvas output.
-4. Change width to 250; confirm immediate loss of acceptance/After, then numeric collision after checking.
-5. Change width to 450; confirm every applicable failure and the boundary-specific 50 cm reduction, without claiming other checks will pass.
-6. Blank depth and try malformed text; confirm incomplete, field association, focus, and correction.
-7. Change orientation and room height; confirm genuinely recomputed outcomes.
-8. Reset Demo; confirm defaults, Before, cleared result, camera reset, and preserved language.
-9. Use keyboard to reach controls and submit; inspect visible focus, labels, and text-based success/failure.
-10. Open scenario details and inspect source links and limitations without embedding the PDF.
+## Mobile / Bilingual Judge Checklist
 
-## Mobile and Bilingual Checklist
+- Physical phone: plan drag with capture/release/cancel, scroll outside the gesture, dial rotation, lock creation/edit/delete and numeric keyboard.
+- Confirm expanded small-item hit areas and touch-sized controls; no clipped controls or overlapping text in stacked panels.
+- Inspect English/Traditional Chinese names, source disclaimers, new controls, errors, Issues, saved/attempted lock values and removed markers.
+- Compare language switching during warnings/lock rejection; Reset Demo should retain language.
+- Check long numeric labels, many concurrent collisions and lock rows; avoid assuming code key parity proves linguistic clarity.
+- Verify orbit, wheel/pinch, zoom/reset and view-only 3D movement on actual devices.
 
-- Check 320 and 375 px widths: no horizontal overflow, toolbar collision, cut-off button, or mid-word step label.
-- Check 768 and 1440 px as additional breakpoints.
-- Confirm button height is at least 44 px and numeric fields use decimal input mode.
-- Enter values, correct errors, and submit in both English and Traditional Chinese.
-- Change language while a valid, invalid, or incomplete result is visible; names, explanations, source disclaimers, and document language/title must change.
-- Inspect long text, field errors, result lists, and expanded source details in the narrow layout.
-- Verify data edits disable After regardless of language.
+## Revision 2 Verification Record
 
-## 3D Interaction Checklist
+- Type checking, the 113-test suite and lint pass after the complete feature changes.
+- Production builds passed before all five implementation milestone pushes.
+- Numerical data/geometry/state/input/translation checks are current Revision 2 evidence; Revision 1 browser screenshots are not reused as proof for this layout.
+- Final bounded browser smoke completed in five browser calls total, including one expired previous-page reference that performed no action and one fresh page open. No Chrome DevTools exploration, gesture retries, polling or screenshot loops were used.
+- The live page passed nine smoke checks: twenty-item load, one native pointer plan drag (selected X changed from 250 to about 267.20 cm), one keyboard dial rotation to 1 degree, one 25 cm distance-lock creation, a numeric Z proposal bounced to the last accepted pose (attempted distance about 1.320802 cm), immediate readonly Before/current After, one Traditional Chinese switch and a live non-lost WebGL context.
+- No console errors or external requests were observed during the exercised sequence. The bounded desktop/mobile render captures passed layout overflow and nonblank-context checks at 1440 and 375 px. This is not physical-phone gesture or exhaustive visual certification.
+- No household study, measured time comparison or professional accuracy validation has been performed.
 
-- Demand-rendered canvas is nonblank at desktop/mobile sizes; sample screenshot pixels, not just the canvas element's existence.
-- Mouse drag changes view; front-facing azimuth bounds and elevation limits prevent an unusable behind-wall/below-floor view.
-- Zoom buttons change framing; wheel and touch pinch are supplied by OrbitControls.
-- Reset View restores the same original angle, target, and distance even following damped motion.
-- Before shows old-sofa only; After shows the accepted candidate only.
-- Room-height changes update the room model; furniture sits on the floor and respects domain dimensions.
-- No external texture/model assets are requested and no application console errors occur.
-- If WebGL fails, form and result checking should remain available with a textual scene error.
+## Pending Manual Check
 
-## Verification Performed During Implementation
+- Physical iOS/Android touch capture, cancellation/scroll conflicts, dial usability, pinch, virtual keyboard and low-end-device performance.
+- Safari/Firefox, browser zoom extremes, screen-reader users and a formal accessibility/contrast review.
+- Visual details beyond the bounded smoke: every model/window, multiple overlapping numeric labels, every library kind, removed-marker inspection, lock-row editing and camera preservation.
+- Unsupported WebGL/context loss; error-boundary behavior on real hardware.
+- Actual-flat accuracy, measurement uncertainty, conservative door swings, irregular shapes, delivery/plumbing/window clearances and any professional/code claim.
+- Household comprehension, purchasing outcomes, consent-based usability and the timed manual-method comparison.
 
-Implementation-session browser checks on Windows used Chromium through VS Code browser tools. These are engineering smoke checks, not a household user study.
-
-- Desktop and mobile-emulated screenshots were inspected; the initial camera was corrected to expose all four items.
-- Playwright-driven keyboard/input checks covered the default valid result, Before/After rendering and pixel differences, stale acceptance, collision, numeric boundary reduction, missing/malformed input, reserved-zone failure, orientation, height, language, source details, and Reset Demo.
-- Layout and nonblank canvas-pixel checks passed at 320, 375, 768, and 1440 px. English/Traditional Chinese step labels were measured at 320 px; toolbar overlap and touch target heights were checked.
-- Real Chrome pointer clicks validated default acceptance; a canvas drag changed the camera. Zoom and Reset View were inspected in screenshots; pending damping was fixed so reset restores original framing.
-- After adding the static icon, browser checks reported no application console errors or external requests during the measured replacement workflow. One upstream THREE.Clock deprecation warning remains visible.
-- Runtime dependency audit reported zero vulnerabilities at implementation time.
-
-The integrated browser's element screenshot capture can temporarily alter its emulated viewport; verification forced fresh viewport sizes and measured layout before pixel capture. Stable Chrome screenshots provided an independent visual check. One full-page mobile capture timed out; viewport capture and live canvas/context checks succeeded. Screenshots are session artifacts, not a committed benchmark dataset.
-
-## Known Untested Areas
-
-- Physical Android/iOS touch gestures, pinch zoom, small-device performance, virtual keyboards, and orientation changes.
-- Safari/Firefox, screen-reader user testing, browser zoom extremes, and a formal accessibility audit.
-- Forced WebGL context loss or unsupported-GPU fallback on real hardware.
-- Delivery access, structural/building/accessibility compliance, irregular furniture, measurement uncertainty, and actual-flat accuracy. These are not implemented features to certify.
-- Household usability, comprehension of the disclaimers, purchase outcomes, and timed comparison against the current manual method.
-
-Browser checks are not a committed automated E2E runner. Re-run this checklist when changing UI, rendering, or framework versions, and retain team-reviewed evidence before presentation.
+Unimplemented constraints are limitations, not checks to certify. The team should record judgement findings and create the next fixing prompt; no pending check is presented as passed.

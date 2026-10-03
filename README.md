@@ -1,14 +1,8 @@
 # FitIn
 
-## Revision 2 Feature Integration Complete
+FitIn Revision 2 is a browser-only English / Traditional Chinese furniture-layout editor for non-expert households. A five-room whole-flat demo is shared by a touch-capable 2D plan and a view-only-for-dragging 3D scene. Every furniture item can be moved, rotated, resized, replaced or deleted; a preset library adds new items.
 
-Revision 2 follows the team's [judge-and-fix development method](docs/DEVELOPMENT_METHOD.md). The running page now exposes the five-room whole-flat plan and synchronized 3D editor: all 20 items can be selected, dragged in 2D, precisely moved/resized through numeric input, or rotated continuously with the side-panel dial. Before/After is immediate; geometric overlap is shown as live warnings rather than rejection. The old sofa-only checker and hard-coded clear gap have been removed.
-
-The assumed flat, walls, doors, windows and item dimensions are documented in [docs/FLAT_DEMO_DATA.md](docs/FLAT_DEMO_DATA.md). Position and multiple user-defined distance locks are exposed with validated create/edit/remove and snap-back. The default has no locks. The library now supports free initial placement, preset replacement preserving pose, and deletion with lock cleanup. After shows baseline ghost outlines and changed/removed item markers; Set current layout as baseline copies the current layout without resetting the camera. Documentation replacement and one bounded final smoke check remain. The sections below describe historical Revision 1, not current functionality, and are being replaced at the documentation milestone.
-
-FitIn helps a non-expert household check whether a replacement sofa can occupy the position of an existing sofa before purchase. This is the first working development version for HacKU 2026, not a professional design tool or a guarantee of real-world fit.
-
-The app is a mobile-first, English / Traditional Chinese website. It uses entered dimensions, a fixed preset room, deterministic geometry, and a simplified interactive 3D view. It does not use AI at runtime.
+The flat is a **simplified demo assumption**, not a measured reconstruction or a guarantee of real-world fit. Geometry is deterministic; the app does not use AI at runtime. Development follows the team's [judge-and-fix loop](docs/DEVELOPMENT_METHOD.md), not unrequested feature expansion.
 
 ## HacKU Positioning
 
@@ -19,38 +13,44 @@ Deep Technology Problem Statement 4: **"The Capability That Hasn't Travelled."**
 | Capability | Expert spatial-fit and furniture-placement verification, simplified to explicit preset constraints |
 | New setting | A normal household choosing replacement furniture |
 | Adoption barrier | User expertise: interpreting measurements and spatial constraints |
-| Complete task | Replace one sofa at its known centre, check the new dimensions, explain every relevant result, and compare the room visually |
+| Complete task | Arrange or replace furniture across one assumed flat, inspect exact rotated-footprint issues, apply optional locks, and compare the baseline/current layout immediately |
 
 This is a simplified proof of capability. It does not establish professional approval, building-code compliance, safe use, delivery feasibility, or guaranteed fit in an actual flat.
 
-## First-Version Workflow
+## Current Workflow
 
-1. Confirm the preset room and enter its assumed height (220-350 cm).
-2. Select the existing sofa. It is the only replaceable item in this version.
-3. Enter the new sofa's width, depth, and height in centimetres, and choose 0 or 90 degrees.
-4. Select **Check replacement**. The old sofa is excluded from obstacles; the new one stays at the old sofa's centre.
-5. Read the result: incomplete input, valid at this preset position, or invalid at this position, with numeric explanations.
-6. A valid check enables **After** and displays the replacement. **Before** restores the existing sofa.
-7. Editing dimensions, room height, or orientation clears acceptance and returns to Before. Check again to accept revised values.
+1. Confirm the assumed whole flat and shared ceiling height (220-350 cm).
+2. Select any item in the plan, 3D scene or list. After is the editable current layout; Before is the read-only baseline.
+3. Drag in the 2D plan with mouse or touch, or enter precise global X/Z coordinates. Rotate with the side-panel circular dial, numeric degree field or reset-to-0 button.
+4. Edit width/depth/height manually to resize or replace dimensions without changing centre or rotation. Incomplete input retains the last accepted pose and shows field errors; values are not silently clamped.
+5. Inspect live Issues: furniture, wall, door-swing, envelope and height warnings. Overlap is allowed and appears in both views; there is no Check button or valid-After gate.
+6. Optionally lock positions or create several minimum edge-distance locks. A lock-breaking move/rotation/resize/replacement snaps to its last accepted state with required/attempted numbers.
+7. Choose a room and library type to add a default-zero-degree item in a free initial position. Replace the selected item from a preset while keeping pose, or delete it and its related locks.
+8. Toggle Before/After immediately in both views without resetting the camera. After includes faint baseline outlines and moved/rotated/resized/added/removed/preset-replaced markers.
+9. Set current layout as baseline to take a new independent snapshot. Geometric warnings may be included; incomplete drafts may not. Switching comparison views discards incomplete drafts, not accepted layout changes.
 
-Reset Demo restores the preset and camera while retaining the selected language. Reset View changes only the camera.
+Reset Demo restores the original furniture, ceiling, baseline and empty locks, resets transient controls and camera, and keeps the language. Reset View changes only the camera. Nothing is persisted.
 
 ## Implemented Features
 
-- Responsive desktop and narrow-mobile layout, bilingual labels, errors, names, source information, and results.
-- Decimal input validation, per-field accessible errors, keyboard interaction, and touch-sized controls.
-- Room-boundary, furniture-collision, reserved-zone, and height checks returning all violations.
-- Numeric overflow and overlap explanations and deterministic correction suggestions.
-- Adjustable room height; 0/90-degree sofa orientations; fixed-centre replacement.
-- Dimensionally bounded, reusable box-composition sofa; fixed furniture, floor, and three walls.
-- Mouse/touch OrbitControls, wheel/pinch zoom, zoom buttons, reset camera, and guarded Before/After comparison.
+- Five directly connected rooms, 10 cm-thick walls, real door gaps, configured swing zones, entrance door and visual windows; no corridor.
+- Twenty existing movable/replaceable items and fourteen bilingual library presets.
+- Pointer-captured mouse/touch plan dragging, expanded finger hit areas, numeric dimensions/positions, and accessible rotation dial/degree input.
+- Continuous clockwise angles stored in [0, 360); input 360 is normalised to 0.
+- SAT collisions, containment-correct minimum translation/penetration, convex overlap clipping, and exact polygon edge distance.
+- Live red item tint, floor overlap polygons and numeric labels in 2D/3D; issue clicks select the item and outline all involved furniture.
+- Multiple position and user-defined distance locks, editable/removable lists, zero-distance locks, no forced wall spacing, and lock-only snap-back.
+- Immediate baseline/current comparison, both-view ghost outlines, change markers and user re-baselining.
+- Adjustable shared ceiling height, simplified dimensionally bounded sofa/box models, open ceiling and translucent full-height walls for inspection.
+- English / Traditional Chinese labels, object names, numeric errors/issues, lock messages, sources and limitations.
+- Preserved orbit, wheel/pinch zoom, zoom buttons, Reset View and Reset Demo; no furniture dragging in 3D.
 - No external models, textures, fonts, expensive effects, or shadows.
 - Browser-only state and calculations, with textual results independent of WebGL availability.
-- Geometry, acceptance-state, and bilingual-message tests.
+- Pure geometry/input/lock/editor/baseline and bilingual-message tests.
 
 ## Explicit Non-Goals
 
-There is no camera access, upload, photo collection, OCR, AI image or style analysis, scanning, AR, photorealism, downloaded 3D asset, account, persistence, database, backend, API route, analytics, paid runtime API, or cloud deployment. The app does not solve layouts, search other positions, move fixed furniture, drag furniture, or analyse delivery routes, lifts, corridors, or doorways. No Vercel or other deployment was performed.
+No corridor, backend/API/database/account, persistence, deployment, photo/camera/scanning/OCR/AI analysis, AR, external models/textures, 3D furniture dragging, automatic layout solving, wall-distance locks, undo/redo, delivery/lift/corridor/doorway-passage analysis, analytics or paid runtime service is added. Initial placement probes only the requested new library item; it never rearranges existing furniture or solves a layout. No deployment was performed.
 
 ## Local Setup
 
@@ -116,16 +116,17 @@ The Housing Authority is credited as the public scenario reference, not as the s
 ```text
 src/
 	app/                   App Router shell, stylesheet, static icon
-	components/            Header, progress, source panel, 3D viewport/models
-	features/fit-check/     Reducer, orchestration, form, results
-	lib/geometry/          Input parsing, footprints, placement checks
-	data/                  Fixed demo assumptions and source links
+	components/            Header/source, pointer plan, dial, 3D models/overlays
+	features/flat-editor/  Single reducer, item/lock/library panels, baseline logic
+	features/fit-check/    Thin client entry retained for the App Router page
+	lib/geometry/          Decimal parsing, SAT/clipping/distance, walls, locks
+	data/                  Whole-flat assumptions, library and official links
 	i18n/                  Typed English / Traditional Chinese dictionaries
 	types/                 Domain contracts and discriminated results
 docs/                    Architecture, decisions, test plan, compliance
 ```
 
-Geometry never imports React, Three.js, or translation functions. The UI translates stable issue codes and numeric parameters. The 3D renderer consumes dimensions but never determines whether a placement is valid. Accepted results and live input are separate: data edits cannot keep an old valid After scene visible.
+Geometry never imports React, Three.js or translation functions. Stable warning/lock codes, object IDs and unrounded numbers are translated in the UI. The reducer owns the current layout, independent baseline, drafts, selection and locks. Both views consume one displayed snapshot; rendering never decides whether an edit is accepted. Only locks can reject a complete pose proposal.
 
 Further documentation:
 
@@ -133,47 +134,28 @@ Further documentation:
 - [docs/DECISIONS.md](docs/DECISIONS.md)
 - [docs/TEST_PLAN.md](docs/TEST_PLAN.md)
 - [docs/HACKATHON_COMPLIANCE.md](docs/HACKATHON_COMPLIANCE.md)
+- [docs/FLAT_DEMO_DATA.md](docs/FLAT_DEMO_DATA.md)
+- [docs/DEVELOPMENT_METHOD.md](docs/DEVELOPMENT_METHOD.md)
 
 ## Geometry and Coordinates
 
-Domain units are **centimetres**. The room origin is the front-left floor corner. X increases left to right, Y is vertical, and Z increases front to back. Furniture positions are footprint centres on X/Z. Every model rests on Y = 0. Rotation is around Y; at 90 degrees, footprint width and depth are swapped.
+Domain units are **centimetres**. The global origin is the front-left outer-envelope floor corner. X increases right, Z increases toward the back, and Y increases upward. Item positions are footprint centres and models rest on Y = 0. Positive angles are clockwise in the X-right/Z-down plan. Three.js receives the negative Y angle, tested against the same corner transform.
 
-The room is X = 0-420 and Z = 0-300. A candidate remains at X = 200, Z = 250. Checks use axis-aligned rectangles after rotation. Boundary and zone/obstacle edge touching are allowed. A documented epsilon of **0.000001 cm** is used for boundary and overlap comparisons; positive overlap must exceed epsilon on both axes. Height uses candidate height <= entered room height.
+Rectangles have four rotated corners, not a swapped-axis approximation. SAT tests all edge normals; penetration is the containment-correct smallest separating translation. Sutherland-Hodgman clipping returns the actual overlap polygon and its area. Minimum edge distance uses containment/overlap checks and point-to-segment minima for the convex polygons; overlapping or touching distance is zero. A **0.000001 cm** epsilon handles geometric touching/noise and lock comparisons, not real measurement tolerance.
 
-Input must be a finite, positive decimal number. Blank, zero, negative, malformed, NaN, infinity, scientific notation, unit suffixes, and comma-separated values produce **incomplete**, not invalid fit. Width/depth above 1000 cm, height above 500 cm, and room heights outside 220-350 cm are also incomplete inputs. Values are rejected, never silently clamped.
+Wall rectangles are split at door openings. Door swings reserve conservative width-square bounds inside the swing room. Windows are visual only; they do not cut collision walls or create clearance rules. The envelope is X = 0-660, Z = 0-640. Height is compared directly with the shared ceiling. All relevant warnings are collected; geometry does not block edits.
 
-All relevant placement checks run after input validation. Collision checks exclude only the replaced sofa, leaving the other furniture fixed. A boundary-only suggestion accounts for the fixed centre: an axis reduction must be twice the greatest side overflow on that axis. Clearing a boundary does not establish a maximum product size or guarantee that collision and reserved-zone checks will pass.
+Product dimensions remain finite positive plain decimals: width/depth <= 1000 cm, height <= 500 cm. Ceiling is 220-350 cm. Positions accept negative/outside-envelope values but are limited to +/-10000 cm to prevent extreme renderer overflow; this is an input bound, not wall spacing. Rotation accepts 0-360 with 360 normalised to 0. Distance-lock minimums are finite >= 0. Blank, malformed, nonfinite, units, commas and exponent text produce input errors; values are never silently clamped.
+
+Each item mutation validates all its applicable locks. Position locks block centre changes but allow other edits unless distance locks reject them. Several distance locks may share an item or pair. Creation/editing must already satisfy the current layout, rather than moving furniture automatically. A violated edit restores the last accepted pose continuously during dragging, so it cannot rest in violation after release. A minimum-zero lock permits overlap; geometry warnings still remain.
 
 ## Demo Data
 
-**All dimensions below are team assumptions from the earlier specification, not Housing Authority-certified measurements.**
+**All dimensions are generated team demo assumptions, not Housing Authority-certified measurements.** The flat is 660 x 640 cm gross (42.24 square metres), with default ceiling 260 cm and uniform 10 cm walls. Five rooms total 38.21 square metres of assumed usable area: living/dining, kitchen, bathroom, master bedroom and second bedroom. There is no corridor.
 
-Room ID: `concord1-option1-2b-demo-living-room`. Room: 420 cm wide, 300 cm deep, default height 260 cm; editable height 220-350 cm. English name: Living / Dining Room Demo. Traditional Chinese name: 客飯廳示範空間.
+Twenty zero-degree existing items span all rooms, and fourteen library presets include sofa, tables/chairs, beds, wardrobes, desks, counter, fridge, toilet and vanity. Even kitchen/bathroom boxes are editable; plumbing is not modelled. The default has no geometry warnings or locks. The old entrance rectangle is replaced by the front-door swing zone and the sofa-table clear strip is removed.
 
-| Item ID | Name (English / Traditional Chinese) | W x D x H (cm) | Centre X / Z (cm) | Rotation | Replaceable |
-| --- | --- | --- | --- | --- | --- |
-| `old-sofa` | Existing sofa / 現有梳化 | 180 x 80 x 82 | 200 / 250 | 0 | Yes |
-| `coffee-table` | Coffee table / 茶几 | 100 x 55 x 42 | 200 / 150 | 0 | No |
-| `tv-console` | TV console / 電視櫃 | 180 x 40 x 50 | 200 / 25 | 0 | No |
-| `side-table` | Side table / 邊几 | 40 x 40 x 45 | 340 / 250 | 0 | No |
-
-| Reserved zone | Centre X / Z (cm) | W x D (cm) | Meaning |
-| --- | --- | --- | --- |
-| `entrance-zone` | 45 / 50 | 90 x 100 | Entrance reserved zone / 入口預留區 |
-| `sofa-table-clear-zone` | 200 / 191.25 | 220 x 27.5 | Configured sofa-table clear zone / 已設定梳化與茶几預留區 |
-
-Both zones are configured demo preferences, not building regulations or universal safety standards.
-
-The default replacement is **220 x 90 x 85 cm, orientation 0**. Its footprint is X = 90-310, Z = 205-295, so it touches the clear-zone edge without overlapping and is valid under current constraints.
-
-Useful reproducible changes:
-
-- Width 250: side-table collision, 5 cm in X and 40 cm in Z.
-- Width 450: left overflow 25 cm and right overflow 5 cm, plus furniture collision.
-- Depth 100: 5 cm entry into the configured sofa-table clear zone.
-- Height 280 with room height 260: height excess 20 cm.
-- Default dimensions at 90 degrees: back-wall overflow 60 cm, plus coffee-table and reserved-zone overlap.
-- Blank depth: incomplete input.
+All room/wall/opening/window/item dimensions and centres are recorded in [docs/FLAT_DEMO_DATA.md](docs/FLAT_DEMO_DATA.md), with data-sanity tests. New library items use a bounded 20 cm candidate grid plus room centre/edge candidates; if none is clear, nothing is added and a bilingual message identifies the room. Existing items are never moved by this process.
 
 ## Official Floor-Plan Reference
 
@@ -186,7 +168,7 @@ Preset label:
 
 [Concord 1 official PDF](https://www.housingauthority.gov.hk/common/pdf/global-elements/estate-locator/standard-block-typical-floor-plans/01-Concord1.pdf)
 
-Concord 1 Option 1, 2B is a scenario reference only. The PDF is a typical full-floor plan, not a dimensioned individual-flat plan. This room is a simplified approximation, not an exact reconstruction; no pixel-based measurements were extracted. Actual flats may differ. **Verify the dimensions of your own flat before making a purchase decision.**
+Concord 1 Option 1, 2B is a scenario reference only. The PDF is a typical full-floor plan, not a dimensioned individual-flat plan. This flat is a simplified approximation, not an exact reconstruction; no pixel-based measurements were extracted. Actual flats may differ. **Verify the dimensions of your own flat before making a purchase decision.**
 
 ## Testing
 
@@ -199,7 +181,9 @@ npm run test:run
 npm run build
 ```
 
-The automated suite has **50 tests**: 33 geometry/input cases, 11 reducer-state cases, and 6 bilingual-message cases. It covers all required geometry cases, not just the valid demo. Browser verification used desktop and mobile-emulated Chromium, screenshots, canvas-pixel checks, keyboard input, real pointer clicks/drag, and live dimension changes. These checks are not a measured household user study. Physical-device pinch/zoom and Safari/Firefox verification remain unperformed. See [docs/TEST_PLAN.md](docs/TEST_PLAN.md).
+The current suite has **113 tests in seven files**, covering rotated SAT at 0/30/45/90/135/360 degrees, contact/epsilon, penetration and clipping area, convex distance, walls/door openings/swings/envelope/height, locks and bounce-back, generic manual validation, library/baseline/change detection, flat sanity, transform consistency and bilingual templates. The latest type, unit and lint gates pass; builds pass at every pushed milestone.
+
+Revision 2 uses cheap verification: typecheck/tests after meaningful changes, lint before commits, build only at milestone pushes, and roughly three-minute check limits. One bounded final browser smoke is recorded separately; any unperformed behavior stays under pending manual check in [docs/TEST_PLAN.md](docs/TEST_PLAN.md). Revision 1 browser evidence is not claimed for this editor. Physical-phone touch/pinch, broader browsers, accessibility users and household studies still need team testing.
 
 ## Privacy, Data Flow, and Cost
 
@@ -207,23 +191,23 @@ All inputs and calculations stay in the browser. No photo is collected. No accou
 
 Initial page/assets are served by the local Next.js server. Opening an official-source link visits the Housing Authority website; browser networking and that site's policies then apply. Normal browser and GitHub/npm network activity during development is outside the application workflow. Next CLI telemetry was disabled in the implementation environment; other developers can opt out with `npm exec -- next telemetry disable`.
 
-The first version uses **no paid runtime API**. This is not a promise that every future version, infrastructure choice, or service will be free.
+Revision 2 uses **no paid runtime API**. This is not a promise that every future version, infrastructure choice, or service will be free.
 
 ## Limitations and Error Statement
 
 - The floor plan and furniture are simplified approximations. Actual flats may differ; user measurements can be wrong.
-- Only rectangular footprints are checked. Irregular shapes and compressible furniture are not modelled.
-- Doors, delivery routes, wall fixtures, skirting boards, pipes, and other unconfigured constraints are not modelled.
-- Only the selected fixed position is checked. Invalid here does not mean the item cannot fit elsewhere in the flat.
-- Reserved zones are demo preferences, not safety standards or regulations.
+- Only rectangular footprints and wall rectangles are checked. Irregular shapes and compressible furniture are not modelled.
+- Window sill/clearance, delivery routes, wall fixtures, skirting boards, pipes, plumbing and door lintel/vertical passage constraints are not modelled.
+- Door swing squares are conservative demo constraints, not safety standards, building rules or exact sweep geometry.
+- Only the displayed layout's implemented constraints are checked; no alternative layout or delivery route is solved.
 - The 3D appearance is illustrative, not photorealistic. WebGL availability and device performance vary; textual checking does not depend on rendering success.
-- A valid result means only that the candidate satisfies the constraints currently implemented for this preset and selected position.
+- No issues means only that no currently implemented constraint reports a warning for the displayed layout, not guaranteed fit. Temporary warnings are allowed unless an optional lock is violated.
 - This is not professional, structural, accessibility, or building-code advice, design approval, delivery-route verification, or a guarantee of real-world fit.
 
 ## AI Coding-Assistant Use
 
 GitHub Copilot assisted with implementation, tests, documentation, and browser-based verification. AI assistance is not a runtime feature. Team members must review the generated code, numerical assumptions, translations, source attribution, dependency constraints, and HacKU rules. Passing automated checks is not a substitute for human or household usability review.
 
-## Future Roadmap (Not Implemented)
+## Next Judge / Fix Cycle
 
-Potential later work, subject to a new agreed scope: measured and versioned room scenarios; additional replaceable furniture categories; measurement uncertainty; accessibility and physical-device testing; and a timed comparison against the current tape-measure/product-specification/manual-reasoning method. Scanning, AI, AR, delivery analysis, or deployment would require separate requirements and validation. None is presented as working in this version.
+The team judges this running revision and lists desired fixes. Only a subsequent fixing prompt authorises further changes. Measured flat accuracy, physical-phone testing, accessibility review and a consent-based comparison with the current manual method are evidence tasks, not already completed claims. Scanning, AI, AR, delivery analysis and deployment remain unimplemented and require separate scope.

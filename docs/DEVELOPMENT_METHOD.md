@@ -13,8 +13,8 @@ Work on the existing main branch, commit coherent checked milestones, fetch befo
 | Revision | Team instruction | Scope / status |
 | --- | --- | --- |
 | 1 | First-version implementation prompt | Single-room fixed-centre sofa checker, delivered in commit 038ba1a |
-| 2 | hackathon-2-fixing-prompt.md | Whole-flat, arbitrary-angle editor, live issues, generic locks, library and baseline comparison; implementation milestones in progress |
+| 2 | hackathon-2-fixing-prompt.md | Whole-flat arbitrary-angle editor, live issues, generic locks/bounce, library and immediate baseline comparison; all feature milestones implemented |
 
 Revision 2 milestones: data/geometry/tests; plan drag/rotation; 3D sync/issues; locks/bounce; library/baseline; current documentation/final verification. A foundation commit does not imply that its future UI is already exposed.
 
-Data/geometry is delivered in 84ac6f0, plan controls in 8fba37c, 3D sync in d09c866 and locks in bc4ac58. The library and baseline milestone completes add/delete/replace, free initial placement, both-view ghost outlines, changed-item markers and re-baselining without camera reset. All requested feature controls are integrated. Current documentation and the one bounded final smoke remain; this progress record does not claim physical-phone or household testing.
+Checked feature milestones: 84ac6f0 (data/geometry), 8fba37c (plan/dial), d09c866 (3D sync/issues), bc4ac58 (locks/snap-back), cbbe46b (library/baseline). Documentation now describes the current revision. The one final smoke completed within five browser calls; results and all pending checks are in TEST_PLAN. This log does not claim physical-phone or household testing.

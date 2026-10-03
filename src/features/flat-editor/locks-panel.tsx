@@ -46,7 +46,7 @@ export function LocksPanel({ furniture, locks, selectedId, editable, language, s
   const [secondId, setSecondId] = useState(furniture.find((item) => item.id !== (selectedId ?? furniture[0]?.id))?.id ?? "");
   const [minimum, setMinimum] = useState("0");
   const disabled = !editable || furniture.length < 2;
-  const selector = (id: string, value: string, onChange: (id: string) => void, label: EditorTranslationKey) => <label className="lock-endpoint" htmlFor={id}>{editorText(language, label)}<select id={id} value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)}>{furniture.map((item) => <option value={item.id} key={item.id}>{item.name[language]}</option>)}</select></label>;
+  const selector = (id: string, value: string, onChange: (id: string) => void, label: EditorTranslationKey) => <label className="lock-endpoint" htmlFor={id}>{editorText(language, label)}<select id={id} value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)}>{furniture.map((item) => <option value={item.id} key={item.id}>{item.name[language]} ({item.id})</option>)}</select></label>;
   return (
     <section className="locks-panel" aria-labelledby="locks-title" data-testid="locks-panel">
       <h2 id="locks-title">{editorText(language, "locks.title")}</h2>

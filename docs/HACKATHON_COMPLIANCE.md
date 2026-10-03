@@ -2,7 +2,7 @@
 
 ## Event Intent and Provenance
 
-This first-version implementation is intended to be created during the HacKU 2026 event, starting from the existing repository's minimal README while preserving its Git history. This document records implementation intent, not an official eligibility or compliance decision. The team must retain Git timestamps and event records and verify the final event rules, timing, third-party-library allowance, and AI disclosure requirements.
+FitIn's implementation and Revision 2 upgrade are intended to be created during HacKU 2026 in the existing repository, preserving its history. Revision 2 follows the team's judge -> list -> fixing prompt -> scoped implementation -> judge loop. This records intent, not an official eligibility decision. The team must confirm event timing/rules, third-party allowance and AI disclosure requirements.
 
 ## Problem Statement Mapping
 
@@ -13,20 +13,19 @@ Deep Technology Problem Statement 4, **"The Capability That Hasn't Travelled."**
 | Capability | Explicit spatial-fit/furniture-placement checks, simplified from expert reasoning |
 | New setting | A normal household selecting replacement furniture before purchase |
 | Adoption barrier | Lack of expertise in spatial measurements and constraints |
-| Complete first-version task | Load one scenario, select sofa, enter replacement dimensions/orientation, check at old centre, explain results, and visually compare valid Before/After |
+| Complete current task | Edit or replace furniture in a whole-flat demo, inspect exact rotated warnings, apply optional user locks/bounce-back and immediately compare baseline/current layouts |
 
 The demo is a simplified proof of capability, not proof of professional-level design reasoning or verified accuracy for all Hong Kong flats.
 
 ## Complete-Task Coverage
 
-1. Preset living/dining room and existing furniture are loaded from explicit assumption data.
-2. The user confirms height and selects the sofa from data-driven replaceable options.
-3. Width/depth/height and 0/90-degree orientation are entered and validated.
-4. The replacement centre is fixed at the old sofa centre; old-sofa is removed from collision obstacles.
-5. Every implemented boundary, height, furniture, and reserved-zone check runs deterministically.
-6. Incomplete input is distinct from invalid fit. Numeric explanations and suggestions are bilingual.
-7. A valid check enables After and renders the new sofa. Before restores the original configuration.
-8. Data edits clear acceptance until checked again. Reset Demo restores the demonstration.
+1. Load five assumed rooms with uniform walls, real door gaps/swing zones, visual windows and twenty items; no corridor.
+2. Select any item; drag in the pointer-based 2D plan or use numeric X/Z/dimensions and continuous-angle dial/input. The same state appears in 3D.
+3. Resize or replace manually at the same centre/angle, or use one of fourteen library presets; add in a free initial spot or delete with related-lock cleanup.
+4. Run pure SAT, penetration/translation, overlap clipping and convex-distance checks; show every furniture/wall/door/envelope/height issue in text and both views.
+5. Allow temporary overlap; only optional position/distance locks reject edits and restore the last accepted pose with numeric bilingual messages.
+6. Compare independent baseline/current snapshots immediately, with ghost outlines and changed/removed markers; set a new baseline without camera reset.
+7. Keep all names, input/lock/issues/source messages bilingual. Reset restores original data/empty locks while keeping language.
 
 There are no fake APIs, predetermined fit outcomes, hidden layout solving, or unimplemented features advertised as available.
 
@@ -53,15 +52,15 @@ GitHub Copilot assisted with code, geometry tests, translations, documentation, 
 
 ## Cost Statement
 
-The first version uses no paid runtime API, cloud deployment, database, model inference, or paid asset. It runs locally with open-source dependencies. Development equipment, internet access, and coding-assistant subscriptions are outside that runtime statement. Future versions may incur costs; no perpetual-free claim is made.
+Revision 2 uses no paid runtime API, cloud deployment, database, model inference or paid asset. It runs locally with unchanged open-source dependencies. Development equipment, internet and coding-assistant subscriptions are outside that runtime statement. Future versions may incur costs; no perpetual-free claim is made.
 
 ## Error and Limitation Statement
 
 The floor plan is a simplified approximation using team demo assumptions. The Housing Authority PDF is a typical full-floor plan, not a dimensioned individual-flat plan; actual flats may differ and user measurements can be wrong.
 
-Only rectangular footprints, height, preset obstacles, and configured reserved rectangles at one selected position are checked. Irregular shapes, compressible furniture, doors, delivery routes, wall fixtures, skirting boards, and pipes are not modelled. Reserved gaps are demo preferences, not building regulations or universal safety standards.
+Only rotated rectangular furniture footprints, rectangular walls, conservative configured door swings, envelope and ceiling are checked. Window sill/clearance, irregular shapes, compressible furniture, delivery routes, wall fixtures, skirting boards, pipes, plumbing and vertical door/lintel passage constraints are not modelled. Swing zones and user locks are configured constraints, not regulations or universal safety standards.
 
-Valid means only that the candidate satisfies the constraints currently implemented for this preset and selected position. Invalid means not valid here under those constraints, not impossible everywhere in the flat. This is not professional, structural, accessibility, or building-code advice, design approval, delivery verification, or a guarantee of real-world fit.
+No issues means only that the displayed layout has no warning under currently implemented constraints. Issues do not prove impossibility elsewhere, and user locks do not certify safety. This is not professional, structural, accessibility or building-code advice, design approval, delivery verification or guaranteed real-world fit. No automatic solver, wall-distance rule, scanning/AI/AR/account/backend/deployment or 3D furniture dragging is presented as working.
 
 ## What Data Leaves the Device
 
@@ -72,7 +71,7 @@ The browser loads application code/assets from the local Next server. Choosing a
 ## Evidence Still Needed From the Team
 
 - Human code, assumption, and bilingual-terminology review and confirmation of event rules/provenance.
-- A clear recorded demo of the complete task, including valid, invalid, incomplete, edited-data, and Before/After cases.
+- A clear recorded current task, including arbitrary-angle overlaps, incomplete input, multiple locks/bounce, library add/delete/replace and immediate Before/After.
 - Participant consent and a small non-expert usability study; no such study has been claimed as completed.
 - A controlled comparison with the current manual method: tape measure, product specification, and manual spatial reasoning/sketch. Define matched tasks, success criteria, timing, explanation comprehension, and measurement/error rates before collecting results.
 - Actual-room measurements, measurement uncertainty, and reference/source review before claiming relevance to a particular flat.

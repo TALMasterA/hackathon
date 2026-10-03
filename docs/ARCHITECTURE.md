@@ -1,62 +1,68 @@
-# Architecture
+# Architecture (Revision 2)
 
 ## Module Boundaries
 
-| Area | Responsibility | Must not do |
-| --- | --- | --- |
-| Domain types | Room, dimensions, furniture, zones, inputs, checks, violations, discriminated FitResult | Depend on React or rendering |
-| Preset data | Team demo assumptions, localized names, default inputs, official source URLs | Claim Housing Authority-certified measurements |
-| Geometry | Decimal parsing, rotated AABBs, overlap, placement validation, boundary reductions | Format user-facing text or determine 3D appearance |
-| i18n | Typed dictionary keys, templates, localized numeric explanations | Change geometric outcomes |
-| Fit-check feature | Reducer, current-input recomputation, acceptance, form, result presentation | Reimplement geometry |
-| Scene components | Unit conversion, dimensionally bounded models, camera controls, Before/After rendering | Treat a rendered mesh as evidence of a valid fit |
-| App Router shell | Static metadata, CSS, home page, client entry | Process user measurements on a backend |
+| Area | Responsibility |
+| --- | --- |
+| Domain | Localised names, flat/room/wall/door/window/item contracts, snapshots, lock and warning unions |
+| Data | Generated five-room assumptions, twenty items, fourteen templates, official links |
+| Geometry input/edit | Shared strict decimal parser, draft validation, pose-preserving dimension replacement |
+| Oriented geometry | Rotated corners, SAT, penetration/translation, convex clipping/area, convex distance, plan/3D transforms |
+| Architecture geometry | Door-gap wall segments, conservative swing rectangles, room membership |
+| Layout analysis | All furniture/wall/door/envelope/height warnings with IDs and unrounded values |
+| Lock geometry | Validated minimums and all applicable lock violations; accept or return last accepted item |
+| Flat-editor state/layout | One reducer, numeric drafts, baseline copies, bounded new-item placement and changed-item detection |
+| Plan/dial | Pointer capture, touch-friendly hit selection, SVG view conversion, numeric and circular rotation controls |
+| 3D | Client-only dimensions, generated furniture/architecture, floor polygons, ghost outlines, labels and camera |
+| i18n | Typed core/editor dictionaries and UI-only formatting of stable codes/numbers |
 
-## State Flow
+The App Router page retains a thin client entry. There is no API route, server action, database or calculation backend. Geometry imports no React, Three.js or translations.
 
-The client orchestrator owns one reducer. Form values remain strings so blank or malformed input cannot be lost through a browser's number-input sanitization. The reducer also owns language, selected furniture ID, the accepted result, comparison view, validation visibility, and a demo revision used to remount/reset the camera.
+## Single Source Of Truth
 
-1. Every input render calls the same pure replacement checker with current values.
-2. A Check action stores that current result; only valid results enable and select After.
-3. A field, orientation, or selection change clears the stored result and sets Before. No stale accepted dimensions reach the scene.
-4. Once checking has been attempted, current incomplete-input errors update as fields are corrected. The first bad field receives focus on submission.
-5. Language changes retranslate existing numeric results without discarding acceptance.
-6. Reset Demo restores inputs and Before, clears results, resets the camera, and keeps the language.
+The reducer owns current furniture and ceiling, an independent baseline snapshot, selected item/room, focus IDs, language, numeric drafts/errors, position/distance locks, library/lock notices and ID counters. Panel-local state is limited to unsubmitted lock/library choices; it is not a second furniture layout.
 
-The default sofa is selected in the radio list. Replaceable options come from preset data, not a duplicated UI list. Only sofa replacement is implemented; another category would require an explicit rendering/form extension.
+1. Initial current/baseline snapshots contain the same preset values but do not share mutable positions. The editable view defaults to After and has no locks.
+2. Complete draft edits and pointer/dial proposals call the same lock acceptance function. Geometry warnings do not reject a proposal.
+3. An accepted edit updates the current item immediately. A rejected edit returns the previous accepted item and resets its displayed draft, with every applicable lock violation.
+4. Dragging proposes continuously. Position locks prevent drag start; distance failure keeps the last accepted pose, including at pointer release/cancel.
+5. Incomplete numeric text stays a draft; its last complete pose remains displayed with field errors. Comparison switching discards incomplete drafts without changing accepted geometry.
+6. Before chooses the baseline snapshot in both views and is read-only. After chooses current. Neither action remounts the camera.
+7. Re-baseline deep-copies the current accepted numeric layout, including ceiling. Geometric warnings are permitted; incomplete drafts block this action. Current locks remain current, not historical snapshot data.
+8. Deletion removes an item and its related position/distance locks. Reset restores original current/baseline data, empty locks and transient controls, retaining language and remounting the camera/plan.
 
-## Geometry Flow
+## Geometry And Locks
 
-Input parsing rejects missing, malformed, nonfinite, nonpositive, or out-of-range values and returns all input issues as `incomplete`. The domain model restricts orientation to 0 or 90 degrees. Preset configuration errors, such as an unknown replaceable ID, throw rather than pretending the placement is valid.
+All item footprints are oriented rectangles. Positive degrees rotate local X/Z clockwise in the plan; the same points are obtained by negative Three.js Y rotation. All stored proposals are normalised to [0, 360), with 360 accepted as an input alias for zero.
 
-For complete input, the checker copies the selected old sofa's X/Z centre. Rotation 90 swaps width/depth for the footprint. It collects per-side room overflow, candidate height excess, overlap with all non-replaced furniture, and overlap with all reserved zones. No check short-circuits another relevant placement check.
+SAT projects both polygons onto every edge normal. Edge/corner contact within 0.000001 cm is not collision. Minimum separating translation includes containment, rather than using just the projection intersection width. Sutherland-Hodgman clips the convex polygons for the true floor overlap region/area. Minimum edge distance is zero for contact/overlap; otherwise it is the minimum vertex-to-segment distance. Polygons produced by the kernel have consistent winding.
 
-Overlap must exceed 0.000001 cm on both axes. Boundary comparisons use the same epsilon. Touching edges is allowed. Height is compared directly. Checks expose pass/fail for boundary, collision, reserved zones, and height; violations retain IDs, localized domain names, and unrounded numeric values. FitResult is a discriminated `incomplete | valid | invalid` union.
+Wall segments are axis-aligned 10 cm rectangles with doors removed as actual gaps. Door swings are conservative width-square rectangles inside their configured room. Window marks have positions/widths/sills but do not cut collision rectangles or impose clearance rules. Envelope overflow is measured per side and clipped for floor highlighting; height excess uses the shared ceiling.
 
-Boundary suggestions are geometry-derived: twice the maximum side excess on the relevant footprint axis. i18n maps that axis back to width or depth according to orientation. Suggestions explicitly do not certify an exact maximum product size when other checks can still fail.
+Every relevant warning is retained. Furniture pairs are reported once; wall-segment warnings retain parent wall IDs. No warning is converted to a guarantee or an edit barrier. The pure lock function alone rejects complete edits and returns all position/distance failures. A minimum-zero distance lock permits overlap. New/edited locks must be satisfiable immediately; no item is moved to satisfy one.
+
+## Plan And Rotation Flow
+
+The SVG plan uses the same corner/architecture helpers as validation. Client pointer coordinates are converted through its aspect-preserving viewBox, including letterboxing. The initial grab offset is preserved. Pointer capture follows mouse/touch release outside the item; `touch-action: none` prevents page scroll during the plan/dial gesture. An expanded hit radius makes small footprints selectable; keyboard selection and numeric fields remain available.
+
+The dial maps pointer angle about its centre, supplies slider semantics and arrow-key rotation, and offers reset to zero. Position fields are disabled for a position-locked item; angle/dimensions stay enabled and still pass distance-lock checks.
 
 ## Rendering Flow
 
-The viewport is a client component. Its scene is dynamically imported with server rendering disabled, so WebGL and browser-dependent code do not execute during Next's static prerender. The outer app contains no API route or server action.
+The client viewport dynamically loads R3F Canvas with SSR disabled. Both renderers consume the displayed snapshot and the same issue list. Three.js converts cm to metres and shifts the envelope centre for framing. Boxes use half-height offsets, so their bases are Y = 0; the composed sofa retains exact overall bounds.
 
-The domain stays in centimetres. Rendering uses 0.01 metres per cm and offsets the room origin to a convenient Three.js visual centre. Floor upper surface and every furniture base are Y = 0. Box centres are placed at half height. The reusable sofa composes base, back, arms, and cushions whose combined outer bounds exactly equal its width/depth/height.
+All rooms, physical-height wall segments, open door leaves, visual windows and item models are generated locally. Walls are translucent for inspection but retain their full collision geometry. Colliding furniture is translucent red so highlighted floor intersections remain visible through it. Convex regions are triangulated with tested upward winding just above the floor; labels show numeric cm values. Both involved furniture items receive selection/focus outlines after issue selection.
 
-Before renders all existing furniture. After removes the replaced ID and renders only the candidate from a stored valid result. Invalid results have textual explanations and keep Before; there is no ambiguous invalid red preview.
+After additionally draws faint baseline footprint outlines, including removed baseline items. Added/current items and change markers are derived from snapshot values, not mutable flags. Changing Before/After or baseline preserves camera state. Reset View clears damping and restores its shared initial pose; orbit/distance/elevation limits are retained for the larger envelope.
 
-The room has a floor, back/left/right walls, an open front and ceiling, ambient light, one directional light, translucent reserved-zone markers, and no shadows or downloaded assets. R3F uses demand rendering and caps device pixel ratio at 1.5. OrbitControls restrict distance, elevation, and azimuth; panning is off. Explicit camera commands clear pending damping before moving the camera, so Reset View returns to the same initial framing.
+Rendering is demand-driven, caps pixel ratio at 1.5, uses one directional plus ambient light, and has no shadows, textures, imported models or postprocessing. A scene error boundary leaves the plan/numeric editor available. Unsupported-device fallback still needs physical-device verification.
 
-A React error boundary keeps form/result use available if the scene fails. Native canvas fallback text is not used, preventing a misleading unavailable message in the accessibility tree when WebGL is healthy. The DOM includes a textual item legend, dimensions, model disclaimer, and results.
+## Translation And Privacy
 
-## Translation Approach
+Core and editor English keys define typed key unions; Traditional Chinese dictionaries must cover identical keys and placeholders. Furniture/room/wall/door/window names are language-indexed data. Geometry carries IDs/codes/numbers only; UI formatting translates names and numeric messages without changing decisions. Language updates document title/lang and every new control.
 
-English keys define the `TranslationKey` union. The Traditional Chinese dictionary must satisfy `Record<TranslationKey, string>`. Domain furniture/zone names use language-indexed names. Input and violation codes select typed templates in the UI layer; centimetre values are formatted separately with Intl.NumberFormat.
+Inputs and calculations remain transient browser state. There are no uploads, accounts, backend calls, persistence, analytics or runtime AI. Next only serves static application code/assets. Optional official-reference links leave the app when selected; no PDF is embedded or downloaded for modelling.
 
-The language switch updates labels, validation associations, explanations, source information, furniture names, document title, and the HTML language attribute. No internationalization framework or server language routing is needed.
+## Why Separation Matters
 
-## Why Geometry and 3D Are Separate
-
-Rendering, lights, camera angle, and visual overlap are not reliable placement validation. Independent geometry makes the result deterministic, testable without WebGL, and inspectable by the team. A scene failure cannot turn an invalid placement into a valid one, and a valid-looking illustration cannot bypass the checker.
-
-## Data and Network Boundaries
-
-There are no uploads, accounts, databases, API calls, persistence, analytics, external fonts, or runtime AI services. Measurements are React state only. Next serves the static page and assets. Official-source links navigate outside the app only when selected; no PDF is fetched as part of scene rendering.
+Validation and lock acceptance cannot depend on camera framing, model colour, WebGL support or React timing. Pure geometry/state tests exercise the numerical claims; 3D illustrates, rather than approves, the same data. Browser verification is a bounded smoke check, not a substitute for the team's judge/fix loop or real-flat measurements.
