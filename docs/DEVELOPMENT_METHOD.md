@@ -12,6 +12,7 @@ Work on the existing main branch, commit coherent checked milestones, fetch befo
 
 | Revision | Team instruction | Scope / status |
 | --- | --- | --- |
+| 3 UI polish (2026-10-03) | hackathon-3-ui-polish-prompt.md | Incremental shell, aligned views, tabbed inspector, truthful bilingual status/examples and lock deletion/history coverage; no commit/push/deployment requested or performed. Verification record in TEST_PLAN. |
 | 1 | First-version implementation prompt | Single-room fixed-centre sofa checker, delivered in commit 038ba1a |
 | 2 | hackathon-2-fixing-prompt.md | Whole-flat arbitrary-angle editor, live issues, generic locks/bounce, library and immediate baseline comparison; all feature milestones implemented |
 | 3 | hackathon-3-fixing-prompt.md | Document undo/redo, floor-plan zoom with room focus shared by 2D and 3D, empty start with team-prepared suggested furniture; all milestones implemented |

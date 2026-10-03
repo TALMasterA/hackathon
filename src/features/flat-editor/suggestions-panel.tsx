@@ -12,7 +12,7 @@ export function SuggestionsPanel({ flat, roomId, furniture, editable, report, la
       <h2 id="suggestions-title">{editorText(language, "suggest.title")}</h2>
       <p className="constraint-note">{editorText(language, "suggest.note")}</p>
       <div className="suggestion-actions">
-        <button type="button" className="secondary-button" disabled={!editable || complete} onClick={() => onSuggest("all")}><House size={17} aria-hidden="true" />{editorText(language, "suggest.all")}</button>
+        <button type="button" className="primary-button" disabled={!editable || complete} onClick={() => onSuggest("all")}><House size={17} aria-hidden="true" />{editorText(language, "suggest.all")}</button>
         {room && <button type="button" className="secondary-button" disabled={!editable} onClick={() => onSuggest(room.id)}><Sofa size={17} aria-hidden="true" />{editorText(language, "suggest.room", { room: room.name[language] })}</button>}
       </div>
       {report && <p className="suggestion-status" role="status">{suggestionMessage(report, language)}</p>}

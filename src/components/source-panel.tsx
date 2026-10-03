@@ -7,11 +7,11 @@ export function SourcePanel({ language }: { language: Language }) {
   const text = (key: Parameters<typeof translate>[1]) => translate(language, key);
   return (
     <section className="source-panel" aria-label={text("source.heading")}>
-      <p className="scenario-name">{text("room.scenario")}</p>
-      <p className="verify-note">{text("source.verify")}</p>
       <details>
         <summary><Info size={17} aria-hidden="true" /><span>{text("source.heading")}</span><ChevronDown className="disclosure-chevron" size={17} aria-hidden="true" /></summary>
         <div className="source-body">
+          <p className="scenario-name">{text("room.scenario")}</p>
+          <p className="verify-note">{text("source.verify")}</p>
           <p>{text("source.assumptions")}</p>
           <p>{text("source.plan")}</p>
           <p>{text("source.zones")}</p>

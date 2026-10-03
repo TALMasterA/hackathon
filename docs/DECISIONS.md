@@ -1,5 +1,16 @@
 # Decisions
 
+## Revision 3 UI Polish (2026-10-03)
+
+- Incremental UI revision on top of the existing Revision 4 features; no framework, document reducer, geometry, solver, backend or dependency-version changes.
+- Desktop (768 px and above) uses a bounded 100dvh shell, shared toolbar and 340 px inspector with independent, contained workspace/inspector scrolling. Mobile uses normal page scrolling and a non-modal 75dvh bottom inspector with sticky tabs and close control; no drawer dependency or focus trap.
+- Two equal visualization tracks appear only when the actual workspace container is at least 780 px wide. Otherwise a Floor plan / 3D switch shows one renderer. Both renderer components stay mounted, use their existing resize support and retain view state; the toolbar tracks reserve equal height.
+- One shared room selector replaces duplicate room navigation. It controls 2D focus, 3D focus and room examples/library placement. Whole-flat mode preserves the existing single-tap/item-selected room as the library placement fallback, shown explicitly as Add to. Single-tap selection and free pan do not issue focus requests; double-tap and Fit keep their original meanings.
+- Inspector tabs stay mounted. Only a changed non-null selected ID opens Selected item and scrolls the inspector to the top; editing/dragging the same item and deliberate tab navigation do not. Library-template choice is shared between adding and replacement. The optional look panel stays mounted even without selection so an existing photo job is not newly aborted by this UI rearrangement.
+- Individual distance-lock removal already used document history; the UI now has destructive accessible names and a lightweight Undo notice, valid only while that deletion is the latest history entry. No furniture is repositioned. Position locks belong to Selected item; distance locks belong to Constraints.
+- Static placements are called examples; empty checks are neutral, and successful checks explicitly refer only to implemented checks. Scenario information/limitations remain available inside a collapsed disclosure.
+- Formal accessibility, physical-touch behavior and mobile renderer restoration remain team verification items in TEST_PLAN; the bounded browser smoke does not certify those.
+
 ## Revision 4 Team Decisions
 
 The Revision 4 fixing prompt replaces the box look with furniture models (milestone 1) and adds an optional AI 3D look from a photo (milestone 2). Everything from Revision 3 still applies, except that FitIn now has three server route handlers for the optional AI look.

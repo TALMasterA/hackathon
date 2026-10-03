@@ -115,6 +115,35 @@ describe("pointer and dial math", () => {
 describe("multiple lock management and bounce-back", () => {
   const gapAction = { type: "distance-lock", firstId: "living-sofa", secondId: "living-coffee-table", minimum: "25" } as const;
 
+  it("deletes only one lock without moving furniture, releases it and supports undo/redo", () => {
+    const first = editorReducer(furnishedState(), gapAction);
+    const locked = editorReducer(first, { type: "distance-lock", firstId: "living-sofa", secondId: "living-side-table", minimum: "0" });
+    const deleted = editorReducer(locked, { type: "remove-distance-lock", id: "distance-1" });
+    expect(deleted.current).toBe(locked.current);
+    expect(deleted.locks.distance).toEqual([locked.locks.distance[1]]);
+    const proposal = { type: "propose", item: { ...locked.current.furniture[0], position: { x: 250, z: 250 } } } as const;
+    expect(editorReducer(locked, proposal).current).toBe(locked.current);
+    expect(editorReducer(deleted, proposal).current.furniture[0].position.z).toBe(250);
+    const undone = editorReducer(deleted, { type: "undo" });
+    expect(undone.locks).toEqual(locked.locks);
+    expect(undone.current).toEqual(locked.current);
+    expect(editorReducer(undone, { type: "redo" }).locks).toEqual(deleted.locks);
+  });
+
+  it("cleans only furniture-related locks and restores the complete document on undo", () => {
+    const first = editorReducer(furnishedState(), gapAction);
+    const second = editorReducer(first, { type: "distance-lock", firstId: "living-coffee-table", secondId: "living-side-table", minimum: "0" });
+    const locked = editorReducer(second, { type: "position-lock", id: "living-sofa" });
+    const deleted = editorReducer(locked, { type: "delete-item", id: "living-sofa" });
+    expect(deleted.locks.position).toEqual([]);
+    expect(deleted.locks.distance).toEqual([locked.locks.distance[1]]);
+    expect(deleted.locks.distance.every((lock) => deleted.current.furniture.some((item) => item.id === lock.firstId) && deleted.current.furniture.some((item) => item.id === lock.secondId))).toBe(true);
+    const undone = editorReducer(deleted, { type: "undo" });
+    expect(undone.current).toEqual(locked.current);
+    expect(undone.locks).toEqual(locked.locks);
+    expect(editorReducer(undone, { type: "redo" }).current).toEqual(deleted.current);
+  });
+
   it("creates, edits and removes a satisfiable distance lock", () => {
     const created = editorReducer(furnishedState(), gapAction);
     expect(created.locks.distance).toHaveLength(1);

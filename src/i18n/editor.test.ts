@@ -31,8 +31,8 @@ describe("whole-flat translations", () => {
 
   it("explains added and skipped suggestions with item names and reasons", () => {
     const report = { roomId: "living", added: ["living-tv"], skipped: [{ id: "living-sofa", name: SUGGESTED_FURNITURE[0].name, reason: "furniture" as const }, { id: "living-coffee-table", name: SUGGESTED_FURNITURE[1].name, reason: "present" as const }] };
-    expect(suggestionMessage(report, "en")).toBe("Suggested items added: 1. Skipped: Sofa (would overlap furniture), Coffee table (already present).");
-    expect(suggestionMessage(report, "zh-Hant")).toBe("已加入建議傢俬：1 件。已略過：梳化（會與傢俬重疊）、茶几（已存在）。");
-    expect(suggestionMessage({ ...report, added: [] , skipped: [] }, "en")).toBe("No suggested items were added.");
+    expect(suggestionMessage(report, "en")).toBe("Example items added: 1. Skipped: Sofa (would overlap furniture), Coffee table (already present).");
+    expect(suggestionMessage(report, "zh-Hant")).toBe("已加入示範傢俬：1 件。已略過：梳化（會與傢俬重疊）、茶几（已存在）。");
+    expect(suggestionMessage({ ...report, added: [] , skipped: [] }, "en")).toBe("No example items were added.");
   });
 });

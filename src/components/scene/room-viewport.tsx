@@ -26,11 +26,7 @@ export function RoomViewport(props: EditorSceneProps) {
 
   return (
     <>
-      <div className="scene-stage flat-scene-stage" role="region" aria-label={editorText(language, "editor.scene")} data-testid="scene-stage" data-items={props.furniture.length}>
-        <SceneErrorBoundary fallback={<div className="scene-fallback" role="status">{text("scene.unavailable")}</div>}>
-          <RoomScene {...props} cameraCommand={cameraCommand} appearance={appearance} />
-        </SceneErrorBoundary>
-        <div className="scene-toolbar">
+        <div className="scene-toolbar viewport-tools">
           <div className="segmented comparison-switch" role="group" aria-label={text("scene.appearance")}>
             <button type="button" aria-pressed={appearance === "models"} title={text("scene.modelsHint")} onClick={() => setAppearance("models")}>{text("scene.models")}</button>
             <button type="button" aria-pressed={appearance === "boxes"} title={text("scene.boxesHint")} onClick={() => setAppearance("boxes")}>{text("scene.boxes")}</button>
@@ -41,6 +37,10 @@ export function RoomViewport(props: EditorSceneProps) {
             <button type="button" className="icon-button" aria-label={text("scene.reset")} title={text("scene.reset")} data-tooltip={text("scene.reset")} onClick={() => cameraAction("reset")}><RotateCcw size={18} aria-hidden="true" /></button>
           </div>
         </div>
+      <div className="scene-stage flat-scene-stage" role="region" aria-label={editorText(language, "editor.scene")} data-testid="scene-stage" data-items={props.furniture.length}>
+        <SceneErrorBoundary fallback={<div className="scene-fallback" role="status">{text("scene.unavailable")}</div>}>
+          <RoomScene {...props} cameraCommand={cameraCommand} appearance={appearance} />
+        </SceneErrorBoundary>
       </div>
     </>
   );

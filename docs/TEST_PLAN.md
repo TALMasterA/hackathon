@@ -4,7 +4,7 @@
 
 Run `npm run typecheck` and `npm run test:run` after meaningful changes, `npm run lint` before each commit, and `npm run build` only before milestone pushes. A check is limited to roughly three minutes; a stalled check is stopped and recorded as unverified before continuing. Browser automation is not the default. Reserve one final smoke per milestone with no more than five browser calls, no polling/screenshot loops and no repeated failing action beyond twice.
 
-The latest completed automated suite has **211 cases in fifteen files** (Revision 4 milestone 2). Obsolete fixed-sofa/gated-After cases were removed; relevant input, reset/language and geometry coverage was migrated, not ignored. Revision 3 migrated the cases that assumed twenty starting items to a `furnishedState()` helper (suggest all, set baseline, select the sofa) instead of deleting them. No DOM/GPU/backend/API/secret is required by Vitest.
+The latest completed automated suite has **213 cases in fifteen files** (Revision 3 UI polish, after Revision 4 milestone 2). Obsolete fixed-sofa/gated-After cases were removed; relevant input, reset/language and geometry coverage was migrated, not ignored. Revision 3 migrated the cases that assumed twenty starting items to a `furnishedState()` helper (suggest all, set baseline, select the sofa) instead of deleting them. No DOM/GPU/backend/API/secret is required by Vitest.
 
 ## Required Automated Coverage
 
@@ -83,6 +83,9 @@ Additional state cases cover incomplete drafts, readonly Before, shared ceiling 
 
 ## Pending Manual Check
 
+- Revision 3 UI polish: physical-phone drag/pinch/dial and virtual-keyboard behavior; same-item drag/rotation/dimension edits must not switch inspector tabs or reset its scroll; every add/replace/delete and Before/After/baseline/reset workflow; remaining distance locks must keep enforcing their thresholds after another lock is removed; issue-click selection; optional look consent/progress/preview across hidden tabs and empty Before; keyboard tabs, skip link and screen-reader announcements; narrow laptop/tablet and 320 px layouts; browser zoom and formal AA contrast review.
+- Mobile 3D rendering after hiding/restoring/resizing needs manual confirmation. The bounded smoke observed a live WebGL context and a resized 326 x 358 backing buffer, but its mobile pixel sample was zero and its first canvas-width measurement preceded the renderer's resize. This is not evidence of successful mobile scene rendering. Desktop rendering was nonblank. The final empty-floor pan and look-panel lifetime preservation adjustments were typechecked and scoped-test checked, not browser-retested.
+
 - Revision 4 milestone 2, in a real browser with a real fal key: AI look from real product photos (JPEG/PNG/WebP, portrait and landscape, phone camera photos with EXIF rotation, a transparent PNG); consent text and Confirm/Cancel; progress text, elapsed seconds and Cancel; the 3-minute timeout; reusing the same photo (no second call); the starting turn and Turn 90° on several kinds; Remove look; preview canvas and orbit; collision tint and selection outline on a look; Boxes mode; Before view; delete + undo, Reset + undo and library replace with a look; `.glb` upload (valid, too large, Draco-compressed, non-GLB); the "switched off" message with `MODEL3D_ENABLED` unset; both languages; 320/375 px; a phone over plain-HTTP LAN (no SHA-256 cache there); memory and frame rate with several looks.
 - Revision 4 milestone 1, in a real browser: every kind's model appears and faces into its room in the fully suggested flat (the sofa and TV console face each other; chairs face the dining table/desk); models sit on the floor inside their outlines; colliding models turn translucent red and recover; selected/focused models show the box outline; Models / Boxes toggle in both languages and at 320/375 px (the toolbar may wrap onto two rows); loading flashes boxes only briefly; clicking a model selects it; frame rate on a low-end phone with all twenty models.
 
@@ -96,3 +99,15 @@ Additional state cases cover incomplete drafts, readonly Before, shared ceiling 
 - Household comprehension, purchasing outcomes, consent-based usability and the timed manual-method comparison.
 
 Unimplemented constraints are limitations, not checks to certify. The team should record judgement findings and create the next fixing prompt; no pending check is presented as passed.
+
+## Revision 3 UI Polish Verification Record (2026-10-03)
+
+- No geometry, lock enforcement, recommendation algorithm, state reducer, dependency versions or server routes changed. Existing remove-lock/delete-item history behavior gained two regression tests: deleting one lock preserves others and positions, releases the removed constraint, and supports undo/redo; deleting furniture cleans only related locks and undo restores the complete document.
+- Typecheck passed after the final component changes. Full suite: 213 tests / 15 files passed. Focused state/translation suite: 63 passed; focused plan/state suite after pan preservation: 78 passed. The requested single lint pass passed before the final small preservation adjustments.
+- One trusted integrated-browser smoke session, five tool calls total, approximately two minutes, including desktop and mobile screenshots. No unrelated browser exploration or real photo/API request.
+- At 1440 x 900: no page-level horizontal overflow or body scrollbar; floor-plan and 3D stages had equal 509.5 px widths, matching top 297.4 px and bottom 795.2 px. Wheel scrolling the sidebar left the workspace at zero; scrolling the workspace then left the sidebar at 329 px and body at zero. A desktop WebGL pixel sample was nonzero.
+- Smoke interactions: apply whole-flat example; select the sofa from the plan and observe Selected item tab; create a 25 cm distance lock, delete it through its accessible button, then restore it with the lightweight Undo action.
+- At 375 x 812: normal page scrolling, no horizontal overflow, one visible visualization, retained twenty items, sofa selection and lock after switching view; constraint-creation draft `12` survived closing/reopening the drawer. Drawer close remained reachable after scrolling to its end. Traditional Chinese tabs and constraint controls rendered. Mobile scene rendering remains unverified as explained above.
+- Declared dependencies were restored with `npm install --no-package-lock` because `@fal-ai/client` was missing locally. npm reported five high-severity audit findings; no audit fix or dependency upgrade was performed.
+- An attempted second development server was refused because Next.js identified the existing server as this same workspace. The smoke used that server at http://localhost:3000; it was not stopped. No commit, push or deployment.
+- Production build: the single final `npm run build` passed, including compilation, TypeScript and static page generation. Existing model3d routes remained present.
