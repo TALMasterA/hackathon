@@ -28,6 +28,8 @@ export interface EditorSceneProps {
   selectedId: string | null;
   focusedIds: readonly string[];
   focusRoomId: string | null;
+  /** Room-focus request sequence: every chip/Fit request reframes the camera, even for the same room. */
+  focusRevision: number;
   language: Language;
   onSelect: (id: string) => void;
 }
@@ -90,7 +92,7 @@ export function FlatEditorApp({ SceneViewport }: { SceneViewport?: ComponentType
             </div>
             <div className="flat-views">
               <section aria-label={text("editor.plan")}><div className="view-heading"><h2>{text("editor.plan")}</h2><span>{flat.width} × {flat.depth} {text("editor.unit")}</span></div><FloorPlan key={state.cameraRevision} flat={flat} furniture={snapshot.furniture} baseline={editable ? state.baseline.furniture : []} issues={issues} selectedId={state.selectedId} focusedIds={state.focusedIds} positionLocks={state.locks.position} editable={editable} language={state.language} onSelect={select} onRoom={(id) => dispatch({ type: "room", id })} onPropose={(item) => dispatch({ type: "propose", item })} focus={focus} reveal={reveal} onFocusRoom={focusRoom} onGestureStart={() => dispatch({ type: "gesture-start" })} onGestureEnd={() => dispatch({ type: "gesture-end" })} /></section>
-              {SceneViewport && <section aria-label={text("editor.scene")}><div className="view-heading"><h2>{text("editor.scene")}</h2></div><SceneViewport key={state.cameraRevision} flat={flat} furniture={snapshot.furniture} baseline={editable ? state.baseline.furniture : []} issues={issues} selectedId={state.selectedId} focusedIds={state.focusedIds} focusRoomId={focus.id} language={state.language} onSelect={selectAndReveal} /></section>}
+              {SceneViewport && <section aria-label={text("editor.scene")}><div className="view-heading"><h2>{text("editor.scene")}</h2></div><SceneViewport key={state.cameraRevision} flat={flat} furniture={snapshot.furniture} baseline={editable ? state.baseline.furniture : []} issues={issues} selectedId={state.selectedId} focusedIds={state.focusedIds} focusRoomId={focus.id} focusRevision={focus.revision} language={state.language} onSelect={selectAndReveal} /></section>}
             </div>
             {editable && <p className="baseline-legend"><span className="baseline-swatch" />{text("editor.ghosts")}</p>}
             <p className="scene-caption">{translate(state.language, "scene.caption")}</p>

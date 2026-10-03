@@ -204,9 +204,16 @@ export function FloorPlan({ flat, furniture, baseline = [], issues, selectedId, 
 
   return (
     <>
-      <div className="segmented room-focus" role="group" aria-label={editorText(language, "plan.focus")}>
-        <button type="button" aria-pressed={focus.id === null} onClick={() => onFocusRoom(null)}>{editorText(language, "plan.wholeFlat")}</button>
-        {flat.rooms.map((room) => <button type="button" key={room.id} aria-pressed={focus.id === room.id} onClick={() => onFocusRoom(room.id)}>{room.name[language]}</button>)}
+      <div className="room-focus-bar">
+        <div className="segmented room-focus" role="group" aria-label={editorText(language, "plan.focus")}>
+          <button type="button" aria-pressed={focus.id === null} onClick={() => onFocusRoom(null)}>{editorText(language, "plan.wholeFlat")}</button>
+          {flat.rooms.map((room) => <button type="button" key={room.id} aria-pressed={focus.id === room.id} onClick={() => onFocusRoom(room.id)}>{room.name[language]}</button>)}
+        </div>
+        <div className="camera-tools plan-zoom-tools">
+          <button type="button" className="icon-button" disabled={view.width <= MIN_VIEW_WIDTH_CM + 1e-6} aria-label={translate(language, "scene.zoomIn")} title={translate(language, "scene.zoomIn")} data-tooltip={translate(language, "scene.zoomIn")} onClick={() => zoomBy(BUTTON_ZOOM)}><ZoomIn size={18} aria-hidden="true" /></button>
+          <button type="button" className="icon-button" disabled={!zoomed} aria-label={translate(language, "scene.zoomOut")} title={translate(language, "scene.zoomOut")} data-tooltip={translate(language, "scene.zoomOut")} onClick={() => zoomBy(1 / BUTTON_ZOOM)}><ZoomOut size={18} aria-hidden="true" /></button>
+          <button type="button" className="icon-button" aria-label={editorText(language, "plan.fit")} title={editorText(language, "plan.fit")} data-tooltip={editorText(language, "plan.fit")} onClick={() => onFocusRoom(null)}><Maximize size={18} aria-hidden="true" /></button>
+        </div>
       </div>
       <div className="plan-stage" data-testid="plan-stage">
         <svg ref={svg} className="flat-plan" style={{ aspectRatio: `${frame.home.width} / ${frame.home.height}` }} viewBox={`${view.minX} ${view.minZ} ${view.width} ${view.height}`} role="group" aria-label={editorText(language, "editor.plan")} data-testid="floor-plan" data-zoom={(1 / k).toFixed(2)} onPointerDown={startPointer} onPointerMove={movePointer} onPointerUp={endPointer} onPointerCancel={endPointer}>
@@ -253,13 +260,6 @@ export function FloorPlan({ flat, furniture, baseline = [], issues, selectedId, 
             return item && <text key={issue.id} x={item.position.x} y={item.position.z} textAnchor="middle" className="plan-issue-value" style={{ fontSize: 13 * k }} pointerEvents="none">+{formatCm(issue.excess, language)} {editorText(language, "editor.unit")}</text>;
           })}
         </svg>
-        <div className="scene-toolbar">
-          <div className="camera-tools">
-            <button type="button" className="icon-button" disabled={view.width <= MIN_VIEW_WIDTH_CM + 1e-6} aria-label={translate(language, "scene.zoomIn")} title={translate(language, "scene.zoomIn")} data-tooltip={translate(language, "scene.zoomIn")} onClick={() => zoomBy(BUTTON_ZOOM)}><ZoomIn size={18} aria-hidden="true" /></button>
-            <button type="button" className="icon-button" disabled={!zoomed} aria-label={translate(language, "scene.zoomOut")} title={translate(language, "scene.zoomOut")} data-tooltip={translate(language, "scene.zoomOut")} onClick={() => zoomBy(1 / BUTTON_ZOOM)}><ZoomOut size={18} aria-hidden="true" /></button>
-            <button type="button" className="icon-button" aria-label={editorText(language, "plan.fit")} title={editorText(language, "plan.fit")} data-tooltip={editorText(language, "plan.fit")} onClick={() => onFocusRoom(null)}><Maximize size={18} aria-hidden="true" /></button>
-          </div>
-        </div>
       </div>
       <p className="plan-hint">{editorText(language, "plan.zoomHint")}</p>
     </>

@@ -13,8 +13,9 @@ The Revision 3 fixing prompt adds undo/redo, floor-plan zoom with a room focus s
 - **Shortcuts.** Ctrl/Cmd+Z undoes; Ctrl/Cmd+Shift+Z and Ctrl+Y redo. Shortcuts are ignored while focus is in an input, select or textarea, so the browser's own text undo still works there.
 - **Reset Demo is undoable** and has no confirm dialog. It returns to the empty flat and empty baseline, and returns both views to the whole flat.
 - **One shared room focus.** The room focus is set by the room chips, the toolbar room picker and a double-tap/click on a room's empty floor (two presses within 350 ms and 24 px). It fits the 2D plan to the room plus 30 cm at the stage aspect, and also selects that room for Add item. A single tap still only selects the room.
-  - Repeating a chip, Whole flat or Fit always re-fits the 2D plan. The 3D camera moves only when the focused room actually changes.
+  - Revision 3.1: every chip, Whole flat or Fit tap (and every room-picker change or double-tap) is a new focus request with a sequence number. Each request re-fits the 2D plan and reframes the 3D camera, even when that room is already focused.
 - **Free 2D zoom is 2D-only.** Zoom buttons (x1.25), pinch, wheel and pan never change the focus or the 3D camera.
+- **Zoom button placement (Revision 3.1).** The plan's zoom in, zoom out and Fit buttons sit at the right end of the room-chip bar, outside the plan, so they never cover a room. They share a row with the chips when there is space and wrap below them on narrow screens.
 - **Wheel gating.** The wheel zooms around the cursor only with Ctrl/Cmd held or once the plan is zoomed in. A non-passive listener calls `preventDefault` only when it zooms; otherwise the page scrolls.
 - **Zoom and pan limits.** Zoom runs from the whole flat (zoom 1) to a 120 cm wide view, and zooming fully out snaps back to the exact whole-flat view. Panning keeps the view centre over the flat, so at least half of each axis, and at least a quarter of the view area, overlaps it.
 - **Touch gestures.** A second finger during a furniture drag ends the drag as one undo step and becomes a pinch; furniture never moves with two fingers. After a pinch, the remaining finger does nothing until it is lifted.
@@ -93,10 +94,8 @@ No dependency upgrade was needed. Existing stable Next/React/R3F/Drei/Three/npm 
 - Read-only Before; satisfiable-on-create locks; deletion cleans related locks; snap rather than a 200 ms animation.
 - Bounded 20 cm initial-placement probing may miss a tight feasible spot; failure is not proof of impossibility.
 - +/-10000 cm position input bound, 360 alias, incomplete-draft discard on comparison, and dimension-only replacement marker policy.
-
 - Revision 3: the suggestion lock-skip rule is defensive. Under the pairwise lock model, adding an item cannot break an existing lock: deletion removes related locks, and history snapshots are consistent. The automated case therefore uses a constructed lock that references not-yet-placed items.
-- Revision 3: the plan zoom buttons overlay the plan's top-right corner, matching the 3D view. At whole-flat zoom on a phone they can cover part of the kitchen; zoom/pan or the list still reach those items.
 - Revision 3: non-scaling outlines are slightly thicker than before at whole-flat zoom on small screens. Double-tap thresholds (350 ms / 24 px), wheel sensitivity and the idle leftover finger after a pinch are untested on physical devices.
-- Revision 3: a repeated chip/Fit re-fits only the 2D plan, and the 3D camera reacts only to an actual focus change. The suggestion status clears on the next layout change, and Suggest for room is never disabled while editable.
+- Revision 3: the suggestion status clears on the next layout change, and Suggest for room is never disabled while editable.
 
 These are recorded smallest-scope choices for the team's next judgement, not blockers or newly advertised capabilities.

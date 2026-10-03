@@ -32,7 +32,7 @@ The reducer owns current furniture and ceiling, an independent baseline snapshot
 8. Deletion removes an item and its related position/distance locks. Reset restores the empty current/baseline data, empty locks and transient controls, retaining language and remounting the camera/plan; it is itself an undoable step.
 9. A wrapper around the reducer records document snapshots (current, baseline, locks, ID counters) in a 100-entry undo stack. Plan and dial drags are bracketed by gesture start/end actions so that each is one entry, and field typing coalesces by item and field. Unchanged documents never create entries.
 
-Plan zoom/pan and the shared room focus are view state held outside the reducer. The room focus fits the plan's view box and drives a 3D "focus" camera command; free plan zoom stays local to the plan.
+Plan zoom/pan and the shared room focus are view state held outside the reducer. Each room-focus request carries a sequence number; it fits the plan's view box and drives a 3D "focus" camera command, even for the already-focused room; free plan zoom stays local to the plan.
 
 ## Geometry And Locks
 

@@ -15,6 +15,7 @@ Work on the existing main branch, commit coherent checked milestones, fetch befo
 | 1 | First-version implementation prompt | Single-room fixed-centre sofa checker, delivered in commit 038ba1a |
 | 2 | hackathon-2-fixing-prompt.md | Whole-flat arbitrary-angle editor, live issues, generic locks/bounce, library and immediate baseline comparison; all feature milestones implemented |
 | 3 | hackathon-3-fixing-prompt.md | Document undo/redo, floor-plan zoom with room focus shared by 2D and 3D, empty start with team-prepared suggested furniture; all milestones implemented |
+| 3.1 | Team follow-up (two fixes) | Plan zoom buttons moved into the room-chip bar; every room-chip/Fit request reframes the 3D camera; one commit, not browser-verified |
 
 Revision 2 milestones: data/geometry/tests; plan drag/rotation; 3D sync/issues; locks/bounce; library/baseline; current documentation/final verification. A foundation commit does not imply that its future UI is already exposed.
 

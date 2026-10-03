@@ -13,10 +13,10 @@ const RoomScene = dynamic(() => import("./room-scene"), { ssr: false, loading: (
 
 export function RoomViewport(props: EditorSceneProps) {
   const [cameraCommand, setCameraCommand] = useState<CameraCommand>({ action: "reset", sequence: 0 });
-  const [framedRoomId, setFramedRoomId] = useState(props.focusRoomId);
+  const [framedRevision, setFramedRevision] = useState(props.focusRevision);
   const { language } = props;
-  if (framedRoomId !== props.focusRoomId) {
-    setFramedRoomId(props.focusRoomId);
+  if (framedRevision !== props.focusRevision) {
+    setFramedRevision(props.focusRevision);
     setCameraCommand((previous) => ({ action: "focus", sequence: previous.sequence + 1 }));
   }
   const text = (key: Parameters<typeof translate>[1]) => translate(language, key);

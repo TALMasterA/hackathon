@@ -47,7 +47,7 @@ Additional state cases cover incomplete drafts, readonly Before, shared ceiling 
 10. Test blank/malformed/maximum input and keyboard focus/error associations; confirm last accepted geometry is not clamped or replaced by bad text.
 11. Undo across a long plan drag and a dial drag: each is one step. Type into width, blur, type again: two steps. Ctrl+Z inside a text field undoes the text, not the layout; Ctrl+Z on the page undoes the layout; Ctrl+Shift+Z / Ctrl+Y redo.
 12. Laptop wheel and trackpad: the plain wheel scrolls the page at whole-flat zoom; Ctrl/Cmd + wheel (or trackpad pinch) zooms around the cursor; once zoomed, the plain wheel zooms. Drag empty floor to pan; confirm the view cannot be lost off the flat.
-13. Room chips, room picker and double-click zoom the plan and move the 3D camera to the room without changing its viewing direction; Fit/Whole flat return both views; zoom buttons and Reset View in 3D stay within the focused room's limits. Selecting an off-screen item from the list, 3D view or Issues pans the zoomed plan to it.
+13. Room chips, room picker and double-click zoom the plan and move the 3D camera to the room without changing its viewing direction; after orbiting, tapping the already-focused chip or Fit reframes the 3D camera again; the zoom buttons sit at the right end of the chip bar and never cover the plan at 320/375 px; Fit/Whole flat return both views; zoom buttons and Reset View in 3D stay within the focused room's limits. Selecting an off-screen item from the list, 3D view or Issues pans the zoomed plan to it.
 
 ## Mobile / Bilingual Judge Checklist
 
