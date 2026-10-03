@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo } from "react";
 import { useThree } from "@react-three/fiber";
 import { Edges, useGLTF } from "@react-three/drei";
 import type { Object3D } from "three";
+import { lookRotationDeg, type Look } from "@/features/model-looks/looks";
 import type { FlatFurniture } from "@/types/domain";
 import { fitObjectToBox, MODEL_FACING_DEGREES } from "./fit";
 import { FURNITURE_MODEL_URLS, furnitureModelUrl, type FurnitureAppearance } from "./furniture-models";
@@ -73,16 +74,26 @@ export interface FurnitureMeshProps {
   selected: boolean;
   colliding: boolean;
   appearance: FurnitureAppearance;
+  look?: Look;
 }
 
-/** Kind model in Models mode; today's box/sofa in Boxes mode, while loading, on load failure or without a mapping. */
-export function FurnitureMesh({ item, selected, colliding, appearance }: FurnitureMeshProps) {
+/**
+ * Models mode: the item's own look if it has one, else its kind model. Boxes mode, loading, a load
+ * failure or a missing mapping draws today's box/sofa; a failed look falls back to the kind model.
+ */
+export function FurnitureMesh({ item, selected, colliding, appearance, look }: FurnitureMeshProps) {
   const box = <BoxFurniture item={item} selected={selected} colliding={colliding} />;
-  const url = appearance === "models" ? furnitureModelUrl(item) : null;
-  if (!url) return box;
-  return (
+  if (appearance === "boxes") return box;
+  const url = furnitureModelUrl(item);
+  const kindModel = url ? (
     <SceneErrorBoundary key={url} fallback={box}>
       <Suspense fallback={box}><KindModel url={url} item={item} selected={selected} colliding={colliding} /></Suspense>
+    </SceneErrorBoundary>
+  ) : box;
+  if (!look) return kindModel;
+  return (
+    <SceneErrorBoundary key={look.object.uuid} fallback={kindModel}>
+      <FittedObject source={look.object} item={item} selected={selected} colliding={colliding} lit={false} rotationDeg={lookRotationDeg(look)} />
     </SceneErrorBoundary>
   );
 }

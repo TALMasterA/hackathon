@@ -25,7 +25,8 @@ The demo is a simplified proof of capability, not proof of professional-level de
 4. Run pure SAT, penetration/translation, overlap clipping and convex-distance checks; show every furniture/wall/door/envelope/height issue in text and both views.
 5. Allow temporary overlap; only optional position/distance locks reject edits and restore the last accepted pose with numeric bilingual messages.
 6. Compare independent baseline/current snapshots immediately, with ghost outlines and changed/removed markers; set a new baseline without camera reset.
-7. Keep all names, input/lock/issues/source messages bilingual. Reset returns to the empty flat with empty locks while keeping language, and can be undone like any other layout change.
+7. Optionally give one item its own 3D look from a confirmed product photo (fal.ai TRELLIS) or an uploaded `.glb`; the look is appearance only and every check still uses the item's box.
+8. Keep all names, input/lock/issues/source messages bilingual. Reset returns to the empty flat with empty locks while keeping language, and can be undone like any other layout change.
 
 There are no fake APIs, predetermined fit outcomes, hidden layout solving, or unimplemented features advertised as available.
 
@@ -41,6 +42,7 @@ There are no fake APIs, predetermined fit outcomes, hidden layout solving, or un
 | Kenney Furniture Kit (CC0 asset) | Low-poly furniture appearance, stretched to each checked box |
 | React Three Fiber 9 | Stable React 19-compatible scene renderer |
 | Drei / transitive three-stdlib | OrbitControls, edge rendering and cached glTF loading |
+| fal.ai client (`@fal-ai/client`, MIT) | Server-side upload, queue status and result calls for the optional AI 3D look |
 | Lucide React | Tool icons |
 | Vitest | Automated deterministic tests |
 | ESLint / eslint-config-next | Static quality checks |
@@ -49,11 +51,11 @@ The npm lockfile records direct and transitive dependencies and upstream licence
 
 ## AI Coding-Assistant Disclosure and Review
 
-GitHub Copilot assisted with code, geometry tests, translations, documentation, and local browser verification. Revision 3 was implemented with Claude Code (Anthropic). There is no runtime AI service in FitIn. The team must review all generated code and wording, validate the geometry independently, verify Traditional Chinese terminology, confirm source attribution, and disclose AI assistance according to event rules. Automated checks do not replace required human review.
+GitHub Copilot assisted with code, geometry tests, translations, documentation, and local browser verification. Revision 3 was implemented with Claude Code (Anthropic). The only runtime AI service is fal.ai TRELLIS (image to 3D model) for the optional 3D look, called only from FitIn's server route handlers after the user confirms sending a photo. It never computes or changes a fit check. The team must review all generated code and wording, validate the geometry independently, verify Traditional Chinese terminology, confirm source attribution, and disclose AI assistance according to event rules. Automated checks do not replace required human review.
 
 ## Cost Statement
 
-Revision 2 uses no paid runtime API, cloud deployment, database, model inference or paid asset. It runs locally with unchanged open-source dependencies. Development equipment, internet and coding-assistant subscriptions are outside that runtime statement. Future versions may incur costs; no perpetual-free claim is made.
+Revision 4 has one optional paid runtime API: fal.ai TRELLIS model inference for the AI 3D look (about US$0.02 per model at the time of writing; check fal.ai pricing). It is disabled unless `MODEL3D_ENABLED=true` and limited per server instance to 5 accepted photos per IP per 10 minutes and 60 per day. There is no cloud deployment, database or paid asset; the Kenney models are CC0. Development equipment, internet and coding-assistant subscriptions are outside that runtime statement. Future versions may incur costs; no perpetual-free claim is made.
 
 ## Error and Limitation Statement
 
@@ -61,11 +63,11 @@ The floor plan is a simplified approximation using team demo assumptions. The Ho
 
 Only rotated rectangular furniture footprints, rectangular walls, conservative configured door swings, envelope and ceiling are checked. Window sill/clearance, irregular shapes, compressible furniture, delivery routes, wall fixtures, skirting boards, pipes, plumbing and vertical door/lintel passage constraints are not modelled. Swing zones and user locks are configured constraints, not regulations or universal safety standards.
 
-No issues means only that the displayed layout has no warning under currently implemented constraints. Issues do not prove impossibility elsewhere, and user locks do not certify safety. This is not professional, structural, accessibility or building-code advice, design approval, delivery verification or guaranteed real-world fit. No automatic solver, wall-distance rule, scanning/AI/AR/account/backend/deployment or 3D furniture dragging is presented as working.
+No issues means only that the displayed layout has no warning under currently implemented constraints. Issues do not prove impossibility elsewhere, and user locks do not certify safety. This is not professional, structural, accessibility or building-code advice, design approval, delivery verification or guaranteed real-world fit. An AI look is an approximate, appearance-only reconstruction from one photo and may have the wrong shape or facing. No automatic solver, wall-distance rule, scanning, AI layout or fit analysis, AR, account, database, deployment or 3D furniture dragging is presented as working.
 
 ## What Data Leaves the Device
 
-No entered measurement, fit calculation, photo, account, or private household data is sent to a FitIn backend: none exists. Inputs are local, transient React state. The app has no persistence or analytics.
+**Measurements, layout and checks never leave the device**: they are local, transient React state. **Only a photo the user explicitly chooses to send goes to fal.ai**: for the optional AI look, the photo is resized on the device and sent only after a bilingual consent message and Confirm, through FitIn's `/api/model3d` route to fal.ai storage and TRELLIS (a one-hour expiry is requested for the upload and the result). The finished model is fetched by the server and streamed back; fal URLs and the key never reach the browser. **FitIn stores nothing**: no photo, model, look, layout, account or log of them is kept by the app or its server. An uploaded `.glb` is read locally and never sent. The app has no persistence or analytics. fal.ai's own terms and retention apply to the photo it receives.
 
 The browser loads application code/assets from the local Next server. Choosing an official reference link visits the Housing Authority website, which receives normal browser requests; this is not a FitIn upload. Development uses ordinary npm/GitHub/browser networking, and an AI assistant may receive repository/tool context during implementation. Those development activities are outside the application workflow; no credentials or private household data should be supplied. Next CLI telemetry was disabled in the implementation environment.
 

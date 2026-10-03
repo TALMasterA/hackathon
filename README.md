@@ -1,8 +1,8 @@
 # FitIn
 
-FitIn Revision 3 is a browser-only English / Traditional Chinese furniture-layout editor for non-expert households. A five-room whole-flat demo is shared by a touch-capable, zoomable 2D plan and a view-only-for-dragging 3D scene. The flat starts empty: fixed example placements prepared by the team, or preset library items, can be added, and every item can then be moved, rotated, resized, replaced or deleted, with undo/redo.
+FitIn Revision 4 is an English / Traditional Chinese furniture-layout editor for non-expert households. All measurements, layout and checks run in the browser. A five-room whole-flat demo is shared by a touch-capable, zoomable 2D plan and a view-only-for-dragging 3D scene. The flat starts empty: fixed example placements prepared by the team, or preset library items, can be added, and every item can then be moved, rotated, resized, replaced or deleted, with undo/redo. Furniture is drawn with low-poly models stretched to each checked box, and any one item can optionally get its own 3D look, made by AI from a product photo or uploaded as a `.glb`.
 
-The flat is a **simplified demo assumption**, not a measured reconstruction or a guarantee of real-world fit. Geometry is deterministic; the app does not use AI at runtime. Development follows the team's [judge-and-fix loop](docs/DEVELOPMENT_METHOD.md), not unrequested feature expansion.
+The flat is a **simplified demo assumption**, not a measured reconstruction or a guarantee of real-world fit. Geometry is deterministic. The only runtime AI is the optional photo-to-3D look (fal.ai TRELLIS), which changes appearance only, never a check. Development follows the team's [judge-and-fix loop](docs/DEVELOPMENT_METHOD.md), not unrequested feature expansion.
 
 ## HacKU Positioning
 
@@ -32,6 +32,8 @@ This is a simplified proof of capability. It does not establish professional app
 11. Set current layout as baseline to take a new independent snapshot. Geometric warnings may be included; incomplete drafts may not. Switching comparison views discards incomplete drafts, not accepted layout changes.
 12. Undo/Redo (toolbar buttons, or Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z and Ctrl+Y outside text fields) step through up to 100 layout changes. A whole drag or dial drag is one step, as is typing into one field until it loses focus, a suggestion batch, a lock change, a new baseline and Reset Demo. Rejected or incomplete edits, selection, room choice, language, Before/After, zoom and camera are not history.
 
+13. Optionally give the selected item a **3D look** in the "3D look (optional)" section under the selected-item panel. **Make from photo (AI)** resizes the product photo on the device (at most 1024 px), shows "Your photo will be sent to fal.ai to build the 3D model. FitIn does not store it." and sends it only after Confirm; progress and Cancel are shown, and FitIn stops waiting after 3 minutes. **Upload .glb** loads a binary glTF up to 30 MB locally. The look is stretched to the item's box like the furniture models (Turn 90° and Remove look adjust it, with a small preview inside the W x D x H outline); checks still use the box. Looks are not undo history and are not saved; they survive Delete and Reset Demo so Undo restores the item with its look, and a library replacement clears the item's look.
+
 Reset Demo returns to the empty flat, empty baseline, default ceiling and empty locks, resets transient controls, returns both views to the whole flat and keeps the language; Undo restores the previous layout. Reset View reframes the 3D camera on the current room focus, or the whole flat. Nothing is persisted.
 
 ## Implemented Features
@@ -50,13 +52,14 @@ Reset Demo returns to the empty flat, empty baseline, default ceiling and empty 
 - Low-poly furniture models (Kenney Furniture Kit, CC0) for every furniture kind, each stretched to exactly its item's width x depth x height box. Models are appearance only: collisions, locks, issues, the plan and Before/After use the box. A **Models / Boxes** toggle in the 3D toolbar shows the exact checked boxes (and the previous box/sofa look); a model that fails to load falls back to its box.
 - English / Traditional Chinese labels, object names, numeric errors/issues, lock messages, sources and limitations.
 - Preserved orbit, wheel/pinch zoom, zoom buttons, Reset View and Reset Demo; room focus frames the 3D camera with 2-10 m distance limits; no furniture dragging in 3D.
-- No externally fetched models, textures or fonts, and no expensive effects or shadows; the bundled models are served with the app.
+- Optional AI 3D look for any one item from a confirmed product photo (fal.ai TRELLIS through FitIn's own route handlers, rate-limited, disabled unless `MODEL3D_ENABLED=true`), or from an uploaded `.glb`; appearance only, with bilingual progress, cancel, timeout and failure messages.
+- No externally fetched models, textures or fonts in the browser, and no expensive effects or shadows; the bundled models are served with the app.
 - Browser-only state and calculations, with textual results independent of WebGL availability.
 - Pure geometry/input/lock/editor/baseline/history/suggestion, plan-zoom and camera-framing maths, and bilingual-message tests.
 
 ## Explicit Non-Goals
 
-No corridor, backend/API/database/account, persistence, deployment, photo/camera/scanning/OCR/AI analysis, AR, external textures, 3D furniture dragging, automatic layout solving, wall-distance locks, persistence of history or zoom, 3D panning or wall cutaways, delivery/lift/corridor/doorway-passage analysis, analytics or paid runtime service is added. Initial placement probes only the requested new library item, and suggestions only add the team's fixed example placements while skipping blocked ones; neither rearranges existing furniture or solves a layout. No deployment was performed.
+No corridor, database/account, persistence, deployment, camera scanning/OCR, AI layout or fit analysis, AR, external textures, 3D furniture dragging, automatic layout solving, wall-distance locks, persistence of history or zoom, 3D panning or wall cutaways, delivery/lift/corridor/doorway-passage analysis, analytics is added. The only server code is the three `/api/model3d` route handlers for the optional AI look, and the only paid runtime service is fal.ai for that look. Initial placement probes only the requested new library item, and suggestions only add the team's fixed example placements while skipping blocked ones; neither rearranges existing furniture or solves a layout. No deployment was performed.
 
 ## Local Setup
 
@@ -82,7 +85,7 @@ npm run build
 npm run start
 ```
 
-No environment variables, credentials, or external services are required. Next.js serves the static application and assets; it is not a FitIn data-processing backend. Keep the committed npm lockfile.
+The editor needs no environment variables. The optional AI 3D look needs a fal.ai key: copy `.env.example` to `.env.local` and set `FAL_KEY=` and `MODEL3D_ENABLED=true`. Without them the AI routes return 503, the panel says AI looks are switched off, and everything else (including `.glb` upload) works. Never commit `.env.local`; `.env*` is ignored except `.env.example`. Next.js serves the application and assets and runs the three `/api/model3d` route handlers; it does not receive measurements or layouts. Keep the committed npm lockfile.
 
 ## npm Scripts
 
@@ -111,6 +114,7 @@ Direct dependencies are pinned; exact transitive versions are in the lockfile. T
 | Drei | 10.7.9 | [OrbitControls and edges](https://drei.docs.pmnd.rs/) |
 | Lucide React | 1.50.0 | [Interface icons](https://lucide.dev/) |
 | Vitest | 5.0.3 | [Pure TypeScript tests](https://vitest.dev/) |
+| fal.ai client | 1.10.1 | [`@fal-ai/client`](https://github.com/fal-ai/fal-js), MIT: server-side upload, queue and result calls to fal.ai TRELLIS (`fal-ai/trellis`) for the optional AI look |
 | Kenney Furniture Kit (asset) | 2.0 | [Low-poly furniture models](https://kenney.nl/assets/furniture-kit) by Kenney (www.kenney.nl), CC0 1.0; the fourteen used files are in `public/models/furniture/` with the kit's `License.txt` |
 | ESLint / Next config | 9.39.5 / 16.3.8 | [Static checks](https://eslint.org/) |
 
@@ -123,17 +127,20 @@ The Housing Authority is credited as the public scenario reference, not as the s
 ```text
 src/
 	app/                   App Router shell, stylesheet, static icon
+	app/api/model3d/       Optional AI look: photo POST, status and GLB file route handlers (server-only fal key)
 	components/            Header/source, zoomable pointer plan, dial, 3D models/overlays/camera framing
 	features/flat-editor/  Single reducer with undo history, item/lock/library/suggestion panels, baseline logic
+	features/model-looks/  3D-look state outside the reducer, photo/GLB job client, sidebar panel and preview
 	features/fit-check/    Thin client entry retained for the App Router page
 	lib/geometry/          Decimal parsing, SAT/clipping/distance, walls, locks
+	lib/model3d/           AI-look contract, photo validation, rate limiter, fal server helpers
 	data/                  Whole-flat assumptions, library and official links
 	i18n/                  Typed English / Traditional Chinese dictionaries
 	types/                 Domain contracts and discriminated results
 docs/                    Architecture, decisions, test plan, compliance
 ```
 
-Geometry never imports React, Three.js or translation functions. Stable warning/lock codes, object IDs and unrounded numbers are translated in the UI. The reducer owns the current layout, independent baseline, drafts, selection, locks and a bounded undo/redo history of document snapshots. Plan zoom and room focus are view state outside the reducer. Both views consume one displayed snapshot; rendering never decides whether an edit is accepted. Only locks can reject a complete pose proposal.
+Geometry never imports React, Three.js or translation functions. Stable warning/lock codes, object IDs and unrounded numbers are translated in the UI. The reducer owns the current layout, independent baseline, drafts, selection, locks and a bounded undo/redo history of document snapshots. Plan zoom and room focus are view state outside the reducer, and so are 3D looks (keyed by item ID) and the Models / Boxes choice. Both views consume one displayed snapshot; rendering never decides whether an edit is accepted. Only locks can reject a complete pose proposal.
 
 Further documentation:
 
@@ -188,17 +195,17 @@ npm run test:run
 npm run build
 ```
 
-The current suite has **184 tests in twelve files**, covering furniture-model fitting/facing/mapping (including loading the committed model files), undo/redo granularity and limits, empty start and suggestion skip rules, plan zoom/pan/fit maths, 3D room-framing maths, rotated SAT at 0/30/45/90/135/360 degrees, contact/epsilon, penetration and clipping area, convex distance, walls/door openings/swings/envelope/height, locks and bounce-back, generic manual validation, library/baseline/change detection, flat sanity, transform consistency and bilingual templates. The latest type, unit and lint gates pass; builds pass at every pushed milestone.
+The current suite has **211 tests in fifteen files**, covering furniture-model fitting/facing/mapping (including loading the committed model files), the AI-look routes with fal and fetch mocked (validation, 503 when disabled, per-IP and daily limits, status mapping, GLB streaming), the AI-look job client (polling, timeout, cancel), GLB parsing without external fetches, looks across delete/Reset/undo/replace/Remove, undo/redo granularity and limits, empty start and suggestion skip rules, plan zoom/pan/fit maths, 3D room-framing maths, rotated SAT at 0/30/45/90/135/360 degrees, contact/epsilon, penetration and clipping area, convex distance, walls/door openings/swings/envelope/height, locks and bounce-back, generic manual validation, library/baseline/change detection, flat sanity, transform consistency and bilingual templates. The latest type, unit and lint gates pass; builds pass at every pushed milestone.
 
-Revision 2 uses cheap verification: typecheck/tests after meaningful changes, lint before commits, build only at milestone pushes, and roughly three-minute check limits. One bounded final browser smoke is recorded separately; any unperformed behavior stays under pending manual check in [docs/TEST_PLAN.md](docs/TEST_PLAN.md). Revision 1 browser evidence is not claimed for this editor. The Revision 3 implementation session had no browser tools, so no Revision 3 browser smoke was run; its UI behaviour is listed under pending manual check. Physical-phone touch/pinch, broader browsers, accessibility users and household studies still need team testing.
+Revision 2 uses cheap verification: typecheck/tests after meaningful changes, lint before commits, build only at milestone pushes, and roughly three-minute check limits. One bounded final browser smoke is recorded separately; any unperformed behavior stays under pending manual check in [docs/TEST_PLAN.md](docs/TEST_PLAN.md). Revision 1 browser evidence is not claimed for this editor. The Revision 3 and 4 implementation sessions had no browser tools, so no browser smoke was run for them; their UI behaviour is listed under pending manual check. Revision 4 made one real fal.ai call through the dev server with `curl` (see TEST_PLAN). Physical-phone touch/pinch, broader browsers, accessibility users and household studies still need team testing.
 
 ## Privacy, Data Flow, and Cost
 
-All inputs and calculations stay in the browser. No photo is collected. No account is used. No data is sent to a FitIn backend because there is no backend. Nothing is persisted by the app; reload resets it. No analytics or tracking SDK is included. Fonts, models, and textures are not fetched externally.
+**Measurements, layout and checks never leave the device.** They are browser state only. **Only a photo the user explicitly chooses to send goes to fal.ai**: the AI look resizes it on the device and sends it only after the user reads the consent text and taps Confirm. It passes through FitIn's `/api/model3d` route to fal.ai storage and TRELLIS, with a one-hour expiry requested, and the finished model comes back through the same route; no fal URL or key reaches the browser. **FitIn stores nothing**: no photo, model, look, layout or account is kept by the app or its server, and reload resets everything (the session's model cache is browser memory only). A `.glb` upload never leaves the device. No analytics or tracking SDK is included. Fonts, models and textures are not fetched from third parties by the browser.
 
 Initial page/assets are served by the local Next.js server. Opening an official-source link visits the Housing Authority website; browser networking and that site's policies then apply. Normal browser and GitHub/npm network activity during development is outside the application workflow. Next CLI telemetry was disabled in the implementation environment; other developers can opt out with `npm exec -- next telemetry disable`.
 
-Revision 3 uses **no paid runtime API**. This is not a promise that every future version, infrastructure choice, or service will be free.
+Revision 4 has **one optional paid runtime API**: fal.ai TRELLIS for the AI 3D look, roughly US$0.02 per model at the time of writing (check fal.ai pricing). It is off unless `MODEL3D_ENABLED=true`, and limited in memory to 5 accepted photos per IP per 10 minutes and 60 per server instance per day. Everything else uses no paid service. This is not a promise that every future version, infrastructure choice, or service will be free.
 
 ## Limitations and Error Statement
 
@@ -207,14 +214,14 @@ Revision 3 uses **no paid runtime API**. This is not a promise that every future
 - Window sill/clearance, delivery routes, wall fixtures, skirting boards, pipes, plumbing and door lintel/vertical passage constraints are not modelled.
 - Door swing squares are conservative demo constraints, not safety standards, building rules or exact sweep geometry.
 - Only the displayed layout's implemented constraints are checked; no alternative layout or delivery route is solved.
-- The 3D appearance is illustrative, not photorealistic. WebGL availability and device performance vary; textual checking does not depend on rendering success.
+- The 3D appearance is illustrative, not photorealistic. Furniture models and AI looks are stretched to the checked box, so proportions can be distorted; an AI look is an approximate reconstruction from one photo and may have the wrong shape, missing parts or the wrong facing (Turn 90° adjusts facing). It never affects a check. WebGL availability and device performance vary; textual checking does not depend on rendering success.
 - No issues means only that no currently implemented constraint reports a warning for the displayed layout, not guaranteed fit. Temporary warnings are allowed unless an optional lock is violated.
 - This is not professional, structural, accessibility, or building-code advice, design approval, delivery-route verification, or a guarantee of real-world fit.
 
 ## AI Coding-Assistant Use
 
-GitHub Copilot assisted with implementation, tests, documentation, and browser-based verification. Revision 3 was implemented with Claude Code (Anthropic). AI assistance is not a runtime feature. Team members must review the generated code, numerical assumptions, translations, source attribution, dependency constraints, and HacKU rules. Passing automated checks is not a substitute for human or household usability review.
+GitHub Copilot assisted with implementation, tests, documentation, and browser-based verification. Revisions 3 and 4 were implemented with Claude Code (Anthropic). Coding assistance is not a runtime feature; the only runtime AI is the optional fal.ai TRELLIS look. Team members must review the generated code, numerical assumptions, translations, source attribution, dependency constraints, and HacKU rules. Passing automated checks is not a substitute for human or household usability review.
 
 ## Next Judge / Fix Cycle
 
-The team judges this running revision and lists desired fixes. Only a subsequent fixing prompt authorises further changes. Measured flat accuracy, physical-phone testing, accessibility review and a consent-based comparison with the current manual method are evidence tasks, not already completed claims. Scanning, AI, AR, delivery analysis and deployment remain unimplemented and require separate scope.
+The team judges this running revision and lists desired fixes. Only a subsequent fixing prompt authorises further changes. Measured flat accuracy, physical-phone testing, accessibility review and a consent-based comparison with the current manual method are evidence tasks, not already completed claims. Scanning, AI layout analysis, AR, delivery analysis and deployment remain unimplemented and require separate scope.

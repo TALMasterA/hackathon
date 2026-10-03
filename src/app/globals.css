@@ -289,6 +289,16 @@ main { animation: arrive .4s ease-out both; }
 .secondary-button:disabled { opacity: .55; cursor: not-allowed; }
 .library-panel { border-top: 1px solid var(--line); padding-top: 18px; margin-top: 23px; }
 .library-panel h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+.look-panel { border-top: 1px solid var(--line); padding-top: 18px; margin-top: 23px; }
+.look-panel h2 { font-size: 16px; font-weight: 600; }
+.look-current { margin-top: 12px; font-size: 12px; }
+.look-current span, .look-for { color: var(--muted); font-size: 11px; }
+.look-preview { height: 180px; margin-top: 10px; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; background: #e8eeeb; }
+.look-preview-loading { height: 100%; display: grid; place-items: center; color: var(--muted); }
+.look-consent { margin-top: 12px; padding: 12px; border: 1px solid #c7d3cb; border-radius: 5px; background: #f6f8f5; font-size: 12px; line-height: 1.5; }
+.look-consent img { display: block; max-width: 100%; max-height: 160px; margin: 0 auto 10px; object-fit: contain; border-radius: 3px; }
+.look-progress { margin-top: 12px; font-size: 12px; }
+.look-progress p:not(.look-for) { display: flex; align-items: center; gap: 7px; margin: 6px 0 8px; color: var(--green); }
 .library-size { font-size: 11px; color: var(--muted); margin-top: 8px; }
 .library-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-top: 12px; }
 .library-actions button { font-size: 11px; }

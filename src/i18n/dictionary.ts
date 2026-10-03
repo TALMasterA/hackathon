@@ -31,7 +31,7 @@ export const english = {
   "source.index": "Housing Authority reference",
   "source.pdf": "Concord 1 official PDF",
   "source.limitations": "Only rectangular furniture, walls, configured door swing zones and the flat envelope are checked. Window sill/clearance, delivery routes, fixtures, skirting boards, pipes, irregular shapes and compressible furniture are not modelled. This is not professional, structural, accessibility or building-code advice.",
-  "footer.privacy": "Browser-only calculations. No photos, accounts or FitIn backend.",
+  "footer.privacy": "Measurements, layout and checks never leave your device. Only a photo you choose to send for an optional 3D look goes to fal.ai. FitIn stores nothing.",
   "footer.project": "HacKU 2026 · Problem Statement 4",
 } as const;
 
@@ -68,7 +68,7 @@ export const traditionalChinese: Record<TranslationKey, string> = {
   "source.index": "房屋委員會參考資料",
   "source.pdf": "康和一型官方 PDF",
   "source.limitations": "僅檢查矩形傢俬、牆身、已設定門扇開啟預留區及單位外邊界。窗台及窗戶淨空、送貨路線、固定裝置、踢腳線、管道、不規則形狀及可壓縮傢俬均未建模。此工具並非專業、結構、無障礙或建築規例建議。",
-  "footer.privacy": "僅在瀏覽器內計算。不收集照片、不設帳戶或 FitIn 後端。",
+  "footer.privacy": "尺寸、配置及檢查結果絕不會離開你的裝置。只有你選擇傳送、用作可選三維外觀的相片會傳送至 fal.ai。FitIn 不會儲存任何資料。",
   "footer.project": "HacKU 2026 · 問題陳述 4",
 };
 

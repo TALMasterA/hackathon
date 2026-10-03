@@ -17,6 +17,7 @@
     "test:run": "vitest run"
   },
   "dependencies": {
+    "@fal-ai/client": "1.10.1",
     "@react-three/drei": "10.7.9",
     "@react-three/fiber": "9.8.1",
     "lucide-react": "1.50.0",

@@ -10,6 +10,9 @@ import { translate } from "@/i18n/dictionary";
 import { editorText } from "@/i18n/editor";
 import { editorInputMessage, lockMessage } from "@/i18n/editor-messages";
 import { analyzeLayout, issueItemIds } from "@/lib/geometry/layout";
+import { LookPanel } from "@/features/model-looks/look-panel";
+import { lookClearedBy, visibleLooks, type Looks } from "@/features/model-looks/looks";
+import { useLooks } from "@/features/model-looks/use-looks";
 import type { Flat, FlatFurniture, Language, LayoutViolation } from "@/types/domain";
 import { FurniturePanel } from "./furniture-panel";
 import { IssuesPanel } from "./issues-panel";
@@ -18,7 +21,7 @@ import { LocksPanel } from "./locks-panel";
 import { LibraryPanel } from "./library-panel";
 import { SuggestionsPanel } from "./suggestions-panel";
 import { itemChanges } from "./layout";
-import { createEditorState, editorReducer } from "./state";
+import { createEditorState, editorReducer, type EditorAction } from "./state";
 
 export interface EditorSceneProps {
   flat: Flat;
@@ -31,6 +34,8 @@ export interface EditorSceneProps {
   /** Room-focus request sequence: every chip/Fit request reframes the camera, even for the same room. */
   focusRevision: number;
   language: Language;
+  /** 3D looks of the displayed items, keyed by item ID; appearance only. */
+  looks?: Looks;
   onSelect: (id: string) => void;
 }
 
@@ -46,6 +51,14 @@ export function FlatEditorApp({ SceneViewport }: { SceneViewport?: ComponentType
   const text = (key: Parameters<typeof editorText>[1]) => editorText(state.language, key);
   const [focus, setFocus] = useState<PlanRequest>({ id: null, revision: 0 });
   const [reveal, setReveal] = useState<PlanRequest>({ id: null, revision: 0 });
+  const looks = useLooks();
+  const shownLooks = visibleLooks(looks.looks, snapshot.furniture);
+  const replaceItem = (templateId: string) => {
+    const action: EditorAction = { type: "replace-item", templateId };
+    const cleared = lookClearedBy(action, state, editorReducer(state, action));
+    dispatch(action);
+    if (cleared) looks.update({ type: "remove", itemId: cleared });
+  };
   const select = (id: string) => dispatch({ type: "select", id });
   const selectAndReveal = (id: string, focusedIds?: string[]) => {
     dispatch({ type: "select", id, focusedIds });
@@ -92,7 +105,7 @@ export function FlatEditorApp({ SceneViewport }: { SceneViewport?: ComponentType
             </div>
             <div className="flat-views">
               <section aria-label={text("editor.plan")}><div className="view-heading"><h2>{text("editor.plan")}</h2><span>{flat.width} × {flat.depth} {text("editor.unit")}</span></div><FloorPlan key={state.cameraRevision} flat={flat} furniture={snapshot.furniture} baseline={editable ? state.baseline.furniture : []} issues={issues} selectedId={state.selectedId} focusedIds={state.focusedIds} positionLocks={state.locks.position} editable={editable} language={state.language} onSelect={select} onRoom={(id) => dispatch({ type: "room", id })} onPropose={(item) => dispatch({ type: "propose", item })} focus={focus} reveal={reveal} onFocusRoom={focusRoom} onGestureStart={() => dispatch({ type: "gesture-start" })} onGestureEnd={() => dispatch({ type: "gesture-end" })} /></section>
-              {SceneViewport && <section aria-label={text("editor.scene")}><div className="view-heading"><h2>{text("editor.scene")}</h2></div><SceneViewport key={state.cameraRevision} flat={flat} furniture={snapshot.furniture} baseline={editable ? state.baseline.furniture : []} issues={issues} selectedId={state.selectedId} focusedIds={state.focusedIds} focusRoomId={focus.id} focusRevision={focus.revision} language={state.language} onSelect={selectAndReveal} /></section>}
+              {SceneViewport && <section aria-label={text("editor.scene")}><div className="view-heading"><h2>{text("editor.scene")}</h2></div><SceneViewport key={state.cameraRevision} flat={flat} furniture={snapshot.furniture} baseline={editable ? state.baseline.furniture : []} issues={issues} selectedId={state.selectedId} focusedIds={state.focusedIds} focusRoomId={focus.id} focusRevision={focus.revision} language={state.language} looks={shownLooks} onSelect={selectAndReveal} /></section>}
             </div>
             {editable && <p className="baseline-legend"><span className="baseline-swatch" />{text("editor.ghosts")}</p>}
             <p className="scene-caption">{translate(state.language, "scene.caption")}</p>
@@ -102,9 +115,10 @@ export function FlatEditorApp({ SceneViewport }: { SceneViewport?: ComponentType
           <aside className="editor-sidebar" id="item-details" aria-label={text("editor.selected")}>
             <SuggestionsPanel flat={flat} roomId={state.selectedRoomId} furniture={state.current.furniture} editable={editable} report={state.suggestionReport} language={state.language} onSuggest={(roomId) => dispatch({ type: "suggest", roomId })} />
             <FurniturePanel item={selected} draft={state.draft} issues={state.inputIssues} editable={editable} positionLocked={Boolean(selected && state.locks.position.includes(selected.id))} language={state.language} onField={(field, value) => dispatch({ type: "draft", field, value })} onRotate={(angle) => { if (selected) dispatch({ type: "propose", item: { ...selected, orientation: angle } }); }} onBlur={() => dispatch({ type: "normalise-draft" })} onGestureStart={() => dispatch({ type: "gesture-start" })} onGestureEnd={() => dispatch({ type: "gesture-end" })} />
+            <LookPanel item={selected} look={selected ? shownLooks.get(selected.id) : undefined} editable={editable} language={state.language} onSet={(itemId, look) => looks.update({ type: "set", itemId, look })} onTurn={(itemId) => looks.update({ type: "turn", itemId })} onRemove={(itemId) => looks.update({ type: "remove", itemId })} />
             {state.lockNotice.length > 0 && <section className="lock-notice" role="status" data-testid="lock-notice"><h3>{text(state.lockNoticeContext === "edit" ? "locks.bounce" : "locks.notApplied")}</h3><ul>{state.lockNotice.map((issue) => <li key={issue.lockId}>{lockMessage(issue, state.current.furniture, state.language)}</li>)}</ul></section>}
             <LocksPanel key={`${state.cameraRevision}-${state.selectedId ?? "none"}`} furniture={state.current.furniture} locks={state.locks} selectedId={state.selectedId} editable={editable} language={state.language} setupIssue={state.lockSetupIssue} onPosition={(id) => dispatch({ type: "position-lock", id })} onSave={(input) => dispatch({ type: "distance-lock", ...input })} onRemove={(id) => dispatch({ type: "remove-distance-lock", id })} />
-            <LibraryPanel key={state.cameraRevision} flat={flat} selectedId={state.selectedId} editable={editable} fullRoomId={state.libraryFullRoomId} language={state.language} onAdd={(templateId) => dispatch({ type: "add-item", templateId })} onReplace={(templateId) => dispatch({ type: "replace-item", templateId })} onDelete={(id) => dispatch({ type: "delete-item", id })} />
+            <LibraryPanel key={state.cameraRevision} flat={flat} selectedId={state.selectedId} editable={editable} fullRoomId={state.libraryFullRoomId} language={state.language} onAdd={(templateId) => dispatch({ type: "add-item", templateId })} onReplace={replaceItem} onDelete={(id) => dispatch({ type: "delete-item", id })} />
             <ItemList furniture={snapshot.furniture} selectedId={state.selectedId} positionLocks={state.locks.position} language={state.language} changes={changes} removed={removed} onSelect={selectAndReveal} />
           </aside>
         </div>

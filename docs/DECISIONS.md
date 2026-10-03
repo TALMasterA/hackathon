@@ -2,7 +2,7 @@
 
 ## Revision 4 Team Decisions
 
-The Revision 4 fixing prompt replaces the box look with furniture models (milestone 1). Everything from Revision 3 still applies.
+The Revision 4 fixing prompt replaces the box look with furniture models (milestone 1) and adds an optional AI 3D look from a photo (milestone 2). Everything from Revision 3 still applies, except that FitIn now has three server route handlers for the optional AI look.
 
 ### Furniture 3D models (milestone 1)
 
@@ -34,6 +34,26 @@ The Revision 4 fixing prompt replaces the box look with furniture models (milest
 - **Fallback.** Boxes mode, a model still loading (`Suspense`), a load failure (per-item error boundary) or a kind without a mapping draws today's box, or the composed sofa for sofas.
 - **Models / Boxes toggle.** A bilingual two-button toggle in the 3D toolbar, defaulting to Models. Boxes shows the exact checked geometry. It is 3D view state: not undo history, not persisted, and back to Models after Reset Demo (the 3D view remounts).
 - **Loading.** All fourteen files (about 250 KB in total) are preloaded once when the 3D view loads, cloned per item sharing geometry, and loaded without Draco or Meshopt decoders, so nothing is fetched from a CDN. Shadows, lights, demand rendering and the pixel-ratio cap are unchanged.
+
+### AI 3D look from a photo (milestone 2)
+
+- **Appearance only.** Any one item can have its own look, made by fal.ai TRELLIS from a product photo or uploaded as a `.glb`. It goes through the same `fitObjectToBox` path as the kind models, stretched to exactly the item's box, turned by the facing rule and then by the user's quarter turns. Collision tint and selection outline behave as for kind models. Boxes mode shows boxes for everything. Geometry and every check keep using the box.
+- **Privacy statements** (footer, README, HACKATHON_COMPLIANCE): measurements, layout and checks never leave the device; only a photo the user explicitly chooses to send goes to fal.ai; FitIn stores nothing. The photo is resized on the device (at most 1024 px, JPEG 0.85, flattened on white) and sent only after the bilingual consent text and Confirm. The fal storage upload and the generated model are requested with a one-hour expiry. No photo, model, look or job is persisted by FitIn.
+- **Server.** `POST /api/model3d` (exactly one JPEG/PNG/WebP form entry, at most 4 MB; the declared type must match the file's magic bytes), `GET /api/model3d/[id]` (`queued`/`running`/`done`/`failed`) and `GET /api/model3d/[id]/file` (GLB fetched server-side and streamed as `model/gltf-binary`, capped at 50 MB, `Cache-Control: no-store`). `FAL_KEY` is read only by these handlers through `createFalClient`; fal's generic proxy route is not used and no fal URL reaches the browser. Errors are returned as stable codes without upstream details.
+- **Job ID.** The returned `jobId` is fal's queue request ID. It is not a URL or a credential and is useless without the server's key; the routes accept only `[A-Za-z0-9-]{8,64}`. Storing a server-side mapping instead would break across server instances.
+- **Enabling.** All three routes return 503 unless `MODEL3D_ENABLED === "true"` and `FAL_KEY` is set; the panel then explains that AI looks are switched off and that a `.glb` can still be uploaded. `.env.example` lists both variables; `.env*` stays ignored except that example.
+- **Rate limits.** In memory per server instance: 5 accepted photos per IP per sliding 10 minutes and 60 accepted photos per sliding 24 hours across all IPs. Only accepted submissions count (rejected uploads use no quota), and the limit is checked before the body is parsed. The IP is the first `X-Forwarded-For` hop, else `X-Real-IP`; without a trusted proxy it can be spoofed, which the global daily cap bounds. Status and file routes are not rate-limited.
+- **Status mapping.** `IN_QUEUE` to queued, `IN_PROGRESS` to running, `COMPLETED` to done unless fal reports an error, anything else failed; a 4xx from fal (for example an unknown ID) is failed and other upstream errors are 502.
+- **Client job.** Polls every 4 s, shows the phase, elapsed seconds and Cancel, tolerates two consecutive failed polls, and stops at 180 s from Confirm with a timeout message. Cancel only stops FitIn waiting; the fal job may still finish and is not fetched. One job runs at a time; it stays tied to the item it was started for even if the selection changes.
+- **Session cache.** Finished GLBs are cached in memory by the SHA-256 of the resized photo for the session; choosing the same photo again reuses the model without sending anything. Where Web Crypto is unavailable (plain-HTTP LAN addresses), nothing is cached.
+- **Looks state.** A `useLooks` hook outside the editor reducer holds `Map<itemId, Look>`, `Look = { source, object, quarterTurns, name, kind }`. Looks are not undo history and are not persisted. They are kept when an item is deleted or on Reset Demo, so undo brings the item back with its look, and are cleared only by an accepted library replacement (a lock-rejected replacement keeps the look) or Remove look. A look renders only for items that currently exist in the displayed snapshot, including the baseline in Before.
+- **Kind guard (added).** `Look` also records the item kind it was made for, and renders only while the item still has that kind. Undo restores the item-ID counter, so an undone library item's ID can be reused by a new item; without the guard, for example, a new wardrobe could inherit an undone sofa's look. Suggested items keep stable IDs, so re-adding the suggested sofa after Reset Demo shows its earlier look again.
+- **Starting turn (added).** The one real TRELLIS model faced +X with its long side along Z, so with no turn a sofa look would have appeared sideways and stretched across the wrong axes. A new look therefore starts at one quarter turn when its longer horizontal side clearly (by at least 1.2x) lies across the item's longer side, and at none otherwise. For that sofa, one turn also put its front toward FitIn's front. Front versus back cannot be inferred, so Turn 90 degrees remains the fix.
+- **Turn 90 degrees** turns the look a quarter turn clockwise in the plan, matching item angles. A turned look is stretched to the same box, so its proportions change.
+- **Upload .glb.** Binary glTF only, at most 30 MB, loaded with Three.js' `GLTFLoader` on demand, without Draco or Meshopt. A loading manager blocks every non-`data:`/`blob:` URL, so a model referencing external files fails instead of fetching them. A model with no geometry is rejected.
+- **Materials.** Look materials are kept as authored (no unlit-to-lit conversion). A look's GPU resources are disposed about one second after it is removed or replaced.
+- **Failures** keep the kind model or box: the panel shows a bilingual message plus "The item keeps its current look", and a look that throws while rendering falls back to the kind model through an error boundary.
+- **Panel placement.** "3D look (optional)" sits under the selected-item panel. It is visible in Before but its actions are disabled there, matching the read-only baseline. The preview canvas shows the look inside the item's W x D x H outline from the item's front and can be orbited, but not zoomed.
 
 ## Revision 3 Team Decisions
 
@@ -136,5 +156,11 @@ No dependency upgrade was needed. Existing stable Next/React/R3F/Drei/Three/npm 
 - Revision 4: six suggested items were turned (180 or 90 degrees, footprints unchanged) so their models face into the room. The alternative was a per-kind facing exception, which would make the same angle mean different things for different kinds.
 - Revision 4: the vanity uses the kit's drawer-and-basin unit rather than `bathroomSink`/`bathroomCabinet`, and the 40 x 40 cm side table stretches a narrow console-style `sideTable`. Strongly non-uniform stretching (for example the 180 cm sofa from a 98 x 41 cm model) changes the model's proportions by design.
 - Revision 4: unlit kit materials are converted to lit ones for shading, and the Models / Boxes choice resets to Models after Reset Demo.
+
+- Revision 4: the AI job ID is fal's request ID; rate limits are per instance, in memory, sliding windows, count only accepted photos, and trust `X-Forwarded-For`; status and file routes are not rate-limited.
+- Revision 4: looks also record their item kind so a reused item ID of another kind never inherits a look; a re-added suggested item with the same ID and kind does show its earlier look.
+- Revision 4: the fal upload and result are requested with a one-hour expiry; whether fal honours this for TRELLIS outputs is not verified.
+- Revision 4: a new look's starting quarter turn is chosen from its shape (from one TRELLIS sample that faced +X); it may face backwards for other photos.
+- Revision 4: Turn 90 degrees is clockwise; Cancel stops waiting but cannot stop a fal job already running; the look panel is visible but disabled in Before.
 
 These are recorded smallest-scope choices for the team's next judgement, not blockers or newly advertised capabilities.

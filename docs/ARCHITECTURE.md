@@ -1,4 +1,4 @@
-# Architecture (Revision 3)
+# Architecture (Revision 4)
 
 ## Module Boundaries
 
@@ -15,8 +15,10 @@
 | Plan/dial | Pointer capture, touch-friendly hit selection, zoom/pan/pinch view box and room fit, SVG view conversion, numeric and circular rotation controls |
 | 3D | Client-only dimensions, generated furniture/architecture, floor polygons, ghost outlines, labels and room-focused camera framing |
 | i18n | Typed core/editor dictionaries and UI-only formatting of stable codes/numbers |
+| 3D looks | `useLooks` map of item ID to look outside the reducer, look panel, photo resize/hash, job polling client, GLB parsing and preview canvas |
+| AI look server | `/api/model3d` route handlers: photo validation, in-memory rate limits, fal upload/submit, status mapping and server-side GLB streaming; the only code that reads `FAL_KEY` |
 
-The App Router page retains a thin client entry. There is no API route, server action, database or calculation backend. Geometry imports no React, Three.js or translations.
+The App Router page retains a thin client entry. The only server code is the three `/api/model3d` route handlers for the optional AI look; there is no server action, database or calculation backend, and no layout data reaches the server. Geometry imports no React, Three.js or translations.
 
 ## Single Source Of Truth
 
@@ -58,13 +60,13 @@ All rooms, physical-height wall segments, open door leaves and visual windows ar
 
 After additionally draws faint baseline footprint outlines, including removed baseline items. Added/current items and change markers are derived from snapshot values, not mutable flags. Changing Before/After or baseline preserves camera state. Reset View clears damping and reframes the current room focus, or the shared initial whole-flat pose; orbit/elevation limits are retained, and distance limits follow the focus (6-22 m whole flat, 2-10 m for a room).
 
-Rendering is demand-driven, caps pixel ratio at 1.5, uses one directional plus ambient light, and has no shadows, textures or postprocessing. Model files are preloaded once, cloned per item (sharing geometry) and given shared lit copies of their unlit materials; collision tints clone materials per item and never mutate the cache. A scene error boundary leaves the plan/numeric editor available. Unsupported-device fallback still needs physical-device verification.
+Rendering is demand-driven, caps pixel ratio at 1.5, uses one directional plus ambient light, and has no shadows, textures or postprocessing. An item with a 3D look renders the look through the same `fitObjectToBox` path, turned by the facing rule and its quarter turns, with the same collision tint and box outline; a failing look falls back to the kind model. Model files are preloaded once, cloned per item (sharing geometry) and given shared lit copies of their unlit materials; collision tints clone materials per item and never mutate the cache. A scene error boundary leaves the plan/numeric editor available. Unsupported-device fallback still needs physical-device verification.
 
 ## Translation And Privacy
 
 Core and editor English keys define typed key unions; Traditional Chinese dictionaries must cover identical keys and placeholders. Furniture/room/wall/door/window names are language-indexed data. Geometry carries IDs/codes/numbers only; UI formatting translates names and numeric messages without changing decisions. Language updates document title/lang and every new control.
 
-Inputs and calculations remain transient browser state. There are no uploads, accounts, backend calls, persistence, analytics or runtime AI. Next only serves static application code/assets. Optional official-reference links leave the app when selected; no PDF is embedded or downloaded for modelling.
+Inputs and calculations remain transient browser state. The only upload is a photo the user confirms for an AI look: it is resized on the device, posted to `/api/model3d`, forwarded to fal.ai storage and TRELLIS with a one-hour expiry requested, and the finished GLB is fetched server-side and streamed back, so fal URLs and the key never reach the browser. Looks, the session model cache and jobs live only in browser memory; nothing is persisted and there are no accounts or analytics. Next only serves static application code/assets. Optional official-reference links leave the app when selected; no PDF is embedded or downloaded for modelling.
 
 ## Why Separation Matters
 

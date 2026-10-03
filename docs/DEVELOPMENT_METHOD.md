@@ -16,9 +16,12 @@ Work on the existing main branch, commit coherent checked milestones, fetch befo
 | 2 | hackathon-2-fixing-prompt.md | Whole-flat arbitrary-angle editor, live issues, generic locks/bounce, library and immediate baseline comparison; all feature milestones implemented |
 | 3 | hackathon-3-fixing-prompt.md | Document undo/redo, floor-plan zoom with room focus shared by 2D and 3D, empty start with team-prepared suggested furniture; all milestones implemented |
 | 3.1 | Team follow-up (two fixes) | Plan zoom buttons moved into the room-chip bar; every room-chip/Fit request reframes the 3D camera; one commit, not browser-verified |
+| 4 | hackathon-4-fixing-prompt.md | Kenney furniture models stretched to each checked box with a Models / Boxes toggle (milestone 1); optional AI 3D look from a confirmed photo via fal.ai TRELLIS, or an uploaded .glb (milestone 2); floor-plan tracing (milestone 3) not started yet, pending the team's real-key browser test |
 
 Revision 2 milestones: data/geometry/tests; plan drag/rotation; 3D sync/issues; locks/bounce; library/baseline; current documentation/final verification. A foundation commit does not imply that its future UI is already exposed.
 
 Checked feature milestones: 84ac6f0 (data/geometry), 8fba37c (plan/dial), d09c866 (3D sync/issues), bc4ac58 (locks/snap-back), cbbe46b (library/baseline). Documentation now describes the current revision. The one final smoke completed within five browser calls; results and all pending checks are in TEST_PLAN. This log does not claim physical-phone or household testing.
 
 Revision 3 milestones, each type-checked, unit-tested and linted before commit: undo/redo (0c820c8), plan zoom and shared room focus (28510ee), empty start and suggested furniture (1b0ba6a), then this documentation commit. A production build ran once before handing over. The implementation session had no browser automation tools, so no Revision 3 browser smoke was performed. All Revision 3 UI behaviour is listed under pending manual check in TEST_PLAN. This log does not claim physical-phone or household testing.
+
+Revision 4 milestones 1 and 2 were each type-checked, unit-tested and linted before commit, and milestone 2 also passed a production build. One real fal.ai call was made through the dev server with `curl`, as the prompt allowed. The session had no browser automation tools, so no browser smoke was performed; all Revision 4 UI behaviour is listed under pending manual check in TEST_PLAN. Nothing was pushed.

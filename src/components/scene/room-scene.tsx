@@ -10,6 +10,7 @@ import { editorText } from "@/i18n/editor";
 import { doorGeometry, wallAxis, wallParts } from "@/lib/geometry/architecture";
 import { issueItemIds, issuePolygons } from "@/lib/geometry/layout";
 import { floorTrianglePositions, polygonCentre, rectanglePolygon, scenePositionCm, threeRotation } from "@/lib/geometry/oriented";
+import type { Look } from "@/features/model-looks/looks";
 import type { Flat, FlatFurniture, Position2D } from "@/types/domain";
 import { cameraDistanceLimits, INITIAL_CAMERA_POSITION, roomCameraFrame, WHOLE_FLAT_TARGET } from "./camera";
 import { FurnitureMesh } from "./furniture-mesh";
@@ -87,15 +88,15 @@ function RoomShell({ flat }: { flat: Flat }) {
   );
 }
 
-function FurnitureModel({ item, flat, selected, colliding, appearance, onSelect }: { item: FlatFurniture; flat: Flat; selected: boolean; colliding: boolean; appearance: FurnitureAppearance; onSelect: (id: string) => void }) {
+function FurnitureModel({ item, flat, selected, colliding, appearance, look, onSelect }: { item: FlatFurniture; flat: Flat; selected: boolean; colliding: boolean; appearance: FurnitureAppearance; look?: Look; onSelect: (id: string) => void }) {
   return (
     <group name={item.id} position={scenePositionCm(item.position, flat)} rotation={[0, threeRotation(item.orientation), 0]} onClick={(event) => { event.stopPropagation(); onSelect(item.id); }}>
-      <FurnitureMesh item={item} selected={selected} colliding={colliding} appearance={appearance} />
+      <FurnitureMesh item={item} selected={selected} colliding={colliding} appearance={appearance} look={look} />
     </group>
   );
 }
 
-export default function RoomScene({ flat, furniture, baseline, issues, selectedId, focusedIds, focusRoomId, language, cameraCommand, appearance, onSelect }: RoomSceneProps) {
+export default function RoomScene({ flat, furniture, baseline, issues, selectedId, focusedIds, focusRoomId, language, looks, cameraCommand, appearance, onSelect }: RoomSceneProps) {
   const colliding = new Set(issues.flatMap(issueItemIds));
   const highlights = issuePolygons(issues);
   return (
@@ -108,7 +109,7 @@ export default function RoomScene({ flat, furniture, baseline, issues, selectedI
         const [x, , z] = scenePositionCm(item.position, flat);
         return <mesh key={`baseline-${item.id}`} name={`baseline-${item.id}`} position={[x, 0.01, z]} rotation={[0, threeRotation(item.orientation), 0]}><boxGeometry args={[item.width / 100, 0.004, item.depth / 100]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /><Edges color="#53675b" transparent opacity={0.28} /></mesh>;
       })}
-      {furniture.map((item) => <FurnitureModel key={item.id} item={item} flat={flat} selected={selectedId === item.id || focusedIds.includes(item.id)} colliding={colliding.has(item.id)} appearance={appearance} onSelect={onSelect} />)}
+      {furniture.map((item) => <FurnitureModel key={item.id} item={item} flat={flat} selected={selectedId === item.id || focusedIds.includes(item.id)} colliding={colliding.has(item.id)} appearance={appearance} look={looks?.get(item.id)} onSelect={onSelect} />)}
       {highlights.map((highlight, index) => {
         const centre = polygonCentre(highlight.polygon);
         const [x, , z] = scenePositionCm(centre, flat);
