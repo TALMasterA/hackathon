@@ -1,7 +1,7 @@
 import type { BoundarySide, Flat, FlatFurniture, LayoutViolation, Position2D } from "../../types/domain";
 import { doorGeometry, wallParts } from "./architecture";
 import { GEOMETRY_EPSILON_CM } from "./footprint";
-import { clipPolygon, polygonBounds, polygonOverlap, rectanglePolygon } from "./oriented";
+import { clipPolygon, polygonBounds, polygonOutsideArea, polygonOverlap, rectanglePolygon } from "./oriented";
 
 export function analyzeLayout(flat: Flat, furniture: readonly FlatFurniture[], ceilingHeight: number): LayoutViolation[] {
   const violations: LayoutViolation[] = [];
@@ -13,6 +13,9 @@ export function analyzeLayout(flat: Flat, furniture: readonly FlatFurniture[], c
     const item = furniture[index];
     const polygon = polygons[index];
     const bounds = polygonBounds(polygon);
+    if (flat.outline && polygonOutsideArea(polygon, flat.outline) > GEOMETRY_EPSILON_CM * (item.width + item.depth) * 2) {
+      violations.push({ code: "envelope", id: `envelope-${item.id}-outline`, itemId: item.id, side: "outline", excess: 0, polygon });
+    }
     const sides: [BoundarySide, number][] = [["left", -bounds.minX], ["right", bounds.maxX - flat.width], ["front", -bounds.minZ], ["back", bounds.maxZ - flat.depth]];
     for (const [side, excess] of sides) {
       if (excess <= GEOMETRY_EPSILON_CM) continue;
@@ -50,5 +53,5 @@ export function issueItemIds(issue: LayoutViolation): string[] {
 }
 
 export function issuePolygons(issues: readonly LayoutViolation[]) {
-  return issues.flatMap((issue) => issue.code !== "height" && issue.polygon.length >= 3 ? [{ id: issue.id, polygon: issue.polygon, value: issue.code === "envelope" ? issue.excess : issue.penetration }] : []);
+  return issues.flatMap((issue) => issue.code !== "height" && issue.polygon.length >= 3 ? [{ id: issue.id, polygon: issue.polygon, value: issue.code === "envelope" ? issue.side === "outline" ? null : issue.excess : issue.penetration }] : []);
 }

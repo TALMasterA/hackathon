@@ -1,3 +1,4 @@
+import { OrthographicCamera, Vector3 } from "three";
 import { scenePositionCm } from "../../lib/geometry/oriented";
 import type { FlatRoom } from "../../types/domain";
 import { METRES_PER_CM } from "./palette";
@@ -32,4 +33,17 @@ export function roomCameraFrame(room: FlatRoom | null, envelope: { width: number
   const length = Math.hypot(direction[0], direction[1], direction[2]);
   const unit = length > 0 ? direction.map((value) => value / length) : DEFAULT_DIRECTION.map((value) => value / Math.hypot(...DEFAULT_DIRECTION));
   return { target: [x, ROOM_TARGET_HEIGHT, z], position: [x + unit[0] * distance, ROOM_TARGET_HEIGHT + unit[1] * distance, z + unit[2] * distance], minDistance: ROOM_DISTANCE.min, maxDistance: ROOM_DISTANCE.max };
+}
+
+export function orthographicFitZoom(envelope: { width: number; depth: number; height: number }, viewport: { width: number; height: number }, direction: readonly number[]): number {
+  const forward = new Vector3(...direction).normalize();
+  const right = new Vector3(forward.z, 0, -forward.x).normalize();
+  const up = new Vector3().crossVectors(forward, right).normalize();
+  const span = (axis: Vector3) => (Math.abs(axis.x) * envelope.width + Math.abs(axis.z) * envelope.depth + Math.abs(axis.y) * envelope.height) / 100;
+  return Math.min(viewport.width / (span(right) * 1.18), viewport.height / (span(up) * 1.18));
+}
+
+export function setOrthographicZoom(camera: OrthographicCamera, zoom: number) {
+  camera.zoom = zoom;
+  camera.updateProjectionMatrix();
 }

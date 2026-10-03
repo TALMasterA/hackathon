@@ -1,8 +1,16 @@
 # FitIn
 
-FitIn Revision 4 is an English / Traditional Chinese furniture-layout editor for non-expert households. All measurements, layout and checks run in the browser. A five-room whole-flat demo is shared by a touch-capable, zoomable 2D plan and a view-only-for-dragging 3D scene. The flat starts empty: fixed example placements prepared by the team, or preset library items, can be added, and every item can then be moved, rotated, resized, replaced or deleted, with undo/redo. Furniture is drawn with low-poly models stretched to each checked box, and any one item can optionally get its own 3D look, made by AI from a product photo or uploaded as a `.glb`.
+FitIn Revision 4 is an English / Traditional Chinese furniture-layout editor for non-expert households. All measurements, layout and checks run in the browser. A selectable flat plan is shared by a touch-capable, zoomable 2D plan and a view-only-for-dragging 3D scene. The flat starts empty: fixed example placements prepared by the team, or preset library items, can be added, and every item can then be moved, rotated, resized, replaced or deleted, with undo/redo. Furniture is drawn with low-poly models stretched to each checked box, with an optional photo-derived 3D appearance.
 
-The flat is a **simplified demo assumption**, not a measured reconstruction or a guarantee of real-world fit. Geometry is deterministic. The only runtime AI is the optional photo-to-3D look (fal.ai TRELLIS), which changes appearance only, never a check. Development follows the team's [judge-and-fix loop](docs/DEVELOPMENT_METHOD.md), not unrequested feature expansion.
+Both plans are demonstrations, not surveyed reconstructions or guarantees of real-world fit. Geometry is deterministic. The only runtime AI is the optional photo-to-3D look (fal.ai TRELLIS), which changes appearance only, never a check. Development follows the team's [judge-and-fix loop](docs/DEVELOPMENT_METHOD.md), not unrequested feature expansion.
+
+## Selectable Plans (2026-10-03)
+
+- **Harmony 1 Option 4**, initially selected: approximate page-4 PDF-derived outline, partially traced architecture, six neutral editing zones and twelve separate prepared furniture examples. Both views and checks use the same centimetre model; 3D uses an orthographic camera, an irregular polygon floor, and actual door/window openings. Unknown bay-wall/window/service details remain explicitly incomplete, not absent. The approximately 60.65 square-metre envelope includes walls and is not usable/saleable area. All vertical dimensions are demo assumptions.
+- **Current demo**: the original five-room assumed plan and its twenty prepared furniture placements remain unchanged.
+- Switching retains each plan's furniture, drafts, locks, baseline, comparison and undo/redo histories independently for this browser session. Reset and undo affect only the active plan. Language is shared globally; optional looks and asynchronous targets are scoped by plan plus item ID. Nothing is persisted.
+- The shared editor supports library add/replace/delete, arbitrary rotation, numeric edits, issues, locks, examples, Before/After, models/boxes, camera controls and responsive views on both plans. See [docs/DECISIONS.md](docs/DECISIONS.md) for trace provenance and [docs/TEST_PLAN.md](docs/TEST_PLAN.md) for verification and remaining checks.
+- Existing AI-backend limitation: this checkout contains only the photo POST route, not its status/download handlers. Successful live photo generation is not certified by this change; no backend/routes were changed. Historical AI/GLB descriptions below are not proof of current end-to-end availability.
 
 ## HacKU Positioning
 
@@ -19,9 +27,9 @@ This is a simplified proof of capability. It does not establish professional app
 
 ## Current Workflow
 
-1. Start from the assumed whole flat, which has architecture only, no furniture and an empty baseline. Confirm the shared ceiling height (220-350 cm).
-2. Optionally use **Suggested furniture** to add fixed example placements prepared by the team, for the whole flat or for the selected room. These are not computed recommendations or a guarantee of fit. Suggestions that are already present, or that would overlap existing furniture, a wall, a door swing or the envelope, exceed the ceiling or break a distance lock, are skipped with a bilingual reason. Existing furniture is never moved.
-3. Choose a room with the room chips above the plan, the toolbar room picker or a double-tap on the room's empty floor. The 2D plan zooms to that room and the 3D camera frames it from the same viewing direction; **Whole flat** or Fit returns both views. Repeating a chip or Fit reframes both views again. Zoom the plan freely with the zoom buttons at the right end of the room-chip bar, a two-finger pinch or Ctrl/Cmd + wheel (the plain wheel zooms only once the plan is zoomed in; otherwise it scrolls the page), and drag empty floor to pan. Free 2D zoom does not move the 3D camera.
+1. Select Harmony or Current demo using **Flat plan**. Each starts with architecture only, no furniture and an empty baseline. Confirm the shared ceiling height (220-350 cm).
+2. Optionally use **Example layouts** for the whole flat or selected room/editing area. These are team-prepared examples, not computed recommendations or a guarantee of fit. Examples that are already present, or would overlap existing furniture, a represented wall, a door swing or the envelope, exceed the ceiling or break a distance lock, are skipped with a bilingual reason. Existing furniture is never moved.
+3. Choose a room/editing area with the shared picker or a double-tap on its empty floor. The 2D plan zooms to it and the 3D camera frames it; **Whole flat** or Fit returns both views. Zoom the plan freely with the zoom buttons, a two-finger pinch or Ctrl/Cmd + wheel (the plain wheel zooms only once the plan is zoomed in; otherwise it scrolls the page), and drag empty floor to pan. Free 2D zoom does not move the 3D camera.
 4. Select any item in the plan, 3D scene or list. After is the editable current layout; Before is the read-only baseline. Selecting from the list, 3D scene or Issues pans a zoomed plan to an item that is out of view.
 5. Drag in the 2D plan with mouse or touch, or enter precise global X/Z coordinates. Rotate with the side-panel circular dial, numeric degree field or reset-to-0 button.
 6. Edit width/depth/height manually to resize or replace dimensions without changing centre or rotation. Incomplete input retains the last accepted pose and shows field errors; values are not silently clamped.
@@ -120,7 +128,7 @@ Direct dependencies are pinned; exact transitive versions are in the lockfile. T
 
 ESLint 9 is retained because the selected stable Next lint configuration includes plugins whose peer ranges exclude ESLint 10. npm marks ESLint 9 as out of support; a compatible lint-stack upgrade remains maintenance work. No force or legacy-peer-dependency flags are used. Three.js emits an upstream `THREE.Clock` deprecation warning through R3F; browser verification found no application console errors. See [docs/DECISIONS.md](docs/DECISIONS.md).
 
-The Housing Authority is credited as the public scenario reference, not as the source or certifier of demo measurements. The PDF is linked, not embedded or redistributed. No software licence has been added to this repository.
+The Housing Authority is credited as the public plan source/reference, not as a certifier of demo measurements. The full PDF is linked, not embedded. The user-supplied isolated SVG reference is served under `public/plans/`; only the cleaned semantic model drives the interactive views. No software licence has been added to this repository.
 
 ## Architecture
 
@@ -140,7 +148,7 @@ src/
 docs/                    Architecture, decisions, test plan, compliance
 ```
 
-Geometry never imports React, Three.js or translation functions. Stable warning/lock codes, object IDs and unrounded numbers are translated in the UI. The reducer owns the current layout, independent baseline, drafts, selection, locks and a bounded undo/redo history of document snapshots. Plan zoom and room focus are view state outside the reducer, and so are 3D looks (keyed by item ID) and the Models / Boxes choice. Both views consume one displayed snapshot; rendering never decides whether an edit is accepted. Only locks can reject a complete pose proposal.
+Geometry does not import React or translation functions. Three.js polygon triangulation is reused for concave floor containment and render geometry. Stable warning/lock codes, object IDs and unrounded numbers are translated in the UI. A session owner routes actions to one existing document reducer per plan; each owns the current layout, independent baseline, drafts, selection, locks and bounded undo/redo history. Room focus/inspector choices and scenario-scoped 3D looks remain outside document history. Only one plan's GPU scene is active. Both views consume one displayed snapshot; rendering never decides whether an edit is accepted. Only locks can reject a complete pose proposal.
 
 Further documentation:
 
@@ -157,13 +165,13 @@ Domain units are **centimetres**. The global origin is the front-left outer-enve
 
 Rectangles have four rotated corners, not a swapped-axis approximation. SAT tests all edge normals; penetration is the containment-correct smallest separating translation. Sutherland-Hodgman clipping returns the actual overlap polygon and its area. Minimum edge distance uses containment/overlap checks and point-to-segment minima for the convex polygons; overlapping or touching distance is zero. A **0.000001 cm** epsilon handles geometric touching/noise and lock comparisons, not real measurement tolerance.
 
-Wall rectangles are split at door openings. Door swings reserve conservative width-square bounds inside the swing room. Windows are visual only; they do not cut collision walls or create clearance rules. The envelope is X = 0-660, Z = 0-640. Height is compared directly with the shared ceiling. All relevant warnings are collected; geometry does not block edits.
+Wall footprints are split at door openings. Door swings reserve conservative width-square bounds, not exact sweep shapes. Windows do not remove below-sill collision solids or create clearance rules. Harmony's visible wall panels are split vertically around doors/windows, including sill panels and headers; its full furniture footprints are checked against the concave outline, not just the bounding box or footprint corners. The current demo retains its rectangular X = 0-660, Z = 0-640 envelope and existing visual-window behavior. Height is compared directly with the shared ceiling. All relevant warnings are collected; geometry does not block edits.
 
 Product dimensions remain finite positive plain decimals: width/depth <= 1000 cm, height <= 500 cm. Ceiling is 220-350 cm. Positions accept negative/outside-envelope values but are limited to +/-10000 cm to prevent extreme renderer overflow; this is an input bound, not wall spacing. Rotation accepts 0-360 with 360 normalised to 0. Distance-lock minimums are finite >= 0. Blank, malformed, nonfinite, units, commas and exponent text produce input errors; values are never silently clamped.
 
 Each item mutation validates all its applicable locks. Position locks block centre changes but allow other edits unless distance locks reject them. Several distance locks may share an item or pair. Creation/editing must already satisfy the current layout, rather than moving furniture automatically. A violated edit restores the last accepted pose continuously during dragging, so it cannot rest in violation after release. A minimum-zero lock permits overlap; geometry warnings still remain.
 
-## Demo Data
+## Current Demo Data
 
 **All dimensions are generated team demo assumptions, not Housing Authority-certified measurements.** The flat is 660 x 640 cm gross (42.24 square metres), with default ceiling 260 cm and uniform 10 cm walls. Five rooms total 38.21 square metres of assumed usable area: living/dining, kitchen, bathroom, master bedroom and second bedroom. There is no corridor.
 

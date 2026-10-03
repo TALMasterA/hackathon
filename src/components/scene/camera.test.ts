@@ -1,8 +1,28 @@
 import { describe, expect, it } from "vitest";
+import { OrthographicCamera, Vector3 } from "three";
 import { DEMO_FLAT } from "../../data/flat-preset";
-import { INITIAL_CAMERA_POSITION, ROOM_DISTANCE, roomCameraFrame, WHOLE_FLAT_DISTANCE, WHOLE_FLAT_TARGET } from "./camera";
+import { HARMONY_FLAT } from "../../data/harmony-preset";
+import { INITIAL_CAMERA_POSITION, orthographicFitZoom, ROOM_DISTANCE, roomCameraFrame, setOrthographicZoom, WHOLE_FLAT_DISTANCE, WHOLE_FLAT_TARGET } from "./camera";
 
 const unit = (vector: readonly number[]) => vector.map((value) => value / Math.hypot(...vector));
+
+describe("Harmony orthographic aspect framing", () => {
+  it.each([[510, 500], [326, 358], [288, 360]])("contains the full envelope at %s x %s", (width, height) => {
+    const direction = new Vector3(1, 1.2, 1).normalize();
+    const target = new Vector3(0, HARMONY_FLAT.height / 200, 0);
+    const camera = new OrthographicCamera(-width / 2, width / 2, height / 2, -height / 2, 0.1, 80);
+    camera.position.copy(target).add(direction.clone().multiplyScalar(20));
+    camera.lookAt(target);
+    setOrthographicZoom(camera, orthographicFitZoom(HARMONY_FLAT, { width, height }, direction.toArray()));
+    camera.updateMatrixWorld();
+    for (const horizontal of [-1, 1]) for (const depth of [-1, 1]) for (const vertical of [0, HARMONY_FLAT.height / 100]) {
+      const point = new Vector3(horizontal * HARMONY_FLAT.width / 200, vertical, depth * HARMONY_FLAT.depth / 200).project(camera);
+      expect(Math.abs(point.x)).toBeLessThan(1);
+      expect(Math.abs(point.y)).toBeLessThan(1);
+      expect(Math.abs(point.z)).toBeLessThan(1);
+    }
+  });
+});
 
 describe("3D room-focus camera framing", () => {
   it("returns the original whole-flat framing for no focus", () => {

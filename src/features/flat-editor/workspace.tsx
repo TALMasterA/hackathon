@@ -5,8 +5,9 @@ import { ChevronDown, Flag, LockKeyhole, PanelRight, Redo2, Settings2, Undo2, X 
 import { AppHeader } from "@/components/app-header";
 import { FloorPlan, type PlanRequest } from "@/components/plan/floor-plan";
 import { SourcePanel } from "@/components/source-panel";
-import { DEMO_FLAT, FURNITURE_LIBRARY } from "@/data/flat-preset";
-import { translate } from "@/i18n/dictionary";
+import { FURNITURE_LIBRARY } from "@/data/flat-preset";
+import { FLAT_SCENARIOS, type ScenarioId } from "@/data/flat-scenarios";
+import { formatCm, translate } from "@/i18n/dictionary";
 import { editorText } from "@/i18n/editor";
 import { editorInputMessage, lockMessage } from "@/i18n/editor-messages";
 import { analyzeLayout, issueItemIds } from "@/lib/geometry/layout";
@@ -21,7 +22,7 @@ import { LocksPanel } from "./locks-panel";
 import { LibraryPanel } from "./library-panel";
 import { SuggestionsPanel } from "./suggestions-panel";
 import { itemChanges } from "./layout";
-import { createEditorState, editorReducer, type EditorAction } from "./state";
+import { createScenarioSessions, editorReducer, sessionReducer, type EditorAction } from "./state";
 
 export interface EditorSceneProps {
   flat: Flat;
@@ -40,9 +41,12 @@ export interface EditorSceneProps {
 }
 
 export function FlatEditorApp({ SceneViewport }: { SceneViewport?: ComponentType<EditorSceneProps> }) {
-  const [state, dispatch] = useReducer(editorReducer, undefined, createEditorState);
+  const [sessions, sessionDispatch] = useReducer(sessionReducer, undefined, createScenarioSessions);
+  const state = sessions.sessions[sessions.activeId];
+  const scenario = FLAT_SCENARIOS[sessions.activeId];
+  const dispatch = (action: EditorAction) => sessionDispatch({ type: "edit", action });
   const snapshot = state.view === "before" ? state.baseline : state.current;
-  const flat = { ...DEMO_FLAT, height: snapshot.ceilingHeight };
+  const flat = { ...scenario.flat, height: snapshot.ceilingHeight };
   const issues = analyzeLayout(flat, snapshot.furniture, snapshot.ceilingHeight);
   const selected = snapshot.furniture.find((item) => item.id === state.selectedId) ?? null;
   const editable = state.view === "after";
@@ -57,6 +61,7 @@ export function FlatEditorApp({ SceneViewport }: { SceneViewport?: ComponentType
   const [visualization, setVisualization] = useState<"plan" | "scene">("plan");
   const [templateId, setTemplateId] = useState(FURNITURE_LIBRARY[0].id);
   const [removedLockFrom, setRemovedLockFrom] = useState<typeof state.locks | null>(null);
+  const uiSessions = useRef<Partial<Record<ScenarioId, { focus: PlanRequest; reveal: PlanRequest; tab: typeof tab; inspectorOpen: boolean; visualization: typeof visualization; templateId: string }>>>({});
   const sidebar = useRef<HTMLElement>(null);
   const inspectorTrigger = useRef<HTMLButtonElement>(null);
   const inspectorClose = useRef<HTMLButtonElement>(null);
@@ -67,8 +72,22 @@ export function FlatEditorApp({ SceneViewport }: { SceneViewport?: ComponentType
       setInspectorOpen(true);
     }
   }
-  const looks = useLooks();
+  const looks = useLooks(state.scenarioId);
   const shownLooks = visibleLooks(looks.looks, snapshot.furniture);
+  const switchScenario = (id: ScenarioId) => {
+    if (id === sessions.activeId) return;
+    uiSessions.current[sessions.activeId] = { focus, reveal, tab, inspectorOpen, visualization, templateId };
+    const saved = uiSessions.current[id];
+    setFocus(saved?.focus ?? { id: null, revision: 0 });
+    setReveal(saved?.reveal ?? { id: null, revision: 0 });
+    setTab(saved?.tab ?? "furniture");
+    setInspectorOpen(saved?.inspectorOpen ?? false);
+    setVisualization(saved?.visualization ?? "plan");
+    setTemplateId(saved?.templateId ?? FURNITURE_LIBRARY[0].id);
+    setLastSelectedId(sessions.sessions[id].selectedId);
+    setRemovedLockFrom(null);
+    sessionDispatch({ type: "switch", id });
+  };
   const replaceItem = (templateId: string) => {
     const action: EditorAction = { type: "replace-item", templateId };
     const cleared = lookClearedBy(action, state, editorReducer(state, action));
@@ -125,11 +144,12 @@ export function FlatEditorApp({ SceneViewport }: { SceneViewport?: ComponentType
       <a className="skip-link" href="#item-details" onClick={() => { setTab("selected"); setInspectorOpen(true); requestAnimationFrame(() => document.getElementById("panel-selected")?.focus()); }}>{translate(state.language, "app.skip")}</a>
       <AppHeader language={state.language} onLanguage={(language) => dispatch({ type: "language", language })} onReset={() => { dispatch({ type: "reset" }); setFocus((previous) => ({ id: null, revision: previous.revision + 1 })); }} />
       <main id="main" className="editor-main">
-        <div className="overview"><div><p className="eyebrow">{text("editor.category")}</p><h1>{text("editor.title")}</h1></div><span className="demo-tag"><span />{text("editor.assumptions")}</span></div>
+        <div className="overview"><div><p className="eyebrow">{text("editor.category")}</p><h1>{text("editor.title")}</h1></div><span className="demo-tag"><span />{text(flat.source ? "editor.pdfApproximate" : "editor.assumptions")}</span></div>
             <div className="layout-toolbar" aria-label={text("editor.title")}>
+              <label className="room-picker flat-picker">{text("editor.flat")}<select data-testid="flat-selector" value={sessions.activeId} onChange={(event) => switchScenario(event.target.value as ScenarioId)}>{Object.entries(FLAT_SCENARIOS).map(([id, entry]) => <option key={id} value={id}>{entry.name[state.language]}</option>)}</select></label>
               <div className="segmented" role="group" aria-label={translate(state.language, "scene.comparison")}><button type="button" aria-pressed={state.view === "before"} onClick={() => dispatch({ type: "view", view: "before" })}>{translate(state.language, "scene.before")}</button><button type="button" aria-pressed={state.view === "after"} onClick={() => dispatch({ type: "view", view: "after" })}>{translate(state.language, "scene.after")}</button></div>
               <div className="history-tools"><button type="button" className="icon-button" disabled={!editable || state.past.length === 0} aria-label={text("editor.undo")} title={text("editor.undo")} data-tooltip={text("editor.undo")} onClick={() => dispatch({ type: "undo" })}><Undo2 size={18} aria-hidden="true" /></button><button type="button" className="icon-button" disabled={!editable || state.future.length === 0} aria-label={text("editor.redo")} title={text("editor.redo")} data-tooltip={text("editor.redo")} onClick={() => dispatch({ type: "redo" })}><Redo2 size={18} aria-hidden="true" /></button></div>
-              <label className="room-picker">{text("editor.room")}<select value={focus.id ?? "all"} onChange={(event) => focusRoom(event.target.value === "all" ? null : event.target.value)}><option value="all">{text("plan.wholeFlat")}</option>{flat.rooms.map((room) => <option value={room.id} key={room.id}>{room.name[state.language]}</option>)}</select></label>
+              <label className="room-picker">{text(flat.outline ? "editor.area" : "editor.room")}<select value={focus.id ?? "all"} onChange={(event) => focusRoom(event.target.value === "all" ? null : event.target.value)}><option value="all">{text("plan.wholeFlat")}</option>{flat.rooms.map((room) => <option value={room.id} key={room.id}>{room.name[state.language]}</option>)}</select></label>
               <CheckStatus count={issues.length} itemCount={snapshot.furniture.length} language={state.language} />
               <details className="layout-settings">
                 <summary><Settings2 size={17} aria-hidden="true" />{text("editor.settings")}<ChevronDown size={15} aria-hidden="true" /></summary>
@@ -142,15 +162,16 @@ export function FlatEditorApp({ SceneViewport }: { SceneViewport?: ComponentType
             </div>
         <div className="flat-workspace">
           <div className="flat-main" data-testid="workspace-scroll">
+            {flat.source && <p className="source-warning" role="note">{text("source.harmony.warning")}</p>}
             {snapshot.furniture.length === 0 && <div className="workspace-empty"><p>{text("editor.noItems")}</p><button type="button" className="primary-button" disabled={!editable} onClick={() => dispatch({ type: "suggest", roomId: "all" })}><Flag size={17} aria-hidden="true" />{text("suggest.all")}</button></div>}
             {SceneViewport && <div className="segmented visualization-switch" role="group" aria-label={text("editor.plan")}><button type="button" aria-pressed={visualization === "plan"} onClick={() => setVisualization("plan")}>{text("editor.plan")}</button><button type="button" aria-pressed={visualization === "scene"} onClick={() => setVisualization("scene")}>{text("editor.scene")}</button></div>}
             <div className="flat-views" data-visualization={visualization} data-has-scene={Boolean(SceneViewport)}>
-              <section className="visualization-card plan-card" aria-label={text("editor.plan")}><div className="view-heading"><h2>{text("editor.plan")}</h2><span>{flat.width} × {flat.depth} {text("editor.unit")}</span></div><FloorPlan key={state.cameraRevision} flat={flat} furniture={snapshot.furniture} baseline={editable ? state.baseline.furniture : []} issues={issues} selectedId={state.selectedId} focusedIds={state.focusedIds} positionLocks={state.locks.position} editable={editable} language={state.language} onSelect={select} onRoom={(id) => dispatch({ type: "room", id })} onPropose={(item) => dispatch({ type: "propose", item })} focus={focus} reveal={reveal} onFocusRoom={focusRoom} onGestureStart={() => dispatch({ type: "gesture-start" })} onGestureEnd={() => dispatch({ type: "gesture-end" })} /></section>
-              {SceneViewport && <section className="visualization-card scene-card" aria-label={text("editor.scene")}><div className="view-heading"><h2>{text("editor.scene")}</h2></div><SceneViewport key={state.cameraRevision} flat={flat} furniture={snapshot.furniture} baseline={editable ? state.baseline.furniture : []} issues={issues} selectedId={state.selectedId} focusedIds={state.focusedIds} focusRoomId={focus.id} focusRevision={focus.revision} language={state.language} looks={shownLooks} onSelect={selectAndReveal} /><p className="plan-hint">{translate(state.language, "scene.caption")}</p></section>}
+              <section className="visualization-card plan-card" aria-label={text("editor.plan")}><div className="view-heading"><h2>{text("editor.plan")}</h2><span>{flat.outline ? "~ " : ""}{formatCm(flat.width, state.language)} × {formatCm(flat.depth, state.language)} {text("editor.unit")}</span></div><FloorPlan key={`${state.scenarioId}-${state.cameraRevision}`} flat={flat} furniture={snapshot.furniture} baseline={editable ? state.baseline.furniture : []} issues={issues} selectedId={state.selectedId} focusedIds={state.focusedIds} positionLocks={state.locks.position} editable={editable} language={state.language} onSelect={select} onRoom={(id) => dispatch({ type: "room", id })} onPropose={(item) => dispatch({ type: "propose", item })} focus={focus} reveal={reveal} onFocusRoom={focusRoom} onGestureStart={() => dispatch({ type: "gesture-start" })} onGestureEnd={() => dispatch({ type: "gesture-end" })} /></section>
+              {SceneViewport && <section className="visualization-card scene-card" aria-label={text("editor.scene")}><div className="view-heading"><h2>{text("editor.scene")}</h2></div><SceneViewport key={`${state.scenarioId}-${state.cameraRevision}`} flat={flat} furniture={snapshot.furniture} baseline={editable ? state.baseline.furniture : []} issues={issues} selectedId={state.selectedId} focusedIds={state.focusedIds} focusRoomId={focus.id} focusRevision={focus.revision} language={state.language} looks={shownLooks} onSelect={selectAndReveal} /><p className="plan-hint">{translate(state.language, "scene.caption")}</p></section>}
             </div>
             {editable && <p className="baseline-legend"><span className="baseline-swatch" />{text("editor.ghosts")}</p>}
             <IssuesPanel issues={issues} flat={flat} furniture={snapshot.furniture} language={state.language} onFocus={(issue) => selectAndReveal(issue.itemId, issueItemIds(issue))} />
-            <SourcePanel language={state.language} />
+            <SourcePanel language={state.language} flat={flat} />
           </div>
           <aside ref={sidebar} className="editor-sidebar" id="item-details" data-open={inspectorOpen} aria-label={text("editor.inspector")} onKeyDown={(event) => { if (event.key === "Escape") closeInspector(); }}>
             <div className="inspector-navigation">
@@ -167,11 +188,11 @@ export function FlatEditorApp({ SceneViewport }: { SceneViewport?: ComponentType
             <div id="panel-selected" role="tabpanel" aria-labelledby="tab-selected" tabIndex={0} hidden={tab !== "selected"}>
             <FurniturePanel item={selected} draft={state.draft} issues={state.inputIssues} editable={editable} positionLocked={Boolean(selected && state.locks.position.includes(selected.id))} language={state.language} onField={(field, value) => dispatch({ type: "draft", field, value })} onRotate={(angle) => { if (selected) dispatch({ type: "propose", item: { ...selected, orientation: angle } }); }} onBlur={() => dispatch({ type: "normalise-draft" })} onGestureStart={() => dispatch({ type: "gesture-start" })} onGestureEnd={() => dispatch({ type: "gesture-end" })} />
               {selected && <><label className="position-lock-toggle"><input type="checkbox" checked={state.locks.position.includes(selected.id)} disabled={!editable} onChange={() => dispatch({ type: "position-lock", id: selected.id })} /><LockKeyhole size={16} aria-hidden="true" />{text("locks.position")}</label><LibraryPanel {...libraryProps} mode="replace" /></>}
-              <details className="look-disclosure" hidden={!selected}><summary>{text("look.title")}<ChevronDown size={16} aria-hidden="true" /></summary><LookPanel item={selected} look={selected ? shownLooks.get(selected.id) : undefined} editable={editable} language={state.language} onSet={(itemId, look) => looks.update({ type: "set", itemId, look })} onTurn={(itemId) => looks.update({ type: "turn", itemId })} onRemove={(itemId) => looks.update({ type: "remove", itemId })} /></details>
+              <details className="look-disclosure" hidden={!selected}><summary>{text("look.title")}<ChevronDown size={16} aria-hidden="true" /></summary><LookPanel item={selected} look={selected ? shownLooks.get(selected.id) : undefined} editable={editable} language={state.language} scope={state.scenarioId} scopeName={scenario.name} onSet={(itemId, look, scope) => looks.update({ type: "set", itemId, look }, scope)} onTurn={(itemId) => looks.update({ type: "turn", itemId })} onRemove={(itemId) => looks.update({ type: "remove", itemId })} /></details>
             </div>
             <div id="panel-constraints" role="tabpanel" aria-labelledby="tab-constraints" tabIndex={0} hidden={tab !== "constraints"}>
               {lockRemoved && <div className="undo-notice" role="status"><p>{text("locks.removed")}</p><button type="button" className="secondary-button" disabled={!editable} onClick={() => dispatch({ type: "undo" })}><Undo2 size={17} aria-hidden="true" />{text("editor.undo")}</button></div>}
-              <LocksPanel key={state.cameraRevision} furniture={state.current.furniture} locks={state.locks} selectedId={state.selectedId} editable={editable} language={state.language} setupIssue={state.lockSetupIssue} onSave={(input) => dispatch({ type: "distance-lock", ...input })} onRemove={(id) => { setRemovedLockFrom(state.locks); dispatch({ type: "remove-distance-lock", id }); }} />
+              <LocksPanel key={`${state.scenarioId}-${state.cameraRevision}`} furniture={state.current.furniture} locks={state.locks} selectedId={state.selectedId} editable={editable} language={state.language} setupIssue={state.lockSetupIssue} onSave={(input) => dispatch({ type: "distance-lock", ...input })} onRemove={(id) => { setRemovedLockFrom(state.locks); dispatch({ type: "remove-distance-lock", id }); }} />
             </div>
           </aside>
         </div>

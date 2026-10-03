@@ -1,9 +1,9 @@
 import type { Flat, FlatFurniture, FurnitureTemplate, ItemChange, LayoutLocks, LayoutSnapshot, Position2D, SuggestionSkipReason } from "../../types/domain";
-import { SUGGESTED_FURNITURE } from "../../data/flat-preset";
+import { examplesForFlat } from "../../data/flat-scenarios";
 import { analyzeLayout, issueItemIds } from "../../lib/geometry/layout";
 import { GEOMETRY_EPSILON_CM } from "../../lib/geometry/footprint";
 import { distanceLockViolations } from "../../lib/geometry/locks";
-import { normalizeAngle } from "../../lib/geometry/oriented";
+import { normalizeAngle, polygonOutsideArea, rectanglePolygon } from "../../lib/geometry/oriented";
 
 export interface SuggestionResult {
   added: FlatFurniture[];
@@ -14,7 +14,7 @@ export interface SuggestionResult {
 export function suggestFurniture(flat: Flat, furniture: readonly FlatFurniture[], locks: LayoutLocks, roomId: string): SuggestionResult {
   const result: SuggestionResult = { added: [], skipped: [] };
   let layout = [...furniture];
-  for (const suggestion of SUGGESTED_FURNITURE.filter((entry) => roomId === "all" || entry.roomId === roomId)) {
+  for (const suggestion of examplesForFlat(flat.id).filter((entry) => roomId === "all" || entry.roomId === roomId)) {
     if (layout.some((entry) => entry.id === suggestion.id)) {
       result.skipped.push({ item: suggestion, reason: "present" });
       continue;
@@ -56,6 +56,7 @@ export function placeLibraryItem(flat: Flat, furniture: readonly FlatFurniture[]
 
   for (const position of positions) {
     const item: FlatFurniture = { ...template, id, roomId, position, orientation: 0, name: { ...template.name } };
+    if (room.outline && polygonOutsideArea(rectanglePolygon(item), room.outline) > GEOMETRY_EPSILON_CM * (item.width + item.depth) * 2) continue;
     const issues = analyzeLayout(flat, [...furniture, item], flat.height);
     if (!issues.some((issue) => issueItemIds(issue).includes(id))) return item;
   }

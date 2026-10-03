@@ -2,9 +2,31 @@ import { describe, expect, it } from "vitest";
 import { DEMO_FLAT, SUGGESTED_FURNITURE } from "../../data/flat-preset";
 import { containingRoom, doorGeometry, wallAxis, wallParts } from "./architecture";
 import { analyzeLayout } from "./layout";
-import { polygonArea, polygonOverlap, rectanglePolygon } from "./oriented";
+import { floorTrianglePositions, pointInPolygon, polygonArea, polygonOutsideArea, polygonOverlap, rectanglePolygon } from "./oriented";
 
 const item = SUGGESTED_FURNITURE[3];
+
+describe("concave floor geometry", () => {
+  const outline = [{ x: 0, z: 0 }, { x: 100, z: 0 }, { x: 100, z: 100 }, { x: 60, z: 100 }, { x: 60, z: 40 }, { x: 40, z: 40 }, { x: 40, z: 100 }, { x: 0, z: 100 }];
+
+  it("rejects an edge crossing a notch even when all furniture corners are inside", () => {
+    const footprint = rectanglePolygon({ width: 60, depth: 20, position: { x: 50, z: 70 }, orientation: 0 });
+    expect(footprint.every((point) => pointInPolygon(point, outline))).toBe(true);
+    expect(polygonOutsideArea(footprint, outline)).toBeCloseTo(400);
+    expect(polygonOutsideArea(rectanglePolygon({ width: 20, depth: 20, position: { x: 20, z: 70 }, orientation: 30 }), outline)).toBeCloseTo(0);
+  });
+
+  it("triangulates only the actual floor area with upward-facing triangles", () => {
+    const positions = floorTrianglePositions(outline, { width: 100, depth: 100 });
+    let area = 0;
+    for (let offset = 0; offset < positions.length; offset += 9) {
+      const cross = (positions[offset + 6] - positions[offset]) * (positions[offset + 5] - positions[offset + 2]) - (positions[offset + 3] - positions[offset]) * (positions[offset + 8] - positions[offset + 2]);
+      expect(cross).toBeGreaterThan(0);
+      area += cross / 2;
+    }
+    expect(area * 10000).toBeCloseTo(polygonArea(outline), 2);
+  });
+});
 
 describe("whole-flat data sanity", () => {
   it("has exactly five rooms and no corridor", () => {

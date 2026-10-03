@@ -1,12 +1,12 @@
 import { House, Sofa } from "lucide-react";
-import { SUGGESTED_FURNITURE } from "@/data/flat-preset";
+import { examplesForFlat } from "@/data/flat-scenarios";
 import { editorText } from "@/i18n/editor";
 import { suggestionMessage } from "@/i18n/editor-messages";
 import type { Flat, FlatFurniture, Language, SuggestionReport } from "@/types/domain";
 
 export function SuggestionsPanel({ flat, roomId, furniture, editable, report, language, onSuggest }: { flat: Flat; roomId: string; furniture: readonly FlatFurniture[]; editable: boolean; report: SuggestionReport | null; language: Language; onSuggest: (roomId: string) => void }) {
   const room = flat.rooms.find((entry) => entry.id === roomId);
-  const complete = SUGGESTED_FURNITURE.every((suggestion) => furniture.some((item) => item.id === suggestion.id));
+  const complete = examplesForFlat(flat.id).every((suggestion) => furniture.some((item) => item.id === suggestion.id));
   return (
     <section className="suggestions-panel" aria-labelledby="suggestions-title" data-testid="suggestions-panel">
       <h2 id="suggestions-title">{editorText(language, "suggest.title")}</h2>

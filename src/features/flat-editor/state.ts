@@ -1,4 +1,5 @@
-import { DEMO_FLAT, FURNITURE_LIBRARY } from "../../data/flat-preset";
+import { FURNITURE_LIBRARY } from "../../data/flat-preset";
+import { FLAT_SCENARIOS, type ScenarioId } from "../../data/flat-scenarios";
 import { containingRoom } from "../../lib/geometry/architecture";
 import { furnitureDraft, validateFurnitureDraft } from "../../lib/geometry/edit";
 import { validateInput } from "../../lib/geometry/input";
@@ -20,6 +21,7 @@ export interface EditorDocument {
 }
 
 export interface EditorState {
+  scenarioId: ScenarioId;
   current: LayoutSnapshot;
   baseline: LayoutSnapshot;
   locks: LayoutLocks;
@@ -50,9 +52,10 @@ export function copySnapshot(snapshot: LayoutSnapshot): LayoutSnapshot {
   return { ceilingHeight: snapshot.ceilingHeight, furniture: snapshot.furniture.map((item) => ({ ...item, name: { ...item.name }, position: { ...item.position } })) };
 }
 
-export function createEditorState(): EditorState {
-  const current: LayoutSnapshot = { ceilingHeight: DEMO_FLAT.height, furniture: [] };
-  return { current, baseline: copySnapshot(current), locks: { position: [], distance: [] }, selectedId: null, selectedRoomId: "living", focusedIds: [], language: "en", view: "after", draft: null, inputIssues: [], ceilingInput: String(DEMO_FLAT.height), ceilingIssue: null, lockNotice: [], lockNoticeContext: "edit", lockSetupIssue: null, nextLockNumber: 1, nextItemNumber: 1, libraryFullRoomId: null, suggestionReport: null, cameraRevision: 0, past: [], future: [], gesture: null, coalesceKey: null };
+export function createEditorState(scenarioId: ScenarioId = "demo"): EditorState {
+  const scenario = FLAT_SCENARIOS[scenarioId];
+  const current: LayoutSnapshot = { ceilingHeight: scenario.flat.height, furniture: [] };
+  return { scenarioId, current, baseline: copySnapshot(current), locks: { position: [], distance: [] }, selectedId: null, selectedRoomId: scenario.defaultRoomId, focusedIds: [], language: "en", view: "after", draft: null, inputIssues: [], ceilingInput: String(scenario.flat.height), ceilingIssue: null, lockNotice: [], lockNoticeContext: "edit", lockSetupIssue: null, nextLockNumber: 1, nextItemNumber: 1, libraryFullRoomId: null, suggestionReport: null, cameraRevision: 0, past: [], future: [], gesture: null, coalesceKey: null };
 }
 
 export type EditorAction =
@@ -145,7 +148,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 
 function commitProposal(state: EditorState, proposed: FlatFurniture, rawDraft?: FurnitureDraft): EditorState {
   if (state.view === "before") return state;
-  const candidate = { ...proposed, orientation: normalizeAngle(proposed.orientation), roomId: containingRoom(DEMO_FLAT, proposed.position)?.id ?? proposed.roomId };
+  const candidate = { ...proposed, orientation: normalizeAngle(proposed.orientation), roomId: containingRoom(FLAT_SCENARIOS[state.scenarioId].flat, proposed.position)?.id ?? proposed.roomId };
   const result = proposeItemEdit(state.current.furniture, candidate, state.locks);
   if (!result.accepted) return { ...state, draft: state.selectedId === result.item.id ? furnitureDraft(result.item) : state.draft, inputIssues: [], lockNotice: result.violations, lockNoticeContext: "edit" };
   const previous = state.current.furniture.find((item) => item.id === result.item.id)!;
@@ -153,6 +156,7 @@ function commitProposal(state: EditorState, proposed: FlatFurniture, rawDraft?: 
 }
 
 function applyEdit(state: EditorState, action: EditAction): EditorState {
+  const flat = FLAT_SCENARIOS[state.scenarioId].flat;
   switch (action.type) {
     case "select": {
       const snapshot = state.view === "before" ? state.baseline : state.current;
@@ -170,7 +174,7 @@ function applyEdit(state: EditorState, action: EditAction): EditorState {
       const item = state.current.furniture.find((entry) => entry.id === state.selectedId);
       if (!item) return state;
       const draft = { ...state.draft, [action.field]: action.value };
-      const result = validateFurnitureDraft(draft, item, DEMO_FLAT);
+      const result = validateFurnitureDraft(draft, item, flat);
       return result.complete ? commitProposal(state, result.item, draft) : { ...state, draft, inputIssues: result.issues, lockNotice: [] };
     }
     case "normalise-draft": {
@@ -179,7 +183,7 @@ function applyEdit(state: EditorState, action: EditAction): EditorState {
     }
     case "ceiling": {
       if (state.view === "before") return state;
-      const result = validateInput({ width: "1", depth: "1", height: "1", roomHeight: action.value, orientation: 0 }, DEMO_FLAT);
+      const result = validateInput({ width: "1", depth: "1", height: "1", roomHeight: action.value, orientation: 0 }, flat);
       return result.complete
         ? { ...state, ceilingInput: action.value, ceilingIssue: null, current: { ...state.current, ceilingHeight: result.roomHeight } }
         : { ...state, ceilingInput: action.value, ceilingIssue: { ...result.issues[0], field: "ceilingHeight" } };
@@ -205,7 +209,7 @@ function applyEdit(state: EditorState, action: EditAction): EditorState {
       if (state.view === "before") return state;
       const template = FURNITURE_LIBRARY.find((entry) => entry.id === action.templateId);
       if (!template) return state;
-      const item = placeLibraryItem({ ...DEMO_FLAT, height: state.current.ceilingHeight }, state.current.furniture, template, state.selectedRoomId, `item-${state.nextItemNumber}`);
+      const item = placeLibraryItem({ ...flat, height: state.current.ceilingHeight }, state.current.furniture, template, state.selectedRoomId, `item-${state.nextItemNumber}`);
       if (!item) return { ...state, libraryFullRoomId: state.selectedRoomId };
       return { ...state, current: { ...state.current, furniture: [...state.current.furniture, item] }, selectedId: item.id, focusedIds: [item.id], draft: furnitureDraft(item), inputIssues: [], libraryFullRoomId: null, nextItemNumber: state.nextItemNumber + 1, lockNotice: [] };
     }
@@ -223,7 +227,7 @@ function applyEdit(state: EditorState, action: EditAction): EditorState {
     }
     case "suggest": {
       if (state.view === "before") return state;
-      const result = suggestFurniture({ ...DEMO_FLAT, height: state.current.ceilingHeight }, state.current.furniture, state.locks, action.roomId);
+      const result = suggestFurniture({ ...flat, height: state.current.ceilingHeight }, state.current.furniture, state.locks, action.roomId);
       const suggestionReport: SuggestionReport = { roomId: action.roomId, added: result.added.map((item) => item.id), skipped: result.skipped.map(({ item, reason }) => ({ id: item.id, name: item.name, reason })) };
       return { ...state, current: result.added.length > 0 ? { ...state.current, furniture: [...state.current.furniture, ...result.added] } : state.current, suggestionReport, libraryFullRoomId: null, lockNotice: [] };
     }
@@ -235,6 +239,28 @@ function applyEdit(state: EditorState, action: EditAction): EditorState {
       return { ...state, view: action.view, selectedId: item?.id ?? null, focusedIds: item ? [item.id] : [], draft: item ? furnitureDraft(item) : null, inputIssues: [], ceilingInput: String(state.current.ceilingHeight), ceilingIssue: null, lockNotice: [] };
     }
     case "reset":
-      return { ...createEditorState(), language: state.language, cameraRevision: state.cameraRevision + 1, past: state.past, future: state.future };
+      return { ...createEditorState(state.scenarioId), language: state.language, cameraRevision: state.cameraRevision + 1, past: state.past, future: state.future };
   }
+}
+
+export interface ScenarioSessions {
+  activeId: ScenarioId;
+  sessions: Record<ScenarioId, EditorState>;
+}
+
+export type SessionAction = { type: "switch"; id: ScenarioId } | { type: "edit"; action: EditorAction };
+
+export function createScenarioSessions(): ScenarioSessions {
+  return { activeId: "harmony", sessions: { demo: createEditorState("demo"), harmony: createEditorState("harmony") } };
+}
+
+export function sessionReducer(state: ScenarioSessions, action: SessionAction): ScenarioSessions {
+  if (action.type === "switch") {
+    if (action.id === state.activeId) return state;
+    return { activeId: action.id, sessions: { ...state.sessions, [state.activeId]: endGesture(state.sessions[state.activeId]) } };
+  }
+  if (action.action.type === "language") {
+    return { ...state, sessions: { demo: editorReducer(state.sessions.demo, action.action), harmony: editorReducer(state.sessions.harmony, action.action) } };
+  }
+  return { ...state, sessions: { ...state.sessions, [state.activeId]: editorReducer(state.sessions[state.activeId], action.action) } };
 }

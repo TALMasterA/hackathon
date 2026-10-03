@@ -41,6 +41,15 @@ export type LooksAction =
   | { type: "turn"; itemId: string }
   | { type: "remove"; itemId: string };
 
+export function lookKey(scope: string, itemId: string): string {
+  return JSON.stringify([scope, itemId]);
+}
+
+export function scopedLooks(looks: Looks, scope: string): Looks {
+  const prefix = JSON.stringify([scope]).slice(0, -1) + ",";
+  return new Map([...looks].filter(([key]) => key.startsWith(prefix)).map(([key, look]) => [JSON.parse(key)[1] as string, look]));
+}
+
 /**
  * Looks live outside the editor reducer and its undo history. They are keyed by item ID and kept
  * when an item is deleted or the demo is reset, so undo brings an item back with its look.

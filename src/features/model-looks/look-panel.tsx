@@ -14,6 +14,7 @@ const LookPreview = dynamic(() => import("./look-preview"), { ssr: false, loadin
 
 interface Target {
   id: string;
+  scope: string;
   kind: FurnitureKind;
   name: LocalizedName;
   width: number;
@@ -38,13 +39,15 @@ export interface LookPanelProps {
   look: Look | undefined;
   editable: boolean;
   language: Language;
-  onSet: (itemId: string, look: Look) => void;
+  scope?: string;
+  scopeName?: LocalizedName;
+  onSet: (itemId: string, look: Look, scope: string) => void;
   onTurn: (itemId: string) => void;
   onRemove: (itemId: string) => void;
 }
 
 /** "3D look (optional)": an AI look from a confirmed product photo for the selected item. */
-export function LookPanel({ item, look, editable, language, onSet, onTurn, onRemove }: LookPanelProps) {
+export function LookPanel({ item, look, editable, language, scope = "demo", scopeName, onSet, onTurn, onRemove }: LookPanelProps) {
   const [job, setJob] = useState<Job | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [now, setNow] = useState(0);
@@ -70,12 +73,12 @@ export function LookPanel({ item, look, editable, language, onSet, onTurn, onRem
 
   const apply = async (target: Target, glb: ArrayBuffer, name: string) => {
     const object = await parseGlb(glb);
-    onSet(target.id, { object, quarterTurns: initialQuarterTurns(objectBounds(object), target), name, kind: target.kind });
+    onSet(target.id, { object, quarterTurns: initialQuarterTurns(objectBounds(object), target), name, kind: target.kind }, target.scope);
   };
 
   const choosePhoto = async (file: File) => {
     if (!item) return;
-    const target = { id: item.id, kind: item.kind, name: item.name, width: item.width, depth: item.depth };
+    const target = { id: item.id, scope, kind: item.kind, name: scopeName ? { en: `${item.name.en} (${scopeName.en})`, "zh-Hant": `${item.name["zh-Hant"]}（${scopeName["zh-Hant"]}）` } : item.name, width: item.width, depth: item.depth };
     setNotice(null);
     setJob({ phase: "preparing", target });
     try {

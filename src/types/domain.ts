@@ -18,7 +18,7 @@ export interface Room extends Dimensions {
   name: LocalizedName;
   minimumHeight: number;
   maximumHeight: number;
-  dimensionSource: "team-demo-assumptions";
+  dimensionSource: "team-demo-assumptions" | "approximate-pdf-trace";
 }
 
 export type InputField = keyof Dimensions | "roomHeight";
@@ -38,7 +38,7 @@ export interface InputIssue {
   minimum?: number;
 }
 
-export type BoundarySide = "left" | "right" | "front" | "back";
+export type BoundarySide = "left" | "right" | "front" | "back" | "outline";
 
 export type FurnitureKind = "sofa" | "coffee-table" | "tv-console" | "side-table" | "dining-table" | "chair" | "bed" | "wardrobe" | "desk" | "kitchen-counter" | "fridge" | "toilet" | "vanity";
 
@@ -59,6 +59,7 @@ export interface FlatFurniture extends Dimensions, OrientedRectangle {
 export interface FlatRoom extends OrientedRectangle {
   id: string;
   name: LocalizedName;
+  outline?: readonly Position2D[];
 }
 
 export interface Wall {
@@ -68,6 +69,7 @@ export interface Wall {
   end: Position2D;
   thickness: number;
   outer: boolean;
+  precision?: "approximate-trace";
 }
 
 export interface Door {
@@ -78,6 +80,11 @@ export interface Door {
   width: number;
   swingRoomId: string;
   connects: readonly [string, string];
+  hinge?: Position2D;
+  closedDirection?: Position2D;
+  openDirection?: Position2D;
+  height?: number;
+  precision?: "approximate-trace";
 }
 
 export interface FlatWindow {
@@ -93,6 +100,16 @@ export interface FlatWindow {
 
 export interface Flat extends Room {
   wallThickness: number;
+  outline?: readonly Position2D[];
+  source?: {
+    page: number;
+    pdfUrl: string;
+    referenceUrl: string;
+    scaleUnitsPerMetre: number;
+    windowStatus: "unknown-untraced" | "partial-trace";
+    partitionStatus: "partial-trace";
+    envelopeAreaM2: number;
+  };
   rooms: readonly FlatRoom[];
   walls: readonly Wall[];
   doors: readonly Door[];
