@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { DEMO_FLAT, FLAT_FURNITURE } from "../../data/flat-preset";
+import { DEMO_FLAT, SUGGESTED_FURNITURE } from "../../data/flat-preset";
 import type { FlatFurniture, LayoutLocks } from "../../types/domain";
 import { furnitureDraft, replaceDimensions, validateFurnitureDraft } from "./edit";
 import { analyzeLayout } from "./layout";
 import { distanceLockViolations, proposeItemEdit } from "./locks";
 
-const first: FlatFurniture = { ...FLAT_FURNITURE[3], id: "first", position: { x: 100, z: 100 }, width: 40, depth: 40 };
+const first: FlatFurniture = { ...SUGGESTED_FURNITURE[3], id: "first", position: { x: 100, z: 100 }, width: 40, depth: 40 };
 const second: FlatFurniture = { ...first, id: "second", position: { x: 200, z: 100 } };
 const third: FlatFurniture = { ...first, id: "third", position: { x: 100, z: 200 } };
 const furniture = [first, second, third];

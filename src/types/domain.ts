@@ -142,6 +142,14 @@ export interface LayoutSnapshot {
 
 export type ItemChange = "moved" | "rotated" | "resized" | "replaced" | "added" | "removed";
 
+export type SuggestionSkipReason = "present" | LayoutViolation["code"] | "lock";
+
+export interface SuggestionReport {
+  roomId: string;
+  added: string[];
+  skipped: { id: string; name: LocalizedName; reason: SuggestionSkipReason }[];
+}
+
 export type EditorField = keyof Dimensions | "x" | "z" | "angle" | "ceilingHeight" | "distance";
 
 export interface EditorInputIssue {

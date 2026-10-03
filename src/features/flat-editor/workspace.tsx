@@ -16,6 +16,7 @@ import { IssuesPanel } from "./issues-panel";
 import { ItemList } from "./item-list";
 import { LocksPanel } from "./locks-panel";
 import { LibraryPanel } from "./library-panel";
+import { SuggestionsPanel } from "./suggestions-panel";
 import { itemChanges } from "./layout";
 import { createEditorState, editorReducer } from "./state";
 
@@ -97,6 +98,7 @@ export function FlatEditorApp({ SceneViewport }: { SceneViewport?: ComponentType
             <SourcePanel language={state.language} />
           </div>
           <aside className="editor-sidebar" id="item-details" aria-label={text("editor.selected")}>
+            <SuggestionsPanel flat={flat} roomId={state.selectedRoomId} furniture={state.current.furniture} editable={editable} report={state.suggestionReport} language={state.language} onSuggest={(roomId) => dispatch({ type: "suggest", roomId })} />
             <FurniturePanel item={selected} draft={state.draft} issues={state.inputIssues} editable={editable} positionLocked={Boolean(selected && state.locks.position.includes(selected.id))} language={state.language} onField={(field, value) => dispatch({ type: "draft", field, value })} onRotate={(angle) => { if (selected) dispatch({ type: "propose", item: { ...selected, orientation: angle } }); }} onBlur={() => dispatch({ type: "normalise-draft" })} onGestureStart={() => dispatch({ type: "gesture-start" })} onGestureEnd={() => dispatch({ type: "gesture-end" })} />
             {state.lockNotice.length > 0 && <section className="lock-notice" role="status" data-testid="lock-notice"><h3>{text(state.lockNoticeContext === "edit" ? "locks.bounce" : "locks.notApplied")}</h3><ul>{state.lockNotice.map((issue) => <li key={issue.lockId}>{lockMessage(issue, state.current.furniture, state.language)}</li>)}</ul></section>}
             <LocksPanel key={`${state.cameraRevision}-${state.selectedId ?? "none"}`} furniture={state.current.furniture} locks={state.locks} selectedId={state.selectedId} editable={editable} language={state.language} setupIssue={state.lockSetupIssue} onPosition={(id) => dispatch({ type: "position-lock", id })} onSave={(input) => dispatch({ type: "distance-lock", ...input })} onRemove={(id) => dispatch({ type: "remove-distance-lock", id })} />

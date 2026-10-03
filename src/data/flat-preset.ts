@@ -71,7 +71,7 @@ function item(id: string, templateId: string, roomId: string, x: number, z: numb
   return { ...template, ...dimensions, id, roomId, position: { x, z }, orientation: 0, name: names ? { en: names[0], "zh-Hant": names[1] } : template.name };
 }
 
-export const FLAT_FURNITURE: readonly FlatFurniture[] = [
+export const SUGGESTED_FURNITURE: readonly FlatFurniture[] = [
   item("living-sofa", "sofa", "living", 250, 270),
   item("living-coffee-table", "coffee-table", "living", 250, 170),
   item("living-tv", "tv-console", "living", 235, 40),

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { DEMO_FLAT, FLAT_FURNITURE } from "../../data/flat-preset";
+import { DEMO_FLAT, SUGGESTED_FURNITURE } from "../../data/flat-preset";
 import { containingRoom, doorGeometry, wallAxis, wallParts } from "./architecture";
 import { analyzeLayout } from "./layout";
 import { polygonArea, polygonOverlap, rectanglePolygon } from "./oriented";
 
-const item = FLAT_FURNITURE[3];
+const item = SUGGESTED_FURNITURE[3];
 
 describe("whole-flat data sanity", () => {
   it("has exactly five rooms and no corridor", () => {
@@ -48,15 +48,15 @@ describe("whole-flat data sanity", () => {
     }
   });
 
-  it("has correct usable room area and valid default item-room membership", () => {
+  it("has correct usable room area and valid suggested item-room membership", () => {
     expect(DEMO_FLAT.rooms.reduce((sum, room) => sum + polygonArea(rectanglePolygon(room)), 0)).toBe(382100);
-    expect(FLAT_FURNITURE).toHaveLength(20);
-    expect(new Set(FLAT_FURNITURE.map((entry) => entry.id)).size).toBe(20);
-    for (const entry of FLAT_FURNITURE) expect(containingRoom(DEMO_FLAT, entry.position)?.id).toBe(entry.roomId);
+    expect(SUGGESTED_FURNITURE).toHaveLength(20);
+    expect(new Set(SUGGESTED_FURNITURE.map((entry) => entry.id)).size).toBe(20);
+    for (const entry of SUGGESTED_FURNITURE) expect(containingRoom(DEMO_FLAT, entry.position)?.id).toBe(entry.roomId);
   });
 
-  it("starts without any collision, door, envelope, or height warning", () => {
-    expect(analyzeLayout(DEMO_FLAT, FLAT_FURNITURE, 260)).toEqual([]);
+  it("keeps the suggested set free of any collision, door, envelope, or height warning", () => {
+    expect(analyzeLayout(DEMO_FLAT, SUGGESTED_FURNITURE, 260)).toEqual([]);
   });
 });
 
@@ -104,7 +104,7 @@ describe("live whole-flat warnings", () => {
 
   it("returns all applicable warning categories for one edit", () => {
     const huge = { ...item, width: 1000, depth: 1000, height: 300, position: { x: 250, z: 250 } };
-    const issues = analyzeLayout(DEMO_FLAT, [huge, FLAT_FURNITURE[0]], 260);
+    const issues = analyzeLayout(DEMO_FLAT, [huge, SUGGESTED_FURNITURE[0]], 260);
     expect(new Set(issues.map((issue) => issue.code))).toEqual(new Set(["furniture", "wall", "door", "envelope", "height"]));
   });
 });

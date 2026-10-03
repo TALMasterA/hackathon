@@ -1,4 +1,4 @@
-import type { EditorInputIssue, Flat, FlatFurniture, Language, LayoutViolation, LockViolation } from "../types/domain";
+import type { EditorInputIssue, Flat, FlatFurniture, Language, LayoutViolation, LockViolation, SuggestionReport } from "../types/domain";
 import { formatCm } from "./dictionary";
 import { editorText } from "./editor";
 
@@ -20,4 +20,11 @@ export function lockMessage(issue: LockViolation, furniture: readonly FlatFurnit
   return issue.code === "lock.position"
     ? editorText(language, "locks.positionViolation", { item: name(issue.itemId), distance: formatCm(issue.displacement, language) })
     : editorText(language, "locks.distanceViolation", { id: issue.lockId, first: name(issue.firstId), second: name(issue.secondId), required: formatCm(issue.required, language), actual: formatCm(issue.actual, language) });
+}
+
+export function suggestionMessage(report: SuggestionReport, language: Language): string {
+  const added = report.added.length > 0 ? editorText(language, "suggest.added", { count: report.added.length }) : editorText(language, "suggest.none");
+  if (report.skipped.length === 0) return added;
+  const items = report.skipped.map((entry) => editorText(language, "suggest.item", { name: entry.name[language], reason: editorText(language, `suggest.reason.${entry.reason}`) })).join(editorText(language, "suggest.separator"));
+  return `${added}${language === "en" ? " " : ""}${editorText(language, "suggest.skipped", { items })}`;
 }

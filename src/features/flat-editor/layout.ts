@@ -1,7 +1,41 @@
-import type { Flat, FlatFurniture, FurnitureTemplate, ItemChange, LayoutSnapshot, Position2D } from "../../types/domain";
+import type { Flat, FlatFurniture, FurnitureTemplate, ItemChange, LayoutLocks, LayoutSnapshot, Position2D, SuggestionSkipReason } from "../../types/domain";
+import { SUGGESTED_FURNITURE } from "../../data/flat-preset";
 import { analyzeLayout, issueItemIds } from "../../lib/geometry/layout";
 import { GEOMETRY_EPSILON_CM } from "../../lib/geometry/footprint";
+import { distanceLockViolations } from "../../lib/geometry/locks";
 import { normalizeAngle } from "../../lib/geometry/oriented";
+
+export interface SuggestionResult {
+  added: FlatFurniture[];
+  skipped: { item: FlatFurniture; reason: SuggestionSkipReason }[];
+}
+
+/** Adds the team's fixed example placements for a room (or all rooms) without moving any existing furniture. */
+export function suggestFurniture(flat: Flat, furniture: readonly FlatFurniture[], locks: LayoutLocks, roomId: string): SuggestionResult {
+  const result: SuggestionResult = { added: [], skipped: [] };
+  let layout = [...furniture];
+  for (const suggestion of SUGGESTED_FURNITURE.filter((entry) => roomId === "all" || entry.roomId === roomId)) {
+    if (layout.some((entry) => entry.id === suggestion.id)) {
+      result.skipped.push({ item: suggestion, reason: "present" });
+      continue;
+    }
+    const item: FlatFurniture = { ...suggestion, name: { ...suggestion.name }, position: { ...suggestion.position } };
+    const next = [...layout, item];
+    const issue = analyzeLayout(flat, next, flat.height).find((entry) => issueItemIds(entry).includes(item.id));
+    if (issue) {
+      result.skipped.push({ item, reason: issue.code });
+      continue;
+    }
+    const related = locks.distance.filter((lock) => (lock.firstId === item.id || lock.secondId === item.id) && [lock.firstId, lock.secondId].every((id) => next.some((entry) => entry.id === id)));
+    if (distanceLockViolations(next, related).length > 0) {
+      result.skipped.push({ item, reason: "lock" });
+      continue;
+    }
+    result.added.push(item);
+    layout = next;
+  }
+  return result;
+}
 
 export function placeLibraryItem(flat: Flat, furniture: readonly FlatFurniture[], template: FurnitureTemplate, roomId: string, id: string): FlatFurniture | null {
   const room = flat.rooms.find((entry) => entry.id === roomId);
