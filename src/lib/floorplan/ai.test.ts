@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { boxPoints } from "./trace";
 import { extractJson, parseAiReply, validateAiPlan } from "./ai-parse";
 import { traceFromAi } from "./ai-trace";
 import { repairPrompt, userPrompt } from "./prompt";
@@ -75,8 +76,9 @@ describe("turning a reading into a trace", () => {
     const trace = traceFromAi(context(), ai, raster, { minX: 60, maxX: 660, minZ: 40, maxZ: 380 });
     expect(trace).toMatchObject({ outside: 1, diagonal: true, label: "2B" });
     expect(trace.plan.rooms).toHaveLength(1);
-    expect(trace.plan.rooms[0]).toMatchObject({ id: "room-1", kind: "living", box: { minX: 50, maxX: 300, minZ: 50, maxZ: 150 } });
-    expect(trace.plan.rooms[0].edges.right).toEqual({ status: "verified", thickness: 20 });
+    expect(trace.plan.rooms[0]).toMatchObject({ id: "room-1", kind: "living", points: boxPoints({ minX: 50, maxX: 300, minZ: 50, maxZ: 150 }) });
+    // Box rooms list their edges top, right, bottom, left.
+    expect(trace.plan.rooms[0].edges[1]).toEqual({ status: "verified", thickness: 20 });
     const [door] = trace.plan.doors;
     expect(door).toMatchObject({ id: "door-2", at: { x: 175, z: 50 }, swingInto: "room-1" });
     expect(Math.abs(door.width - 50)).toBeLessThanOrEqual(1);

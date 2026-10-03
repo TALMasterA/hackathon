@@ -1,18 +1,22 @@
 import type { Box } from "../geometry/architecture";
+import { pointInPolygon } from "../geometry/oriented";
+import { lineIntersection } from "../geometry/polygon";
 import type { Position2D, RoomKind } from "../../types/domain";
 import { measureOpening } from "./openings";
-import { edgeProbe, snapEdge, snapRooms, type SnapContext } from "./snap";
-import { EDGE_SIDES, roundedBox, roundFace, type EdgeSide, type TraceEdge, type TracePlan, type TraceRoom } from "./trace";
+import { snapEdge, snapRooms, type EdgeProbe, type SnapContext } from "./snap";
+import { boxRoom, roomBounds, roomEdge, roomEdges, roundedBox, roundFace, EDGE_SIDES, type EdgeSide, type RoomEdge, type TraceEdge, type TracePlan, type TraceRoom } from "./trace";
 
 /**
  * The bridge between a trace (centimetres) and the analysed raster of the cropped plan (pixels,
- * context.cmPerPx centimetres each): snapping rooms and edges, and measuring openings.
+ * context.cmPerPx centimetres each): snapping rooms and edges, and measuring openings. The drawing
+ * analysis reads horizontal and vertical lines, so only those edges snap; angled edges stay as drawn.
  */
 
 const scaleBox = (box: Box, factor: number): Box => ({ minX: box.minX * factor, maxX: box.maxX * factor, minZ: box.minZ * factor, maxZ: box.maxZ * factor });
-const BOX_KEY: Record<EdgeSide, keyof Box> = { top: "minZ", bottom: "maxZ", left: "minX", right: "maxX" };
 /** How far from a room's face a tap may land and still pick that wall. */
 const OPENING_REACH_CM = 40;
+/** Shorter drawn edges are too short to tell a wall line from fixtures, so they stay as drawn. */
+const MIN_SNAP_EDGE_CM = 20;
 /** A point this far past a wall's far face is inside the room across it. */
 const ACROSS_PROBE_CM = 10;
 
@@ -27,51 +31,116 @@ function traceEdge(edge: { status: TraceEdge["status"]; thickness?: number; wind
 /** Snaps rough room boxes (centimetres) onto the drawing; faces land on the 0.5 cm grid. */
 export function snapTraceRooms(context: SnapContext, rooms: readonly { id: string; kind: RoomKind; box: Box }[], openPairs: readonly (readonly [string, string])[] = []): TraceRoom[] {
   const pixels = snapRooms(context, rooms.map((room) => ({ id: room.id, box: scaleBox(room.box, 1 / context.cmPerPx) })), openPairs);
-  return pixels.map((snapped, index) => ({
-    id: rooms[index].id,
-    kind: rooms[index].kind,
-    box: roundedBox(scaleBox(snapped.box, context.cmPerPx)),
-    edges: Object.fromEntries(EDGE_SIDES.map((side) => [side, traceEdge(snapped.edges[side], context.cmPerPx)])) as Record<EdgeSide, TraceEdge>,
-  }));
+  return pixels.map((snapped, index) => boxRoom(rooms[index].id, rooms[index].kind, roundedBox(scaleBox(snapped.box, context.cmPerPx)), Object.fromEntries(EDGE_SIDES.map((side) => [side, traceEdge(snapped.edges[side], context.cmPerPx)])) as Record<EdgeSide, TraceEdge>));
+}
+
+/** Where a horizontal or vertical edge sits across its axis (z for a horizontal edge, x for a vertical one). */
+const faceOf = (edge: RoomEdge) => edge.axis === "x" ? edge.start.z : edge.start.x;
+/** +1 when the room lies towards larger coordinates across the edge. */
+const interiorOf = (edge: RoomEdge): 1 | -1 => (edge.axis === "x" ? edge.inward.z : edge.inward.x) > 0 ? 1 : -1;
+const spanOf = (edge: RoomEdge): [number, number] => edge.axis === "x" ? [Math.min(edge.start.x, edge.end.x), Math.max(edge.start.x, edge.end.x)] : [Math.min(edge.start.z, edge.end.z), Math.max(edge.start.z, edge.end.z)];
+
+/**
+ * The room's corners with the lines of some edges replaced: each corner becomes the crossing of its
+ * two edges' lines, so moving one edge drags its neighbours' ends along their own lines.
+ */
+export function withEdgeLines(points: readonly Position2D[], lines: ReadonlyMap<number, { point: Position2D; direction: Position2D }>): Position2D[] {
+  const count = points.length;
+  const line = (index: number) => {
+    const replaced = lines.get(index);
+    if (replaced) return replaced;
+    const start = points[index];
+    const end = points[(index + 1) % count];
+    return { point: start, direction: { x: end.x - start.x, z: end.z - start.z } };
+  };
+  return points.map((corner, index) => {
+    const previous = (index + count - 1) % count;
+    if (!lines.has(previous) && !lines.has(index)) return corner;
+    const [first, second] = [line(previous), line(index)];
+    const crossing = lineIntersection(first.point, first.direction, second.point, second.direction);
+    if (crossing) return crossing;
+    // Parallel neighbours: keep the corner, moved onto whichever line was replaced.
+    const moved = lines.get(index) ?? lines.get(previous)!;
+    const length = Math.hypot(moved.direction.x, moved.direction.z);
+    const unit = { x: moved.direction.x / length, z: moved.direction.z / length };
+    const along = (corner.x - moved.point.x) * unit.x + (corner.z - moved.point.z) * unit.z;
+    return { x: moved.point.x + unit.x * along, z: moved.point.z + unit.z * along };
+  });
+}
+
+/** The room with edge `index` moved, parallel to itself, to pass through `through`. */
+export function moveEdge(room: TraceRoom, index: number, through: Position2D): Position2D[] {
+  const edge = roomEdge(room, index);
+  return withEdgeLines(room.points, new Map([[index, { point: through, direction: edge.direction }]]));
+}
+
+function probeFor(context: SnapContext, room: Pick<TraceRoom, "points">, edge: RoomEdge): EdgeProbe {
+  const bounds = roomBounds(room);
+  const [from, to] = spanOf(edge);
+  const px = (cm: number) => cm / context.cmPerPx;
+  return { orientation: edge.axis === "x" ? "h" : "v", position: px(faceOf(edge)), from: px(from), to: px(to), interior: interiorOf(edge), roomSize: px(edge.axis === "x" ? bounds.maxZ - bounds.minZ : bounds.maxX - bounds.minX) };
+}
+
+/** The line of a horizontal or vertical edge moved to `face` across its axis. */
+const lineAt = (edge: RoomEdge, face: number) => ({ point: edge.axis === "x" ? { x: edge.start.x, z: face } : { x: face, z: edge.start.z }, direction: edge.direction });
+
+/**
+ * Re-snaps one edge the user moved: onto the drawn wall when it is horizontal or vertical and the
+ * drawing clearly shows one there, otherwise exactly where the user left it, as the user's call.
+ */
+export function snapTraceEdge(context: SnapContext, room: TraceRoom, index: number, through: Position2D): { points: Position2D[]; edge: TraceEdge } {
+  const moved = { ...room, points: moveEdge(room, index, through) };
+  const edge = roomEdge(moved, index);
+  if (edge.axis === null) return { points: moved.points, edge: { status: "manual" } };
+  const snap = snapEdge(context, probeFor(context, moved, edge));
+  const face = snap.status === "verified" ? roundFace(snap.face * context.cmPerPx) : roundFace(faceOf(edge));
+  return { points: withEdgeLines(moved.points, new Map([[index, lineAt(edge, face)]])), edge: snap.status === "verified" ? traceEdge(snap, context.cmPerPx) : { status: "manual" } };
 }
 
 /**
- * Re-snaps one edge the user dragged to `position` (centimetres): onto the drawn wall when the
- * drawing clearly shows one there, otherwise exactly where the user left it, as the user's call.
+ * Snaps every horizontal and vertical edge of a newly drawn room to the drawn walls at once. Matched
+ * edges move onto the wall and are verified; the rest, and every angled edge, stay as drawn.
  */
-export function snapTraceEdge(context: SnapContext, room: TraceRoom, side: EdgeSide, position: number): { box: Box; edge: TraceEdge } {
-  const moved = { ...room.box, [BOX_KEY[side]]: position };
-  const snap = snapEdge(context, edgeProbe(scaleBox(moved, 1 / context.cmPerPx), side));
-  if (snap.status === "verified") return { box: { ...moved, [BOX_KEY[side]]: roundFace(snap.face * context.cmPerPx) }, edge: traceEdge(snap, context.cmPerPx) };
-  return { box: { ...moved, [BOX_KEY[side]]: roundFace(position) }, edge: { status: "manual" } };
+export function snapDrawnRoom(context: SnapContext, room: TraceRoom): TraceRoom {
+  const lines = new Map<number, { point: Position2D; direction: Position2D }>();
+  const records = roomEdges(room).map((edge): TraceEdge => {
+    if (edge.axis === null || edge.length < MIN_SNAP_EDGE_CM) return { status: "manual" };
+    const snap = snapEdge(context, probeFor(context, room, edge));
+    if (snap.status !== "verified") return { status: "manual" };
+    lines.set(edge.index, lineAt(edge, roundFace(snap.face * context.cmPerPx)));
+    return traceEdge(snap, context.cmPerPx);
+  });
+  return { ...room, points: withEdgeLines(room.points, lines), edges: records };
 }
 
 export interface FaceHit {
   room: TraceRoom;
-  side: EdgeSide;
+  /** The edge's index in room.points / room.edges. */
+  index: number;
+  edge: RoomEdge;
+  /** The tapped point moved onto the edge. */
+  point: Position2D;
   distance: number;
 }
 
-/** The room across a face at a point on it (beyond the wall's measured thickness), if any. */
-export function roomAcross(plan: TracePlan, room: TraceRoom, side: EdgeSide, along: number): TraceRoom | undefined {
-  const horizontal = side === "top" || side === "bottom";
-  const interior = side === "top" || side === "left" ? 1 : -1;
-  const across = room.box[BOX_KEY[side]] - interior * ((room.edges[side].thickness ?? 0) + ACROSS_PROBE_CM);
-  const probe = horizontal ? { x: along, z: across } : { x: across, z: along };
-  return plan.rooms.find((entry) => entry !== room && probe.x >= entry.box.minX && probe.x <= entry.box.maxX && probe.z >= entry.box.minZ && probe.z <= entry.box.maxZ);
+/** The room across an edge at a point on it (beyond the wall's measured thickness), if any. */
+export function roomAcross(plan: TracePlan, room: TraceRoom, index: number, at: Position2D): TraceRoom | undefined {
+  const edge = roomEdge(room, index);
+  const reach = (room.edges[index]?.thickness ?? 0) + ACROSS_PROBE_CM;
+  const probe = { x: at.x - edge.inward.x * reach, z: at.z - edge.inward.z * reach };
+  return plan.rooms.find((entry) => entry !== room && pointInPolygon(probe, entry.points));
 }
 
-/** The room face nearest a point, among faces whose span holds the point (and pass `accept`), within reach. */
+/** The room edge nearest a point, among edges whose span holds the point (and pass `accept`), within reach. */
 export function nearestFace(plan: TracePlan, at: Position2D, reach = OPENING_REACH_CM, accept: (hit: FaceHit) => boolean = () => true): FaceHit | null {
   const hits: FaceHit[] = [];
   for (const room of plan.rooms) {
-    for (const side of EDGE_SIDES) {
-      const horizontal = side === "top" || side === "bottom";
-      const along = horizontal ? at.x : at.z;
-      const [from, to] = horizontal ? [room.box.minX, room.box.maxX] : [room.box.minZ, room.box.maxZ];
-      if (along < from || along > to) continue;
-      const distance = Math.abs((horizontal ? at.z : at.x) - room.box[BOX_KEY[side]]);
-      if (distance <= reach && accept({ room, side, distance })) hits.push({ room, side, distance });
+    for (const edge of roomEdges(room)) {
+      const along = (at.x - edge.start.x) * edge.direction.x + (at.z - edge.start.z) * edge.direction.z;
+      if (along < 0 || along > edge.length) continue;
+      const distance = Math.abs((at.x - edge.start.x) * edge.inward.x + (at.z - edge.start.z) * edge.inward.z);
+      const hit: FaceHit = { room, index: edge.index, edge, point: { x: edge.start.x + edge.direction.x * along, z: edge.start.z + edge.direction.z * along }, distance };
+      if (distance <= reach && accept(hit)) hits.push(hit);
     }
   }
   return hits.sort((first, second) => first.distance - second.distance)[0] ?? null;
@@ -89,7 +158,7 @@ export interface TracedOpening {
 /** Finds the drawn opening nearest a tap: its centre, clear width, kind and (for doors) swing side. */
 export function traceOpening(context: SnapContext, plan: TracePlan, at: Position2D): TracedOpening | null {
   const hit = nearestFace(plan, at);
-  return hit ? openingOnFace(context, plan, hit.room, hit.side, at) : null;
+  return hit ? openingOnFace(context, plan, hit.room, hit.index, at) : null;
 }
 
 export interface ScannedOpening extends TracedOpening {
@@ -108,20 +177,21 @@ const SAME_OPENING_ALONG_CM = 25;
 const SAME_OPENING_ACROSS_CM = 40;
 
 /**
- * Every opening drawn along the faces of the traced rooms (faces matched to the drawing or placed by
- * the user): doors, with or without a drawn swing, and glazed windows. An opening seen from both
- * sides of a wall is reported once.
+ * Every opening drawn along the horizontal and vertical faces of the traced rooms (faces matched to
+ * the drawing or placed by the user): doors, with or without a drawn swing, and glazed windows. An
+ * opening seen from both sides of a wall is reported once.
  */
 export function scanOpenings(context: SnapContext, plan: TracePlan): ScannedOpening[] {
   const found: ScannedOpening[] = [];
   for (const room of plan.rooms) {
-    for (const side of EDGE_SIDES) {
-      if (room.edges[side].status !== "verified" && room.edges[side].status !== "manual") continue;
-      const horizontal = side === "top" || side === "bottom";
-      const [from, to] = horizontal ? [room.box.minX, room.box.maxX] : [room.box.minZ, room.box.maxZ];
-      const face = room.box[BOX_KEY[side]];
+    for (const edge of roomEdges(room)) {
+      const status = room.edges[edge.index]?.status;
+      if (edge.axis === null || (status !== "verified" && status !== "manual")) continue;
+      const horizontal = edge.axis === "x";
+      const [from, to] = spanOf(edge);
+      const face = faceOf(edge);
       for (let along = from + SCAN_STEP_CM / 2; along < to; along += SCAN_STEP_CM) {
-        const opening = openingOnFace(context, plan, room, side, horizontal ? { x: along, z: face } : { x: face, z: along });
+        const opening = openingOnFace(context, plan, room, edge.index, horizontal ? { x: along, z: face } : { x: face, z: along });
         // A sample near the end of a face can find an opening further along the same wall line.
         const centre = opening && (horizontal ? opening.at.x : opening.at.z);
         if (!opening || centre! < from || centre! > to) continue;
@@ -136,16 +206,18 @@ export function scanOpenings(context: SnapContext, plan: TracePlan): ScannedOpen
   return found;
 }
 
-function openingOnFace(context: SnapContext, plan: TracePlan, room: TraceRoom, side: EdgeSide, at: Position2D): ScannedOpening | null {
-  const horizontal = side === "top" || side === "bottom";
-  const interior: 1 | -1 = side === "top" || side === "left" ? 1 : -1;
-  const face = room.box[BOX_KEY[side]];
-  const thickness = room.edges[side].thickness;
+function openingOnFace(context: SnapContext, plan: TracePlan, room: TraceRoom, index: number, at: Position2D): ScannedOpening | null {
+  const edge = roomEdge(room, index);
+  if (edge.axis === null) return null;
+  const horizontal = edge.axis === "x";
+  const interior = interiorOf(edge);
+  const face = faceOf(edge);
+  const thickness = room.edges[index]?.thickness;
   const px = (cm: number) => cm / context.cmPerPx;
   const finding = measureOpening(context, { orientation: horizontal ? "h" : "v", face: px(face), ...(thickness !== undefined ? { farFace: px(face - interior * thickness) } : {}), interior }, px(horizontal ? at.x : at.z));
   if (!finding) return null;
   // Breaks between glazing strokes inside a window wall are that window, not doors.
-  const window = room.edges[side].window;
+  const window = room.edges[index]?.window;
   const found = finding.centre * context.cmPerPx;
   if (window && found >= window[0] && found <= window[1]) {
     const middle = roundFace((window[0] + window[1]) / 2);
@@ -153,7 +225,7 @@ function openingOnFace(context: SnapContext, plan: TracePlan, room: TraceRoom, s
   }
   const centre = roundFace(finding.centre * context.cmPerPx);
   const point = horizontal ? { x: centre, z: face } : { x: face, z: centre };
-  const other = roomAcross(plan, room, side, centre);
+  const other = roomAcross(plan, room, index, point);
   const swingInto = finding.swing === 1 ? room.id : finding.swing === -1 ? other?.id : undefined;
   return { kind: finding.kind, at: point, width: roundFace(finding.width * context.cmPerPx), roomId: room.id, ...(swingInto ? { swingInto } : {}), swings: finding.swing !== 0, jambs: finding.jambs, ...(other ? { acrossRoomId: other.id } : {}) };
 }
@@ -163,15 +235,15 @@ const WINDOW_MIN_CM = 30;
 
 /** Windows where the drawing shows window walls along the traced rooms' edges. */
 export function windowsFromEdges(plan: TracePlan): { at: Position2D; width: number; roomId: string }[] {
-  return plan.rooms.flatMap((room) => EDGE_SIDES.flatMap((side) => {
-    const span = room.edges[side].window;
-    if (!span) return [];
-    const horizontal = side === "top" || side === "bottom";
-    const [from, to] = horizontal ? [room.box.minX, room.box.maxX] : [room.box.minZ, room.box.maxZ];
+  return plan.rooms.flatMap((room) => roomEdges(room).flatMap((edge) => {
+    const span = room.edges[edge.index]?.window;
+    if (!span || edge.axis === null) return [];
+    const horizontal = edge.axis === "x";
+    const [from, to] = spanOf(edge);
     const [start, end] = [Math.max(from, span[0]), Math.min(to, span[1])];
     if (end - start < WINDOW_MIN_CM) return [];
     const centre = roundFace((start + end) / 2);
-    const face = room.box[BOX_KEY[side]];
+    const face = faceOf(edge);
     return [{ at: horizontal ? { x: centre, z: face } : { x: face, z: centre }, width: roundFace(end - start), roomId: room.id }];
   }));
 }

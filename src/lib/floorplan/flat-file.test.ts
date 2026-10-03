@@ -32,11 +32,35 @@ describe("flat files", () => {
     expect(parseFlatFile(" ".repeat(1_000_001))).toEqual({ ok: false, error: "too-large" });
     expect(parseFlatFile("{ nope")).toEqual({ ok: false, error: "not-json" });
     expect(parse({ format: "other", version: FLAT_FILE_VERSION, flat: {} })).toEqual({ ok: false, error: "format" });
-    expect(parse({ format: FLAT_FILE_FORMAT, version: 2, flat: {} })).toEqual({ ok: false, error: "format" });
+    expect(parse({ format: FLAT_FILE_FORMAT, version: 3, flat: {} })).toEqual({ ok: false, error: "format" });
+  });
+
+  it("writes version 2 and still opens version 1 files", () => {
+    expect(file().version).toBe(2);
+    expect(parse({ ...file(), version: 1 })).toEqual({ ok: true, flat: L_FLAT });
+  });
+
+  it("keeps a room outline, an angled wall and a door's hinge", () => {
+    const value = file();
+    // The kitchen as an L: its back-right corner cut out.
+    value.flat.rooms[2].outline = [{ x: 420, z: 10 }, { x: 620, z: 10 }, { x: 620, z: 200 }, { x: 520, z: 200 }, { x: 520, z: 310 }, { x: 420, z: 310 }];
+    value.flat.walls.push({ id: "angled", name: { en: "Angled", "zh-Hant": "斜牆" }, start: { x: 100, z: 400 }, end: { x: 200, z: 500 }, thickness: 10, outer: false });
+    Object.assign(value.flat.doors[0], { hinge: { x: 155, z: 10 }, closedDirection: { x: 1, z: 0 }, openDirection: { x: 0, z: 1 } });
+    const result = parse(value);
+    expect(result.ok).toBe(true);
+    const flat = result.ok ? result.flat : null;
+    expect(flat?.rooms[2].outline).toHaveLength(6);
+    expect(flat?.walls.at(-1)).toMatchObject({ id: "angled", end: { x: 200, z: 500 } });
+    expect(flat?.doors[0]).toMatchObject({ hinge: { x: 155, z: 10 }, closedDirection: { x: 1, z: 0 }, openDirection: { x: 0, z: 1 } });
   });
 
   it.each([
-    ["a diagonal wall", (value: Mutable) => { value.flat.walls[0].end = { x: 630, z: 50 }; }, "flat.walls[0].end"],
+    ["a wall of no length", (value: Mutable) => { value.flat.walls[3].end = value.flat.walls[3].start; }, "flat.walls[3].end"],
+    ["a room outline that does not fill its rectangle", (value: Mutable) => { value.flat.rooms[0].outline = [{ x: 10, z: 10 }, { x: 300, z: 10 }, { x: 300, z: 310 }, { x: 10, z: 310 }]; }, "flat.rooms[0].outline"],
+    ["a room outline that crosses itself", (value: Mutable) => { value.flat.rooms[0].outline = [{ x: 10, z: 10 }, { x: 410, z: 310 }, { x: 410, z: 10 }, { x: 10, z: 310 }]; }, "flat.rooms[0].outline"],
+    ["a hinge away from its wall", (value: Mutable) => { Object.assign(value.flat.doors[0], { hinge: { x: 155, z: 60 }, closedDirection: { x: 1, z: 0 }, openDirection: { x: 0, z: 1 } }); }, "flat.doors[0].hinge"],
+    ["a door leaf that closes across its wall", (value: Mutable) => { Object.assign(value.flat.doors[0], { hinge: { x: 155, z: 10 }, closedDirection: { x: 0, z: 1 }, openDirection: { x: 0, z: 1 } }); }, "flat.doors[0].closedDirection"],
+    ["a flat outline that crosses itself", (value: Mutable) => { value.flat.outline = [{ x: 0, z: 0 }, { x: 630, z: 630 }, { x: 630, z: 0 }, { x: 0, z: 630 }]; }, "flat.outline"],
     ["a wall running backwards", (value: Mutable) => { value.flat.walls[0].start = { x: 630, z: 5 }; value.flat.walls[0].end = { x: 0, z: 5 }; }, "flat.walls[0].end"],
     ["a door on a missing wall", (value: Mutable) => { value.flat.doors[0].wallId = "nowhere"; }, "flat.doors[0].wallId"],
     ["a door off its wall line", (value: Mutable) => { value.flat.doors[0].position = { x: 200, z: 40 }; }, "flat.doors[0].position"],

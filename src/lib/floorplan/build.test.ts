@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { DEMO_FLAT } from "../../data/flat-preset";
-import { rectangleBox } from "../geometry/architecture";
+import { rectangleBox, type Box } from "../geometry/architecture";
 import type { Position2D } from "../../types/domain";
 import { buildFlat } from "./build";
+import { parseFlatFile, serializeFlat } from "./flat-file";
 import { roomIdentities } from "./names";
-import { edges, type TracePlan } from "./trace";
+import { boxRoom, edges, roomBounds, type TracePlan } from "./trace";
 
 const OFFSET = { x: 1000, z: 500 };
 const moved = (point: Position2D): Position2D => ({ x: point.x + OFFSET.x, z: point.z + OFFSET.z });
@@ -15,12 +16,18 @@ function demoTrace(): TracePlan {
   return {
     rooms: DEMO_FLAT.rooms.map((room) => {
       const box = rectangleBox(room);
-      return { id: `t-${room.id}`, kind: room.kind!, box: { minX: box.minX + OFFSET.x, maxX: box.maxX + OFFSET.x, minZ: box.minZ + OFFSET.z, maxZ: box.maxZ + OFFSET.z }, edges: edges("verified", 10) };
+      return boxRoom(`t-${room.id}`, room.kind!, { minX: box.minX + OFFSET.x, maxX: box.maxX + OFFSET.x, minZ: box.minZ + OFFSET.z, maxZ: box.maxZ + OFFSET.z }, edges("verified", 10));
     }),
     openPairs: [],
     doors: DEMO_FLAT.doors.map((door) => ({ id: door.id, at: moved(door.position), width: door.width, swingInto: `t-${door.swingRoomId}` })),
     windows: DEMO_FLAT.windows.map((window) => ({ id: window.id, at: moved(window.position), width: window.width, roomId: `t-${window.roomId}` })),
   };
+}
+
+/** Redraws one box room with some of its sides moved. */
+function reshape(plan: TracePlan, index: number, change: Partial<Box>) {
+  const room = plan.rooms[index];
+  plan.rooms[index] = boxRoom(room.id, room.kind, { ...roomBounds(room), ...change }, edges("verified", 10));
 }
 
 const issueCodes = (plan: TracePlan, meta = {}) => buildFlat(plan, { ...META, ...meta }).issues.map((issue) => [issue.code, issue.severity]);
@@ -73,11 +80,53 @@ describe("building a flat from a trace", () => {
     expect(buildFlat(plan, META).flat!.doors[1].position).toEqual({ x: 425, z: 50 });
   });
 
+  it("keeps a trace of boxes free of outlines, so its flat is exactly as before", () => {
+    const flat = buildFlat(demoTrace(), META).flat!;
+    expect(flat.outline).toBeUndefined();
+    expect(flat.rooms.every((room) => room.outline === undefined)).toBe(true);
+  });
+
+  it("hinges a door at the end and opens it to the side asked for", () => {
+    const front = (plan: TracePlan) => buildFlat(plan, META).flat!.doors.find((door) => door.id === "front-door")!;
+    const plain = front(demoTrace());
+    // The front wall runs along z = 5, 10 cm thick, with the living room behind it.
+    expect(plain).toMatchObject({ hinge: { x: 365 - plain.width / 2, z: 10 }, closedDirection: { x: 1, z: 0 }, openDirection: { x: 0, z: 1 } });
+    const flipped = demoTrace();
+    flipped.doors[0] = { ...flipped.doors[0], hinge: "high", swingInto: "outside" };
+    expect(front(flipped)).toMatchObject({ hinge: { x: 365 + plain.width / 2, z: 0 }, closedDirection: { x: -1, z: 0 }, openDirection: { x: 0, z: -1 }, swingRoomId: "living" });
+  });
+
+  it("builds an L-shaped room and an angled wall into a flat with outlines that survives a flat file", () => {
+    const plan: TracePlan = {
+      rooms: [
+        { id: "l", kind: "living", points: [{ x: 0, z: 0 }, { x: 500, z: 0 }, { x: 500, z: 250 }, { x: 250, z: 250 }, { x: 250, z: 450 }, { x: 0, z: 450 }], edges: Array.from({ length: 6 }, () => ({ status: "manual" as const })) },
+        // A bedroom whose far corner is cut off at 45 degrees, across a 10 cm wall from the living room's notch.
+        { id: "b", kind: "bedroom", points: [{ x: 260, z: 260 }, { x: 500, z: 260 }, { x: 500, z: 350 }, { x: 400, z: 450 }, { x: 260, z: 450 }], edges: Array.from({ length: 5 }, () => ({ status: "manual" as const })) },
+      ],
+      openPairs: [],
+      doors: [{ id: "entrance", at: { x: 100, z: 0 }, width: 90 }, { id: "bedroom-door", at: { x: 255, z: 400 }, width: 80, swingInto: "b" }],
+      windows: [{ id: "bay", at: { x: 450, z: 400 }, width: 100, roomId: "b" }],
+    };
+    const result = buildFlat(plan, META);
+    expect(result.issues).toEqual([]);
+    const flat = result.flat!;
+    expect(flat.rooms.find((room) => room.id === "living")?.outline).toHaveLength(6);
+    expect(flat.rooms.find((room) => room.id === "bedroom")?.outline).toHaveLength(5);
+    expect(flat.outline!.length).toBeGreaterThanOrEqual(6);
+    const angled = flat.walls.filter((wall) => wall.start.x !== wall.end.x && wall.start.z !== wall.end.z);
+    expect(angled).toHaveLength(1);
+    expect(flat.windows[0].wallId).toBe(angled[0].id);
+    expect(flat.doors.find((door) => door.id === "bedroom-door")).toMatchObject({ connects: ["living", "bedroom"], swingRoomId: "bedroom" });
+    const reopened = parseFlatFile(serializeFlat(flat));
+    expect(reopened).toEqual({ ok: true, flat });
+  });
+
   describe("errors block the flat", () => {
     it.each([
       ["no rooms", (plan: TracePlan) => { plan.rooms = []; }, "no-rooms"],
-      ["overlapping rooms", (plan: TracePlan) => { plan.rooms[1].box = { ...plan.rooms[1].box, minX: plan.rooms[1].box.minX - 30 }; }, "rooms-overlap"],
-      ["a sliver of a room", (plan: TracePlan) => { plan.rooms[2].box = { ...plan.rooms[2].box, maxZ: plan.rooms[2].box.minZ + 30 }; }, "room-too-narrow"],
+      ["overlapping rooms", (plan: TracePlan) => reshape(plan, 1, { minX: roomBounds(plan.rooms[1]).minX - 30 }), "rooms-overlap"],
+      ["a sliver of a room", (plan: TracePlan) => reshape(plan, 2, { maxZ: roomBounds(plan.rooms[2]).minZ + 30 }), "room-too-narrow"],
+      ["a room whose edges cross", (plan: TracePlan) => { plan.rooms[2] = { ...plan.rooms[2], points: [plan.rooms[2].points[0], plan.rooms[2].points[2], plan.rooms[2].points[1], plan.rooms[2].points[3]] }; }, "room-shape"],
       ["a door far from any wall", (plan: TracePlan) => { plan.doors[1].at = moved({ x: 200, z: 150 }); }, "door-off-wall"],
       ["a door wider than its wall", (plan: TracePlan) => { plan.doors[3].width = 400; }, "door-too-wide"],
       ["no entrance", (plan: TracePlan) => { plan.doors.shift(); }, "no-entrance"],
@@ -109,8 +158,9 @@ describe("building a flat from a trace", () => {
 
     it("counts edges not matched to a drawn wall and records them on the flat", () => {
       const plan = demoTrace();
-      plan.rooms[0].edges.top = { status: "unverified" };
-      plan.rooms[3].edges.left = { status: "unverified" };
+      // Box rooms list their edges top, right, bottom, left.
+      plan.rooms[0].edges[0] = { status: "unverified" };
+      plan.rooms[3].edges[3] = { status: "unverified" };
       const result = buildFlat(plan, META);
       expect(result.issues).toEqual([expect.objectContaining({ code: "unchecked-edges", count: 2, ids: ["t-living", "t-master"] })]);
       expect(result.flat?.trace?.uncheckedEdges).toBe(2);

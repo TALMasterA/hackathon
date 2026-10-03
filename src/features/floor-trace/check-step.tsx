@@ -4,8 +4,9 @@ import { useMemo, type Dispatch } from "react";
 import { ArrowLeft, Check, CircleAlert, TriangleAlert } from "lucide-react";
 import { formatCm } from "@/i18n/dictionary";
 import { traceText, type TraceTranslationKey } from "@/i18n/trace";
-import { doorGeometry, rectangleBox, wallParts } from "@/lib/geometry/architecture";
-import { rectanglePolygon } from "@/lib/geometry/oriented";
+import { doorGeometry, wallParts } from "@/lib/geometry/architecture";
+import { polygonBounds, rectanglePolygon } from "@/lib/geometry/oriented";
+import { interiorPoint } from "@/lib/geometry/polygon";
 import { buildFlat, TRACED_CEILING } from "@/lib/floorplan/build";
 import type { TraceIssue } from "@/lib/floorplan/validate";
 import type { Flat, Language, Position2D } from "@/types/domain";
@@ -25,22 +26,22 @@ const slug = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "-").
 
 /** Rooms, walls (with door gaps) and door swings, from the built flat or, with errors, the raw trace. */
 function FlatPreview({ rooms, walls, doors, label, language }: Pick<Flat, "rooms" | "walls" | "doors"> & { label: string; language: Language }) {
-  const boxes = [...rooms.map(rectangleBox), ...wallParts({ walls, doors }).map((part) => rectangleBox(part))];
-  if (boxes.length === 0) return null;
-  const minX = Math.min(...boxes.map((box) => box.minX));
-  const minZ = Math.min(...boxes.map((box) => box.minZ));
-  const width = Math.max(...boxes.map((box) => box.maxX)) - minX;
-  const depth = Math.max(...boxes.map((box) => box.maxZ)) - minZ;
+  const shapes = rooms.map((room) => ({ room, polygon: room.outline ?? rectanglePolygon(room) }));
+  const parts = wallParts({ walls, doors });
+  const corners = [...shapes.flatMap((entry) => entry.polygon), ...parts.flatMap(rectanglePolygon)];
+  if (corners.length === 0) return null;
+  const bounds = polygonBounds(corners);
+  const [minX, minZ, width, depth] = [bounds.minX, bounds.minZ, bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ];
   const unit = Math.max(width, depth) / 400;
   return (
     <svg className="trace-preview" viewBox={`${minX - 20} ${minZ - 20} ${width + 40} ${depth + 40}`} role="img" aria-label={label}>
-      {rooms.map((room) => <rect key={room.id} x={room.position.x - room.width / 2} y={room.position.z - room.depth / 2} width={room.width} height={room.depth} fill={KIND_COLORS[room.kind ?? "other"]} fillOpacity={0.6} />)}
-      {wallParts({ walls, doors }).map((part) => <polygon key={part.id} points={points(rectanglePolygon(part))} fill="#4f5a54" />)}
+      {shapes.map(({ room, polygon }) => <polygon key={room.id} points={points(polygon)} fill={KIND_COLORS[room.kind ?? "other"]} fillOpacity={0.6} />)}
+      {parts.map((part) => <polygon key={part.id} points={points(rectanglePolygon(part))} fill="#4f5a54" />)}
       {doors.map((door) => {
         const shape = doorGeometry(door, { walls, rooms });
         return <path key={door.id} d={`M ${shape.closedEnd.x} ${shape.closedEnd.z} A ${door.width} ${door.width} 0 0 ${shape.sweep} ${shape.openEnd.x} ${shape.openEnd.z} L ${shape.hinge.x} ${shape.hinge.z}`} fill="none" stroke="#8a6d1f" strokeWidth={1.5 * unit} />;
       })}
-      {rooms.map((room) => <text key={`label-${room.id}`} x={room.position.x} y={room.position.z} textAnchor="middle" dominantBaseline="middle" fontSize={13 * unit} className="trace-room-label">{room.name[language]}</text>)}
+      {shapes.map(({ room, polygon }) => <text key={`label-${room.id}`} x={(room.outline ? interiorPoint(polygon) : room.position).x} y={(room.outline ? interiorPoint(polygon) : room.position).z} textAnchor="middle" dominantBaseline="middle" fontSize={13 * unit} className="trace-room-label">{room.name[language]}</text>)}
     </svg>
   );
 }

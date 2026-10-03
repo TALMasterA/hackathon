@@ -14,7 +14,6 @@ const AI_DOOR_MATCH_CM = 120;
 /** A model door this close to one already placed is the same door. */
 const DUPLICATE_DOOR_CM = 30;
 
-const BOX_KEY = { top: "minZ", bottom: "maxZ", left: "minX", right: "maxX" } as const;
 
 export interface AiTrace {
   plan: TracePlan;
@@ -90,7 +89,7 @@ export function traceFromAi(context: SnapContext, ai: AiPlan, raster: { width: n
     const between = door.between?.map((room) => room === -1 ? null : idOf.get(room) ?? undefined);
     const fits = (hit: FaceHit) => {
       if (!between) return true;
-      const across = roomAcross(plan, hit.room, hit.side, hit.side === "top" || hit.side === "bottom" ? at.x : at.z)?.id ?? null;
+      const across = roomAcross(plan, hit.room, hit.index, hit.point)?.id ?? null;
       return between.includes(hit.room.id) && between.includes(across);
     };
     const face = nearestFace(plan, at, undefined, fits);
@@ -98,8 +97,7 @@ export function traceFromAi(context: SnapContext, ai: AiPlan, raster: { width: n
       strayDoors++;
       return;
     }
-    const value = face.room.box[BOX_KEY[face.side]];
-    const onFace = face.side === "top" || face.side === "bottom" ? { x: at.x, z: value } : { x: value, z: at.z };
+    const onFace = face.point;
     if (!doors.some((entry) => distance(entry.at, onFace) < DUPLICATE_DOOR_CM)) doors.push({ at: onFace, width: AI_DEFAULT_DOOR_CM, flagged: true, id: `door-${next++}` });
   });
   // Doors the model missed: only drawn openings between two traced rooms with a drawn swing or both
@@ -116,9 +114,7 @@ export function traceFromAi(context: SnapContext, ai: AiPlan, raster: { width: n
       const roomId = idOf.get(window.room);
       const face = roomId ? nearestFace(plan, toCm(window.center)) : null;
       if (!roomId || !face) return [];
-      const at = toCm(window.center);
-      const value = face.room.box[BOX_KEY[face.side]];
-      return [{ at: face.side === "top" || face.side === "bottom" ? { x: at.x, z: value } : { x: value, z: at.z }, width: AI_DEFAULT_WINDOW_CM, roomId, id: `window-${next++}` }];
+      return [{ at: face.point, width: AI_DEFAULT_WINDOW_CM, roomId, id: `window-${next++}` }];
     });
   return { plan: { ...plan, doors, windows }, outside: ai.rooms.length - kept.length, strayDoors, diagonal: ai.has_diagonal_walls, label: ai.flat_label };
 }

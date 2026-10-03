@@ -1,14 +1,21 @@
+import { wallPolygon } from "../geometry/architecture";
+import { polygonBounds } from "../geometry/oriented";
+import { isSimplePolygon } from "../geometry/polygon";
 import type { Door, Flat, FlatRoom, FlatTrace, FlatWindow, LocalizedName, Position2D, RoomKind, Wall } from "../../types/domain";
 
 export const FLAT_FILE_FORMAT = "fitin-flat";
-export const FLAT_FILE_VERSION = 1;
+/** Version 2 adds room and flat outlines, angled walls and door hinges; version 1 files still open. */
+export const FLAT_FILE_VERSION = 2;
+const READABLE_VERSIONS: readonly number[] = [1, 2];
 export const FLAT_FILE_MAX_BYTES = 1_000_000;
 /** No Hong Kong flat comes close; anything larger is a scale mistake, not a home. */
 export const FLAT_MAX_SIZE_CM = 3000;
 const MAX_WALL_THICKNESS_CM = 80;
+const MIN_WALL_LENGTH_CM = 1;
 const MAX_ENTRIES = 200;
 const NAME_MAX = 80;
 const POSITION_TOLERANCE_CM = 0.01;
+const DIRECTION_TOLERANCE = 0.001;
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 const ROOM_KINDS: readonly RoomKind[] = ["living", "bedroom", "kitchen", "bathroom", "other"];
 
@@ -68,6 +75,20 @@ function point(value: unknown, path: string): Position2D {
   return { x: number(entry.x, `${path}.x`, -FLAT_MAX_SIZE_CM, FLAT_MAX_SIZE_CM * 2), z: number(entry.z, `${path}.z`, -FLAT_MAX_SIZE_CM, FLAT_MAX_SIZE_CM * 2) };
 }
 
+/** A unit vector, given to the file's precision. */
+function direction(value: unknown, path: string): Position2D {
+  const vector = point(value, path);
+  if (Math.abs(Math.hypot(vector.x, vector.z) - 1) > DIRECTION_TOLERANCE) throw new FlatFileProblem(path);
+  return vector;
+}
+
+/** A simple polygon (no crossing edges) of at least three corners. */
+function polygon(value: unknown, path: string): Position2D[] {
+  const corners = list(value, path, 3).map((entry, index) => point(entry, `${path}[${index}]`));
+  if (!isSimplePolygon(corners)) throw new FlatFileProblem(path);
+  return corners;
+}
+
 function unique<T extends { id: string }>(entries: T[], path: string): T[] {
   const seen = new Set<string>();
   entries.forEach((entry, index) => {
@@ -77,14 +98,35 @@ function unique<T extends { id: string }>(entries: T[], path: string): T[] {
   return entries;
 }
 
-/** Position of an opening along its wall, or a problem when it is off the wall's line or overhangs it. */
+function wallFrame(wall: Wall) {
+  const length = Math.hypot(wall.end.x - wall.start.x, wall.end.z - wall.start.z);
+  const along = { x: (wall.end.x - wall.start.x) / length, z: (wall.end.z - wall.start.z) / length };
+  const project = (at: Position2D) => ({ along: (at.x - wall.start.x) * along.x + (at.z - wall.start.z) * along.z, across: (at.x - wall.start.x) * -along.z + (at.z - wall.start.z) * along.x });
+  return { length, along, project };
+}
+
+/** A problem when an opening is off the wall's centre line or overhangs either end. */
 function onWall(wall: Wall, position: Position2D, width: number, path: string): void {
-  const alongX = wall.start.z === wall.end.z;
-  const across = alongX ? position.z - wall.start.z : position.x - wall.start.x;
-  const along = alongX ? position.x : position.z;
-  const [from, to] = alongX ? [wall.start.x, wall.end.x] : [wall.start.z, wall.end.z];
+  const frame = wallFrame(wall);
+  const { along, across } = frame.project(position);
   if (Math.abs(across) > POSITION_TOLERANCE_CM) throw new FlatFileProblem(`${path}.position`);
-  if (along - width / 2 < from - POSITION_TOLERANCE_CM || along + width / 2 > to + POSITION_TOLERANCE_CM) throw new FlatFileProblem(`${path}.width`);
+  if (along - width / 2 < -POSITION_TOLERANCE_CM || along + width / 2 > frame.length + POSITION_TOLERANCE_CM) throw new FlatFileProblem(`${path}.width`);
+}
+
+/** A door's explicit leaf: hinge on the wall within its faces, closing along the wall and opening across it. */
+function doorLeaf(door: Json, wall: Wall, width: number, path: string): Pick<Door, "hinge" | "closedDirection" | "openDirection"> {
+  if (door.hinge === undefined && door.closedDirection === undefined && door.openDirection === undefined) return {};
+  const hinge = point(door.hinge, `${path}.hinge`);
+  const closed = direction(door.closedDirection, `${path}.closedDirection`);
+  const open = direction(door.openDirection, `${path}.openDirection`);
+  const frame = wallFrame(wall);
+  if (Math.abs(closed.x * frame.along.z - closed.z * frame.along.x) > DIRECTION_TOLERANCE) throw new FlatFileProblem(`${path}.closedDirection`);
+  if (Math.abs(open.x * frame.along.x + open.z * frame.along.z) > DIRECTION_TOLERANCE) throw new FlatFileProblem(`${path}.openDirection`);
+  const placed = frame.project(hinge);
+  const closedEnd = frame.project({ x: hinge.x + closed.x * width, z: hinge.z + closed.z * width });
+  const inSpan = (along: number) => along >= -POSITION_TOLERANCE_CM && along <= frame.length + POSITION_TOLERANCE_CM;
+  if (Math.abs(placed.across) > wall.thickness / 2 + POSITION_TOLERANCE_CM || !inSpan(placed.along) || !inSpan(closedEnd.along)) throw new FlatFileProblem(`${path}.hinge`);
+  return { hinge, closedDirection: closed, openDirection: open };
 }
 
 function readTrace(value: unknown): FlatTrace | undefined {
@@ -129,8 +171,14 @@ export function readFlat(value: unknown): Flat {
     if (room.orientation !== 0) throw new FlatFileProblem(`${path}.orientation`);
     if (room.kind !== undefined && !ROOM_KINDS.includes(room.kind as RoomKind)) throw new FlatFileProblem(`${path}.kind`);
     const parsed: FlatRoom = { id: id(room.id, `${path}.id`), name: localized(room.name, `${path}.name`), ...(room.kind === undefined ? {} : { kind: room.kind as RoomKind }), position: point(room.position, `${path}.position`), width: number(room.width, `${path}.width`, 0, FLAT_MAX_SIZE_CM, true), depth: number(room.depth, `${path}.depth`, 0, FLAT_MAX_SIZE_CM, true), orientation: 0 };
-    inside({ minX: parsed.position.x - parsed.width / 2, maxX: parsed.position.x + parsed.width / 2, minZ: parsed.position.z - parsed.depth / 2, maxZ: parsed.position.z + parsed.depth / 2 }, `${path}.position`);
-    return parsed;
+    const box = { minX: parsed.position.x - parsed.width / 2, maxX: parsed.position.x + parsed.width / 2, minZ: parsed.position.z - parsed.depth / 2, maxZ: parsed.position.z + parsed.depth / 2 };
+    inside(box, `${path}.position`);
+    if (room.outline === undefined) return parsed;
+    // An outline must fill exactly the rectangle the room gives as its position and size.
+    const outline = polygon(room.outline, `${path}.outline`);
+    const bounds = polygonBounds(outline);
+    if ((["minX", "maxX", "minZ", "maxZ"] as const).some((key) => Math.abs(bounds[key] - box[key]) > POSITION_TOLERANCE_CM)) throw new FlatFileProblem(`${path}.outline`);
+    return { ...parsed, outline };
   }), "flat.rooms");
 
   const walls = unique(list(entry.walls, "flat.walls").map((raw, index): Wall => {
@@ -138,12 +186,11 @@ export function readFlat(value: unknown): Flat {
     const wall = record(raw, path);
     if (typeof wall.outer !== "boolean") throw new FlatFileProblem(`${path}.outer`);
     const parsed: Wall = { id: id(wall.id, `${path}.id`), name: localized(wall.name, `${path}.name`), start: point(wall.start, `${path}.start`), end: point(wall.end, `${path}.end`), thickness: number(wall.thickness, `${path}.thickness`, 0, MAX_WALL_THICKNESS_CM, true), outer: wall.outer };
+    // Horizontal and vertical walls run start to end in the positive direction, as wallParts expects; other walls may run any way.
     const alongX = parsed.start.z === parsed.end.z;
     const alongZ = parsed.start.x === parsed.end.x;
-    // wallParts walks from start to end, so a wall must be axis-aligned and run in the positive direction.
-    if (alongX === alongZ || (alongX ? parsed.start.x >= parsed.end.x : parsed.start.z >= parsed.end.z)) throw new FlatFileProblem(`${path}.end`);
-    const half = parsed.thickness / 2;
-    inside(alongX ? { minX: parsed.start.x, maxX: parsed.end.x, minZ: parsed.start.z - half, maxZ: parsed.start.z + half } : { minX: parsed.start.x - half, maxX: parsed.start.x + half, minZ: parsed.start.z, maxZ: parsed.end.z }, path);
+    if (Math.hypot(parsed.end.x - parsed.start.x, parsed.end.z - parsed.start.z) < MIN_WALL_LENGTH_CM || (alongX && parsed.start.x >= parsed.end.x) || (alongZ && parsed.start.z >= parsed.end.z)) throw new FlatFileProblem(`${path}.end`);
+    inside(polygonBounds(wallPolygon(parsed)), path);
     return parsed;
   }), "flat.walls");
 
@@ -169,7 +216,7 @@ export function readFlat(value: unknown): Flat {
     if (connects.length !== 2) throw new FlatFileProblem(`${path}.connects`);
     const parsed: Door = { id: id(door.id, `${path}.id`), name: localized(door.name, `${path}.name`), wallId: wall.id, position: point(door.position, `${path}.position`), width: number(door.width, `${path}.width`, 0, 300, true), swingRoomId: roomRef(door.swingRoomId, `${path}.swingRoomId`), connects: [roomRef(connects[0], `${path}.connects[0]`, true), roomRef(connects[1], `${path}.connects[1]`, true)] };
     onWall(wall, parsed.position, parsed.width, path);
-    return parsed;
+    return { ...parsed, ...doorLeaf(door, wall, parsed.width, path), ...(door.height === undefined ? {} : { height: number(door.height, `${path}.height`, 0, 1000, true) }) };
   }), "flat.doors");
 
   const windows = unique(list(entry.windows, "flat.windows").map((raw, index): FlatWindow => {
@@ -181,6 +228,11 @@ export function readFlat(value: unknown): Flat {
     return parsed;
   }), "flat.windows");
 
+  let outline: Position2D[] | undefined;
+  if (entry.outline !== undefined) {
+    outline = polygon(entry.outline, "flat.outline");
+    inside(polygonBounds(outline), "flat.outline");
+  }
   const trace = readTrace(entry.trace);
   return {
     id: id(entry.id, "flat.id"),
@@ -192,6 +244,7 @@ export function readFlat(value: unknown): Flat {
     maximumHeight,
     dimensionSource,
     wallThickness: number(entry.wallThickness, "flat.wallThickness", 0, MAX_WALL_THICKNESS_CM, true),
+    ...(outline ? { outline } : {}),
     rooms,
     walls,
     doors,
@@ -208,7 +261,7 @@ export function parseFlatFile(content: string): FlatFileResult {
   } catch {
     return { ok: false, error: "not-json" };
   }
-  if (typeof parsed !== "object" || parsed === null || (parsed as Json).format !== FLAT_FILE_FORMAT || (parsed as Json).version !== FLAT_FILE_VERSION) return { ok: false, error: "format" };
+  if (typeof parsed !== "object" || parsed === null || (parsed as Json).format !== FLAT_FILE_FORMAT || !READABLE_VERSIONS.includes((parsed as Json).version as number)) return { ok: false, error: "format" };
   try {
     return { ok: true, flat: readFlat((parsed as Json).flat) };
   } catch (error) {

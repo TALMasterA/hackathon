@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { edges, type TracePlan } from "../../lib/floorplan/trace";
+import { boxRoom, edges, type TracePlan } from "../../lib/floorplan/trace";
 import { canEnter, createTraceState, positiveNumber, scaleOf, traceReducer, type TraceAction, type TraceState } from "./trace-state";
 
 const run = (state: TraceState, ...actions: TraceAction[]) => actions.reduce(traceReducer, state);
 const SOURCE = { name: "02-Harmony1.pdf", kind: "pdf" as const, page: 1, pageCount: 10 };
 const PLAN: TracePlan = {
-  rooms: [{ id: "room-1", kind: "living", box: { minX: 0, maxX: 300, minZ: 0, maxZ: 200 }, edges: edges("verified", 20) }, { id: "room-2", kind: "bedroom", box: { minX: 310, maxX: 500, minZ: 0, maxZ: 200 }, edges: edges("unverified") }],
+  rooms: [boxRoom("room-1", "living", { minX: 0, maxX: 300, minZ: 0, maxZ: 200 }, edges("verified", 20)), boxRoom("room-2", "bedroom", { minX: 310, maxX: 500, minZ: 0, maxZ: 200 }, edges("unverified"))],
   openPairs: [["room-1", "room-2"]],
   doors: [{ id: "door-3", at: { x: 305, z: 100 }, width: 80, swingInto: "room-2" }],
   windows: [{ id: "window-4", at: { x: 400, z: 205 }, width: 120, roomId: "room-2" }],
@@ -56,7 +56,7 @@ describe("trace screen state", () => {
   it("numbers new parts after the highest ID in a started plan and selects them", () => {
     const started = traceReducer(calibrated(), { type: "start", plan: PLAN, readBy: "ai" });
     expect(started.nextId).toBe(5);
-    const added = traceReducer(started, { type: "edit", edit: { type: "room-add", room: { kind: "kitchen", box: { minX: 0, maxX: 100, minZ: 210, maxZ: 300 }, edges: edges("manual") } } });
+    const added = traceReducer(started, { type: "edit", edit: { type: "room-add", room: { kind: "kitchen", points: boxRoom("", "kitchen", { minX: 0, maxX: 100, minZ: 210, maxZ: 300 }).points, edges: boxRoom("", "kitchen", { minX: 0, maxX: 100, minZ: 210, maxZ: 300 }).edges } } });
     expect(added.plan.rooms.at(-1)?.id).toBe("room-5");
     expect(added.selection).toEqual({ kind: "room", id: "room-5" });
   });
@@ -73,10 +73,11 @@ describe("trace screen state", () => {
 
   it("marks an unverified edge as checked by the user, but never a verified one", () => {
     const started = traceReducer(calibrated(), { type: "start", plan: PLAN, readBy: "ai" });
-    const checked = traceReducer(started, { type: "edit", edit: { type: "edge-checked", id: "room-2", side: "left" } });
-    expect(checked.plan.rooms[1].edges.left.status).toBe("manual");
-    const verified = traceReducer(started, { type: "edit", edit: { type: "edge-checked", id: "room-1", side: "left" } });
-    expect(verified.plan.rooms[0].edges.left).toEqual({ status: "verified", thickness: 20 });
+    // Box rooms list their edges top, right, bottom, left: index 3 is the left edge.
+    const checked = traceReducer(started, { type: "edit", edit: { type: "edge-checked", id: "room-2", index: 3 } });
+    expect(checked.plan.rooms[1].edges[3].status).toBe("manual");
+    const verified = traceReducer(started, { type: "edit", edit: { type: "edge-checked", id: "room-1", index: 3 } });
+    expect(verified.plan.rooms[0].edges[3]).toEqual({ status: "verified", thickness: 20 });
   });
 
   it("opens and closes walls between rooms in either order", () => {
@@ -86,10 +87,24 @@ describe("trace screen state", () => {
     expect(traceReducer(closed, { type: "edit", edit: { type: "open-pair", rooms: ["room-2", "room-1"], open: true } }).plan.openPairs).toEqual([["room-2", "room-1"]]);
   });
 
+  it("adds a corner by splitting an edge, and removes one by joining its edges", () => {
+    const started = traceReducer(calibrated(), { type: "start", plan: PLAN, readBy: "ai" });
+    const split = traceReducer(started, { type: "edit", edit: { type: "corner-insert", id: "room-1", index: 0, point: { x: 150, z: 0 } } });
+    expect(split.plan.rooms[0].points).toEqual([{ x: 0, z: 0 }, { x: 150, z: 0 }, { x: 300, z: 0 }, { x: 300, z: 200 }, { x: 0, z: 200 }]);
+    expect(split.plan.rooms[0].edges.slice(0, 2)).toEqual([{ status: "verified", thickness: 20 }, { status: "verified", thickness: 20 }]);
+    const joined = traceReducer(split, { type: "edit", edit: { type: "corner-remove", id: "room-1", index: 1 } });
+    expect(joined.plan.rooms[0].points).toEqual(started.plan.rooms[0].points);
+    expect(joined.plan.rooms[0].edges[0]).toEqual({ status: "manual" });
+    // A triangle keeps its three corners.
+    const triangle = { ...PLAN, rooms: [{ id: "room-1", kind: "living" as const, points: [{ x: 0, z: 0 }, { x: 100, z: 0 }, { x: 0, z: 100 }], edges: [{ status: "manual" as const }, { status: "manual" as const }, { status: "manual" as const }] }] };
+    const kept = traceReducer(traceReducer(calibrated(), { type: "start", plan: triangle, readBy: "manual" }), { type: "edit", edit: { type: "corner-remove", id: "room-1", index: 0 } });
+    expect(kept.plan.rooms[0].points).toHaveLength(3);
+  });
+
   it("updates doors and windows in place", () => {
     const started = traceReducer(calibrated(), { type: "start", plan: PLAN, readBy: "ai" });
-    const door = traceReducer(started, { type: "edit", edit: { type: "door-update", id: "door-3", patch: { width: 90, swingInto: "room-1" } } });
-    expect(door.plan.doors[0]).toMatchObject({ width: 90, swingInto: "room-1" });
+    const door = traceReducer(started, { type: "edit", edit: { type: "door-update", id: "door-3", patch: { width: 90, swingInto: "room-1", hinge: "high" } } });
+    expect(door.plan.doors[0]).toMatchObject({ width: 90, swingInto: "room-1", hinge: "high" });
     const window = traceReducer(door, { type: "edit", edit: { type: "window-delete", id: "window-4" } });
     expect(window.plan.windows).toEqual([]);
     expect(window.past).toHaveLength(2);

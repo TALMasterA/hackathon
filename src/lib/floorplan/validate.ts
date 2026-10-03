@@ -1,15 +1,17 @@
-import { rectangleBox, wallAxis } from "../geometry/architecture";
+import { wallPolygon } from "../geometry/architecture";
+import { polygonArea, polygonBounds, rectanglePolygon } from "../geometry/oriented";
+import { isSimplePolygon, overlapOf } from "../geometry/polygon";
 import type { Door, FlatRoom, Wall } from "../../types/domain";
 import type { OpeningProblem } from "./attach";
 import { FLAT_MAX_SIZE_CM } from "./flat-file";
-import { EDGE_SIDES, EXPECTED_BEDROOMS, type FlatType, type TracePlan } from "./trace";
-import { OPEN_GAP_CM } from "./walls";
+import { EXPECTED_BEDROOMS, roomBounds, type FlatType, type TracePlan } from "./trace";
+import { facingEdges, frameEdges, OPEN_GAP_CM } from "./walls";
 
 export type TraceIssueCode =
-  | "no-rooms" | "rooms-overlap" | "room-too-narrow" | "too-large" | "door-off-wall" | "door-too-wide" | "door-nowhere" | "no-entrance" | "many-entrances" | "inconsistent"
+  | "no-rooms" | "room-shape" | "rooms-overlap" | "room-too-narrow" | "too-large" | "door-off-wall" | "door-too-wide" | "door-nowhere" | "no-entrance" | "many-entrances" | "inconsistent"
   | "unreachable" | "unchecked-edges" | "bedroom-count" | "area-mismatch" | "window-off-wall";
 
-const ERRORS: ReadonlySet<TraceIssueCode> = new Set(["no-rooms", "rooms-overlap", "room-too-narrow", "too-large", "door-off-wall", "door-too-wide", "door-nowhere", "no-entrance", "many-entrances", "inconsistent"]);
+const ERRORS: ReadonlySet<TraceIssueCode> = new Set(["no-rooms", "room-shape", "rooms-overlap", "room-too-narrow", "too-large", "door-off-wall", "door-too-wide", "door-nowhere", "no-entrance", "many-entrances", "inconsistent"]);
 
 export interface TraceIssue {
   code: TraceIssueCode;
@@ -29,6 +31,9 @@ export function traceIssue(code: TraceIssueCode, ids: string[] = [], extra: Part
 
 /** Rooms narrower than this are tracing slips, not usable space. */
 export const MIN_ROOM_CM = 40;
+/** Rooms smaller than a 40 cm square are slips too, whatever their shape. */
+const MIN_ROOM_AREA_CM2 = MIN_ROOM_CM * MIN_ROOM_CM;
+/** Rooms overlapping by more than this (mean thickness of the shared floor) overlap; less is rounding along a shared edge. */
 const OVERLAP_TOLERANCE_CM = 0.5;
 export const AREA_TOLERANCE = 0.05;
 
@@ -43,18 +48,19 @@ export interface ValidationInput {
   declaredAreaM2?: number | null;
 }
 
+export const roomPolygon = (room: FlatRoom) => room.outline ?? rectanglePolygon(room);
+
 /**
  * Internal floor area as the Housing Authority measures it: to the inner faces of the enclosing
  * walls, so partitions inside the flat count but outer walls do not.
  */
 export function internalAreaM2(rooms: readonly FlatRoom[], walls: readonly Wall[]): number {
-  const roomArea = rooms.reduce((sum, room) => sum + room.width * room.depth, 0);
-  const partitionArea = walls.filter((wall) => !wall.outer).reduce((sum, wall) => {
-    const axis = wallAxis(wall);
-    return sum + (wall.end[axis] - wall.start[axis]) * wall.thickness;
-  }, 0);
+  const roomArea = rooms.reduce((sum, room) => sum + polygonArea(roomPolygon(room)), 0);
+  const partitionArea = walls.filter((wall) => !wall.outer).reduce((sum, wall) => sum + Math.hypot(wall.end.x - wall.start.x, wall.end.z - wall.start.z) * wall.thickness, 0);
   return (roomArea + partitionArea) / 10_000;
 }
+
+const boxesOverlap = (first: ReturnType<typeof roomBounds>, second: ReturnType<typeof roomBounds>) => first.minX < second.maxX && second.minX < first.maxX && first.minZ < second.maxZ && second.minZ < first.maxZ;
 
 /** Errors block "Use this flat"; warnings are shown but do not. */
 export function validateTrace(input: ValidationInput): TraceIssue[] {
@@ -63,21 +69,25 @@ export function validateTrace(input: ValidationInput): TraceIssue[] {
   if (plan.rooms.length === 0) return [traceIssue("no-rooms")];
   const traceId = new Map(rooms.map((room, index) => [room.id, plan.rooms[index].id]));
 
+  const simple = new Set(plan.rooms.filter((room) => isSimplePolygon(room.points)).map((room) => room.id));
   plan.rooms.forEach((room, index) => {
-    if (Math.min(room.box.maxX - room.box.minX, room.box.maxZ - room.box.minZ) < MIN_ROOM_CM) issues.push(traceIssue("room-too-narrow", [room.id]));
+    if (!simple.has(room.id)) {
+      issues.push(traceIssue("room-shape", [room.id]));
+      return;
+    }
+    const bounds = roomBounds(room);
+    if (Math.min(bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ) < MIN_ROOM_CM || polygonArea(room.points) < MIN_ROOM_AREA_CM2) issues.push(traceIssue("room-too-narrow", [room.id]));
     for (const other of plan.rooms.slice(index + 1)) {
-      const overlapX = Math.min(room.box.maxX, other.box.maxX) - Math.max(room.box.minX, other.box.minX);
-      const overlapZ = Math.min(room.box.maxZ, other.box.maxZ) - Math.max(room.box.minZ, other.box.minZ);
-      if (overlapX > OVERLAP_TOLERANCE_CM && overlapZ > OVERLAP_TOLERANCE_CM) issues.push(traceIssue("rooms-overlap", [room.id, other.id]));
+      if (!simple.has(other.id) || !boxesOverlap(bounds, roomBounds(other))) continue;
+      const overlap = overlapOf(room.points, other.points);
+      if (overlap.area > OVERLAP_TOLERANCE_CM * overlap.length + 1e-6) issues.push(traceIssue("rooms-overlap", [room.id, other.id]));
     }
   });
 
-  const extents = [...rooms.map(rectangleBox), ...walls.map((wall) => {
-    const half = wall.thickness / 2;
-    return wallAxis(wall) === "x" ? { minX: wall.start.x, maxX: wall.end.x, minZ: wall.start.z - half, maxZ: wall.start.z + half } : { minX: wall.start.x - half, maxX: wall.start.x + half, minZ: wall.start.z, maxZ: wall.end.z };
-  })];
-  const width = Math.max(...extents.map((box) => box.maxX)) - Math.min(...extents.map((box) => box.minX));
-  const depth = Math.max(...extents.map((box) => box.maxZ)) - Math.min(...extents.map((box) => box.minZ));
+  const extents = [...plan.rooms.flatMap((room) => room.points), ...walls.flatMap(wallPolygon)];
+  const bounds = polygonBounds(extents);
+  const width = bounds.maxX - bounds.minX;
+  const depth = bounds.maxZ - bounds.minZ;
   if (width > FLAT_MAX_SIZE_CM || depth > FLAT_MAX_SIZE_CM) issues.push(traceIssue("too-large", [], { actual: Math.round(Math.max(width, depth)) }));
 
   for (const problem of input.problems) issues.push(traceIssue(problem.code, [problem.id]));
@@ -95,14 +105,11 @@ export function validateTrace(input: ValidationInput): TraceIssue[] {
     const toTrace = (id: string) => traceId.get(id) ?? id;
     for (const door of doors) link(toTrace(door.connects[0]), toTrace(door.connects[1]));
     for (const [first, second] of plan.openPairs) link(first, second);
-    // Rooms whose faces (nearly) touch, or meet at an edge marked open, are one space.
-    plan.rooms.forEach((room, index) => {
-      for (const other of plan.rooms.slice(index + 1)) {
-        const overlapX = Math.min(room.box.maxX, other.box.maxX) - Math.max(room.box.minX, other.box.minX);
-        const overlapZ = Math.min(room.box.maxZ, other.box.maxZ) - Math.max(room.box.minZ, other.box.minZ);
-        if ((overlapX > 0 && overlapZ > -OPEN_GAP_CM) || (overlapZ > 0 && overlapX > -OPEN_GAP_CM)) link(room.id, other.id);
-      }
-    });
+    // Rooms whose faces (nearly) touch, at any angle, are one space.
+    const all = frameEdges(plan.rooms);
+    for (const edge of all) {
+      for (const facing of facingEdges(edge, all, OPEN_GAP_CM)) if (facing.gap < OPEN_GAP_CM) link(edge.room.id, facing.other.room.id);
+    }
     const reached = new Set<string>(["outside"]);
     const queue = ["outside"];
     while (queue.length > 0) {
@@ -115,7 +122,7 @@ export function validateTrace(input: ValidationInput): TraceIssue[] {
     if (unreachable.length > 0) issues.push(traceIssue("unreachable", unreachable));
   }
 
-  const unchecked = plan.rooms.flatMap((room) => EDGE_SIDES.filter((side) => room.edges[side].status === "unverified").map(() => room.id));
+  const unchecked = plan.rooms.flatMap((room) => room.edges.filter((edge) => edge.status === "unverified").map(() => room.id));
   if (unchecked.length > 0) issues.push(traceIssue("unchecked-edges", [...new Set(unchecked)], { count: unchecked.length }));
 
   if (input.flatType) {

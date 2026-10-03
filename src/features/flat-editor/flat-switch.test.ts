@@ -3,8 +3,10 @@ import { DEMO_FLAT, SUGGESTED_FURNITURE } from "../../data/flat-preset";
 import { HARMONY_FLAT } from "../../data/harmony-preset";
 import { rectangleBox } from "../../lib/geometry/architecture";
 import { analyzeLayout } from "../../lib/geometry/layout";
-import { polygonBounds, rectanglePolygon } from "../../lib/geometry/oriented";
+import { polygonBounds, polygonOutsideArea, rectanglePolygon } from "../../lib/geometry/oriented";
+import { buildFlat } from "../../lib/floorplan/build";
 import { L_FLAT } from "../../lib/floorplan/test-flats";
+import type { TracePlan } from "../../lib/floorplan/trace";
 import type { FlatFurniture } from "../../types/domain";
 import { createEditorState, editorReducer, type EditorAction, type EditorState } from "./state";
 import { isPresetFlat, suggestionIds, suggestionSlots } from "./suggestions";
@@ -95,5 +97,44 @@ describe("suggestions on a traced flat", () => {
     const cramped = { ...L_FLAT, rooms: L_FLAT.rooms.map((room) => room.id === "kitchen" ? { ...room, width: 60, position: { x: 450, z: 160 } } : room) };
     const state = editorReducer(createEditorState(cramped), { type: "suggest", roomId: "kitchen" });
     expect(state.suggestionReport?.skipped).toContainEqual(expect.objectContaining({ id: "kitchen-kitchen-counter" }));
+  });
+});
+
+/** An L-shaped living room wrapped round a bedroom whose far corner is cut off at 45 degrees. */
+function shapedFlat() {
+  const manual = (count: number) => Array.from({ length: count }, () => ({ status: "manual" as const }));
+  const plan: TracePlan = {
+    rooms: [
+      { id: "l", kind: "living", points: [{ x: 0, z: 0 }, { x: 500, z: 0 }, { x: 500, z: 250 }, { x: 250, z: 250 }, { x: 250, z: 450 }, { x: 0, z: 450 }], edges: manual(6) },
+      { id: "b", kind: "bedroom", points: [{ x: 260, z: 260 }, { x: 500, z: 260 }, { x: 500, z: 350 }, { x: 400, z: 450 }, { x: 260, z: 450 }], edges: manual(5) },
+    ],
+    openPairs: [],
+    doors: [{ id: "entrance", at: { x: 100, z: 0 }, width: 90 }, { id: "bedroom-door", at: { x: 255, z: 400 }, width: 80, swingInto: "b" }],
+    windows: [],
+  };
+  return buildFlat(plan, { name: { en: "Shaped", "zh-Hant": "異形" }, ceilingHeight: 260, trace: { sourceName: "plan.pdf", scaleMethod: "scale-bar", cmPerUnit: 7, readBy: "manual" }, defaultOuter: 10 }).flat!;
+}
+
+describe("a traced flat with an L-shaped room and an angled wall", () => {
+  it("furnishes every room inside its own shape, warning-free", () => {
+    const flat = shapedFlat();
+    const state = editorReducer(createEditorState(flat), { type: "suggest", roomId: "all" });
+    expect(state.current.furniture.length).toBeGreaterThan(5);
+    expect(analyzeLayout(flat, state.current.furniture, 260)).toEqual([]);
+    for (const item of state.current.furniture) {
+      const room = flat.rooms.find((entry) => entry.id === item.roomId)!;
+      expect(polygonOutsideArea(rectanglePolygon(item), room.outline ?? rectanglePolygon(room)), item.id).toBeLessThan(1);
+    }
+  });
+
+  it("reports furniture beyond the cut-off corner as outside the flat", () => {
+    const flat = shapedFlat();
+    const bedroom = flat.rooms.find((room) => room.kind === "bedroom")!.outline!;
+    // The angled edge runs from the bedroom's third corner to its fourth; go 40 cm out from its middle.
+    const [from, to] = [bedroom[2], bedroom[3]];
+    const length = Math.hypot(to.x - from.x, to.z - from.z);
+    const outward = { x: (to.z - from.z) / length, z: -(to.x - from.x) / length };
+    const chair = { ...SUGGESTED_FURNITURE.find((item) => item.kind === "chair")!, id: "stray", roomId: "bedroom", position: { x: (from.x + to.x) / 2 + outward.x * 40, z: (from.z + to.z) / 2 + outward.z * 40 } };
+    expect(analyzeLayout(flat, [chair], 260)).toContainEqual(expect.objectContaining({ code: "envelope", side: "outline", itemId: "stray" }));
   });
 });

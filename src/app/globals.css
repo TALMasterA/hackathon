@@ -489,6 +489,13 @@ select:focus-visible { outline: 3px solid #b35c2e; outline-offset: 3px; }
 .trace-edges li[data-status="unverified"] > span { color: #7a4f05; }
 .trace-edges .secondary-button { min-height: 36px; padding: 4px 8px; font-size: 13px; flex-shrink: 0; }
 .trace-field { justify-content: space-between; flex-wrap: wrap; }
+div.trace-field { display: flex; align-items: center; gap: 8px; }
+div.trace-field .secondary-button { width: auto; margin-top: 0; }
+.trace-shape-actions, .trace-corner { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.trace-shape-actions :is(.primary-button, .secondary-button) { width: auto; flex: 1 1 auto; margin-top: 0; }
+.trace-corner { justify-content: space-between; }
+.trace-corner .secondary-button { width: auto; min-height: 36px; padding: 4px 10px; margin-top: 0; }
+.trace-measure { font-weight: 700; fill: #1d4d41; paint-order: stroke; stroke: #ffffffe0; stroke-linejoin: round; pointer-events: none; }
 .trace-fields { display: grid; gap: 10px; border-top: 1px solid var(--line); padding-top: 12px; }
 .trace-room-label { font-weight: 700; fill: #26332e; pointer-events: none; }
 .trace-room-size { fill: #4d5c55; pointer-events: none; }

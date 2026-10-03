@@ -1,8 +1,8 @@
 import type { Box } from "@/lib/geometry/architecture";
 import { scaleFromTaps, type PlanPoint } from "@/lib/floorplan/scale";
-import type { EdgeSide, FlatType, TraceDoor, TraceEdge, TracePlan, TraceRoom, TraceWindow } from "@/lib/floorplan/trace";
+import type { FlatType, TraceDoor, TraceEdge, TracePlan, TraceRoom, TraceWindow } from "@/lib/floorplan/trace";
 import { TRACED_CEILING } from "@/lib/floorplan/build";
-import type { RoomKind } from "@/types/domain";
+import type { Position2D, RoomKind } from "@/types/domain";
 
 export type TraceStep = "picture" | "scale" | "unit" | "detect" | "review" | "check";
 export const TRACE_STEPS: readonly TraceStep[] = ["picture", "scale", "unit", "detect", "review", "check"];
@@ -70,9 +70,13 @@ export interface TraceState extends TraceDocument {
 
 export type PlanEdit =
   | { type: "room-add"; room: Omit<TraceRoom, "id"> }
-  | { type: "room-update"; id: string; box?: Box; kind?: RoomKind; edges?: Partial<Record<EdgeSide, TraceEdge>> }
+  | { type: "room-update"; id: string; points?: Position2D[]; kind?: RoomKind; edges?: TraceEdge[] }
   | { type: "room-delete"; id: string }
-  | { type: "edge-checked"; id: string; side: EdgeSide }
+  | { type: "edge-checked"; id: string; index: number }
+  /** A new corner on edge `index` at `point`, splitting the edge; both halves keep its record. */
+  | { type: "corner-insert"; id: string; index: number; point: Position2D }
+  /** Removes corner `index`; the two edges it joined become one, placed by the user. */
+  | { type: "corner-remove"; id: string; index: number }
   | { type: "door-add"; door: Omit<TraceDoor, "id"> }
   | { type: "door-update"; id: string; patch: Partial<Omit<TraceDoor, "id">> }
   | { type: "door-delete"; id: string }
@@ -167,7 +171,18 @@ function applyPlanEdit(document: TraceDocument, edit: PlanEdit): TraceDocument &
       return { plan: { ...plan, rooms: [...plan.rooms, { ...edit.room, id }] }, nextId: nextId + 1, added: id };
     }
     case "room-update":
-      return { nextId, plan: { ...plan, rooms: plan.rooms.map((room) => room.id === edit.id ? { ...room, ...(edit.box ? { box: edit.box } : {}), ...(edit.kind ? { kind: edit.kind } : {}), edges: { ...room.edges, ...edit.edges } } : room) } };
+      return { nextId, plan: { ...plan, rooms: plan.rooms.map((room) => room.id === edit.id ? { ...room, ...(edit.points ? { points: edit.points } : {}), ...(edit.kind ? { kind: edit.kind } : {}), ...(edit.edges ? { edges: edit.edges } : {}) } : room) } };
+    case "corner-insert":
+      return { nextId, plan: { ...plan, rooms: plan.rooms.map((room) => room.id === edit.id ? { ...room, points: [...room.points.slice(0, edit.index + 1), edit.point, ...room.points.slice(edit.index + 1)], edges: [...room.edges.slice(0, edit.index + 1), { ...room.edges[edit.index] }, ...room.edges.slice(edit.index + 1)] } : room) } };
+    case "corner-remove":
+      return {
+        nextId,
+        plan: { ...plan, rooms: plan.rooms.map((room) => {
+          if (room.id !== edit.id || room.points.length <= 3) return room;
+          const previous = (edit.index + room.points.length - 1) % room.points.length;
+          return { ...room, points: room.points.filter((_, index) => index !== edit.index), edges: room.edges.map((edge, index) => index === previous ? { status: "manual" as const } : edge).filter((_, index) => index !== edit.index) };
+        }) },
+      };
     case "room-delete":
       return {
         nextId,
@@ -179,7 +194,7 @@ function applyPlanEdit(document: TraceDocument, edit: PlanEdit): TraceDocument &
         },
       };
     case "edge-checked":
-      return { nextId, plan: { ...plan, rooms: plan.rooms.map((room) => room.id === edit.id && room.edges[edit.side].status === "unverified" ? { ...room, edges: { ...room.edges, [edit.side]: { ...room.edges[edit.side], status: "manual" } } } : room) } };
+      return { nextId, plan: { ...plan, rooms: plan.rooms.map((room) => room.id === edit.id && room.edges[edit.index]?.status === "unverified" ? { ...room, edges: room.edges.map((edge, index) => index === edit.index ? { ...edge, status: "manual" } : edge) } : room) } };
     case "door-add": {
       const id = `door-${nextId}`;
       return { plan: { ...plan, doors: [...plan.doors, { ...edit.door, id }] }, nextId: nextId + 1, added: id };

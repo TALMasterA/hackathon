@@ -15,6 +15,8 @@ export interface PlanViewTool {
   move?: (point: Position2D, unit: number, event: PointerEvent<SVGSVGElement>) => void;
   up?: (point: Position2D, unit: number, event: PointerEvent<SVGSVGElement>) => void;
   tap?: (point: Position2D, unit: number) => void;
+  /** The mouse moving with no button pressed, for previews; null once it leaves the picture. */
+  hover?: (point: Position2D | null, unit: number) => void;
 }
 
 interface PlanViewProps {
@@ -122,7 +124,10 @@ export function PlanView({ width, height, image, label, zoomInLabel, zoomOutLabe
   }
 
   function move(event: PointerEvent<SVGSVGElement>) {
-    if (!pointers.current.has(event.pointerId)) return;
+    if (!pointers.current.has(event.pointerId)) {
+      if (event.pointerType === "mouse") tool?.hover?.(toPlan(event), unit);
+      return;
+    }
     const point = clientPoint(event);
     pointers.current.set(event.pointerId, point);
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -179,7 +184,7 @@ export function PlanView({ width, height, image, label, zoomInLabel, zoomOutLabe
         <button type="button" className="icon-button" aria-label={zoomOutLabel} title={zoomOutLabel} onClick={() => zoomBy(1 / BUTTON_ZOOM)}><ZoomOut size={18} aria-hidden="true" /></button>
         <button type="button" className="icon-button" aria-label={fitLabel} title={fitLabel} onClick={() => setView(frame.home)}><Maximize size={18} aria-hidden="true" /></button>
       </div>
-      <svg ref={svg} className="plan-view-canvas" viewBox={`${view.minX} ${view.minZ} ${view.width} ${view.height}`} role="group" aria-label={label} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
+      <svg ref={svg} className="plan-view-canvas" viewBox={`${view.minX} ${view.minZ} ${view.width} ${view.height}`} role="group" aria-label={label} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onPointerLeave={() => tool?.hover?.(null, unit)}>
         <rect x={frame.home.minX} y={frame.home.minZ} width={frame.home.width} height={frame.home.height} fill="#e5eae4" />
         {image && <image href={image} x={0} y={0} width={width} height={height} preserveAspectRatio="none" />}
         {children?.(unit)}
