@@ -44,6 +44,7 @@ There are no fake APIs, predetermined fit outcomes, hidden layout solving, or un
 | Drei / transitive three-stdlib | OrbitControls, edge rendering and cached glTF loading |
 | fal.ai client (`@fal-ai/client`, MIT) | Server-side upload, queue status and result calls for the optional AI 3D look and the optional AI plan reading |
 | pdf.js (`pdfjs-dist`, Apache-2.0) | Rendering a floor-plan PDF and reading its labels in the browser |
+| polygon-clipping (MIT) | Union and overlap of traced rooms of any shape, for a traced flat's outline and its overlap check |
 | Lucide React | Tool icons |
 | Vitest | Automated deterministic tests |
 | ESLint / eslint-config-next | Static quality checks |
@@ -60,7 +61,7 @@ Revision 4 has two optional paid runtime APIs, both through fal.ai: TRELLIS mode
 
 ## Error and Limitation Statement
 
-The demo floor plan is a simplified approximation using team demo assumptions. Housing Authority PDFs are typical full-floor plans with a metric scale bar but no dimension lines: a flat traced from one is measured approximately (within a fraction of a centimetre of the drawing's own lines on the tested plan), but the drawing is of a typical floor, individual flats and finishes vary, and the AI's reading of rooms can be wrong or incomplete until the user corrects it. Only axis-aligned walls are modelled. User measurements can be wrong.
+The demo floor plan is a simplified approximation using team demo assumptions. Housing Authority PDFs are typical full-floor plans with a metric scale bar but no dimension lines: a flat traced from one is measured approximately (within a fraction of a centimetre of the drawing's own lines on the tested plan), but the drawing is of a typical floor, individual flats and finishes vary, and the AI's reading of rooms can be wrong or incomplete until the user corrects it. Rooms and walls may run at any angle, but the drawing analysis reads horizontal and vertical lines only, so angled walls are placed by the user rather than measured from the drawing. User measurements can be wrong.
 
 Only rotated rectangular furniture footprints, rectangular walls, conservative configured door swings, envelope and ceiling are checked. Window sill/clearance, irregular shapes, compressible furniture, delivery routes, wall fixtures, skirting boards, pipes, plumbing and vertical door/lintel passage constraints are not modelled. Swing zones and user locks are configured constraints, not regulations or universal safety standards.
 
