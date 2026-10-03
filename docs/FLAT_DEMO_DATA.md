@@ -1,6 +1,6 @@
 # Whole-Flat Demo Data
 
-**Simplified team demo assumptions / 團隊簡化示範假設.** This is inspired by Concord 1 Option 1, 2B, not an exact reconstruction, Housing Authority-certified measurement, or extraction from PDF pixels. Verify your own flat before purchase / 購買前請核實自己單位的尺寸.
+**Simplified team demo assumptions / 團隊簡化示範假設.** This is inspired by Concord 1 Option 1, 2B, not an exact reconstruction, Housing Authority-certified measurement, or extraction from PDF pixels. (Housing Authority PDFs do have a metric scale bar, so a flat can be measured from one approximately: Read my floor plan does this for the user's own flat. The demo flat was not made that way.) Verify your own flat before purchase / 購買前請核實自己單位的尺寸.
 
 Domain units are cm. X points right, Z points front to back, Y points up. All furniture positions are footprint centres at floor Y = 0. Positive rotation is clockwise on the X-right/Z-down plan; Three.js uses its negative Y angle. Stored angles are normalised to [0, 360).
 

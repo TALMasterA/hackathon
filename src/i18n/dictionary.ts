@@ -25,7 +25,7 @@ export const english = {
   "scene.boxesHint": "The exact boxes that every check uses",
   "source.heading": "Scenario & assumptions",
   "source.assumptions": "This 660 × 640 cm whole flat, five-room layout and default 260 cm ceiling height are simplified demo assumptions, not Housing Authority-certified measurements.",
-  "source.plan": "The official PDF is a typical full-floor plan, not a dimensioned individual-flat plan. This flat is not an exact reconstruction.",
+  "source.plan": "The official PDF is a typical full-floor plan with a metric scale bar but no dimension lines, so a flat can be measured from it only approximately (Flat → Read my floor plan). This demo flat is not an exact reconstruction.",
   "source.zones": "Door swing zones are conservative rectangular demo constraints, not regulations or universal safety standards. Windows are visual only; sill and window clearance are not checked.",
   "source.verify": "Verify the dimensions of your own flat before making a purchase decision.",
   "source.index": "Housing Authority reference",
@@ -39,7 +39,7 @@ export const english = {
   "source.traced.unknown": "a flat file",
   "source.traced.unchecked": "{count} room edges could not be matched to a drawn wall line and were kept where you accepted them.",
   "source.traced.caveat": "Accuracy depends on your calibration. Housing Authority plans show a typical floor; individual flats and finishes vary, and plaster or tiles can make clear sizes 1–3 cm smaller per face. Measure at least one room with a tape before buying.",
-  "footer.privacy": "Measurements, layout and checks never leave your device. Only a photo you choose to send for an optional 3D look goes to fal.ai. FitIn stores nothing.",
+  "footer.privacy": "Measurements, layout and checks never leave your device. Only a photo you choose to send for an optional 3D look, or the cropped plan of your flat you choose to have read by AI, goes to fal.ai. FitIn stores nothing.",
   "footer.project": "HacKU 2026 · Problem Statement 4",
 } as const;
 
@@ -70,7 +70,7 @@ export const traditionalChinese: Record<TranslationKey, string> = {
   "scene.boxesHint": "所有檢查實際使用的方塊",
   "source.heading": "參考情境及假設",
   "source.assumptions": "此 660 × 640 厘米全屋、五個房間配置及預設 260 厘米樓底高度均為簡化示範假設，並非房屋委員會認證的尺寸。",
-  "source.plan": "官方 PDF 是典型整層平面圖，並非附有尺寸的個別單位平面圖。此單位並非精確重建。",
+  "source.plan": "官方 PDF 是典型整層平面圖，附有公制比例尺但沒有尺寸線，因此只能據此大約量度單位（單位 → 讀取我的平面圖）。此示範單位並非精確重建。",
   "source.zones": "門扇開啟預留區是保守的矩形示範限制，並非規例或通用安全標準。窗戶只供示意；未檢查窗台及窗戶淨空。",
   "source.verify": "作出購買決定前，請核實自己單位的尺寸。",
   "source.index": "房屋委員會參考資料",
@@ -84,7 +84,7 @@ export const traditionalChinese: Record<TranslationKey, string> = {
   "source.traced.unknown": "單位檔案",
   "source.traced.unchecked": "有 {count} 條房間邊線未能對齊圖中的牆線，已按你確認的位置保留。",
   "source.traced.caveat": "準確度取決於你的比例校準。房屋委員會平面圖是典型樓層，個別單位及裝修會有差異，批盪或瓷磚可令每邊淨空減少 1–3 厘米。購買前請最少用捲尺量度一個房間。",
-  "footer.privacy": "尺寸、配置及檢查結果絕不會離開你的裝置。只有你選擇傳送、用作可選三維外觀的相片會傳送至 fal.ai。FitIn 不會儲存任何資料。",
+  "footer.privacy": "尺寸、配置及檢查結果絕不會離開你的裝置。只有你選擇傳送、用作可選三維外觀的相片，或你選擇交由 AI 讀取的單位裁剪平面圖，才會傳送至 fal.ai。FitIn 不會儲存任何資料。",
   "footer.project": "HacKU 2026 · 問題陳述 4",
 };
 
