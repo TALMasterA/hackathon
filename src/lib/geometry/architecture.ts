@@ -11,7 +11,7 @@ export function wallAxis(wall: Wall): "x" | "z" {
   return wall.start.z === wall.end.z ? "x" : "z";
 }
 
-export function wallParts(flat: Flat): WallPart[] {
+export function wallParts(flat: Pick<Flat, "walls" | "doors">): WallPart[] {
   return flat.walls.flatMap((wall) => {
     const axis = wallAxis(wall);
     const gaps = flat.doors.filter((door) => door.wallId === wall.id)
@@ -37,7 +37,7 @@ export function wallParts(flat: Flat): WallPart[] {
   });
 }
 
-export function doorGeometry(door: Door, flat: Flat) {
+export function doorGeometry(door: Door, flat: Pick<Flat, "walls" | "rooms">) {
   const wall = flat.walls.find((entry) => entry.id === door.wallId);
   const room = flat.rooms.find((entry) => entry.id === door.swingRoomId);
   if (!wall || !room) throw new Error(`Invalid door reference: ${door.id}`);

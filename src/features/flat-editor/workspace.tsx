@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useReducer, useRef, useState, type ComponentType } from "react";
+import dynamic from "next/dynamic";
 import { ChevronDown, Flag, LockKeyhole, PanelRight, Redo2, Settings2, Undo2, X } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import { FloorPlan, type PlanRequest } from "@/components/plan/floor-plan";
@@ -23,6 +24,9 @@ import { LibraryPanel } from "./library-panel";
 import { SuggestionsPanel } from "./suggestions-panel";
 import { itemChanges } from "./layout";
 import { createEditorState, editorReducer, type EditorAction } from "./state";
+
+/** The floor-plan trace screen, with pdf.js and the plan analysis, loads only when opened. */
+const TraceScreen = dynamic(() => import("@/features/floor-trace/trace-screen"), { ssr: false });
 
 export interface EditorSceneProps {
   flat: Flat;
@@ -58,6 +62,8 @@ export function FlatEditorApp({ SceneViewport }: { SceneViewport?: ComponentType
   const [visualization, setVisualization] = useState<"plan" | "scene">("plan");
   const [templateId, setTemplateId] = useState(FURNITURE_LIBRARY[0].id);
   const [removedLockFrom, setRemovedLockFrom] = useState<typeof state.locks | null>(null);
+  const [tracing, setTracing] = useState(false);
+  const tracingRef = useRef(tracing);
   const sidebar = useRef<HTMLElement>(null);
   const inspectorTrigger = useRef<HTMLButtonElement>(null);
   const inspectorClose = useRef<HTMLButtonElement>(null);
@@ -115,8 +121,13 @@ export function FlatEditorApp({ SceneViewport }: { SceneViewport?: ComponentType
   }, [state.language]);
 
   useEffect(() => {
+    tracingRef.current = tracing;
+  }, [tracing]);
+
+  useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+      // The trace screen has its own undo; the editor's shortcuts rest while it is open.
+      if (tracingRef.current || !(event.ctrlKey || event.metaKey) || event.altKey) return;
       if (event.target instanceof Element && event.target.closest("input, select, textarea")) return;
       const key = event.key.toLowerCase();
       const type = key === "z" ? (event.shiftKey ? "redo" : "undo") : key === "y" && event.ctrlKey && !event.shiftKey ? "redo" : null;
@@ -133,9 +144,10 @@ export function FlatEditorApp({ SceneViewport }: { SceneViewport?: ComponentType
       <a className="skip-link" href="#item-details" onClick={() => { setTab("selected"); setInspectorOpen(true); requestAnimationFrame(() => document.getElementById("panel-selected")?.focus()); }}>{translate(state.language, "app.skip")}</a>
       <AppHeader language={state.language} onLanguage={(language) => dispatch({ type: "language", language })} onReset={() => { dispatch({ type: "reset" }); setFocus((previous) => ({ id: null, revision: previous.revision + 1 })); }} />
       <main id="main" className="editor-main">
+        {tracing ? <TraceScreen language={state.language} needsConfirm={switchNeedsConfirm} onCancel={() => setTracing(false)} onUse={(next) => { switchFlat(next); setTracing(false); }} /> : <>
         <div className="overview"><div><p className="eyebrow">{text("editor.category")}</p><h1>{text("editor.title")}</h1></div><span className="demo-tag"><span />{text(state.flat.dimensionSource === "user-traced" ? "editor.traced" : "editor.assumptions")}</span></div>
             <div className="layout-toolbar" aria-label={text("editor.title")}>
-              <FlatMenu flat={flat} needsConfirm={switchNeedsConfirm} language={state.language} onUse={switchFlat} />
+              <FlatMenu flat={flat} needsConfirm={switchNeedsConfirm} language={state.language} onTrace={() => setTracing(true)} onUse={switchFlat} />
               <div className="segmented" role="group" aria-label={translate(state.language, "scene.comparison")}><button type="button" aria-pressed={state.view === "before"} onClick={() => dispatch({ type: "view", view: "before" })}>{translate(state.language, "scene.before")}</button><button type="button" aria-pressed={state.view === "after"} onClick={() => dispatch({ type: "view", view: "after" })}>{translate(state.language, "scene.after")}</button></div>
               <div className="history-tools"><button type="button" className="icon-button" disabled={!editable || state.past.length === 0} aria-label={text("editor.undo")} title={text("editor.undo")} data-tooltip={text("editor.undo")} onClick={() => dispatch({ type: "undo" })}><Undo2 size={18} aria-hidden="true" /></button><button type="button" className="icon-button" disabled={!editable || state.future.length === 0} aria-label={text("editor.redo")} title={text("editor.redo")} data-tooltip={text("editor.redo")} onClick={() => dispatch({ type: "redo" })}><Redo2 size={18} aria-hidden="true" /></button></div>
               <label className="room-picker">{text("editor.room")}<select value={focus.id ?? "all"} onChange={(event) => focusRoom(event.target.value === "all" ? null : event.target.value)}><option value="all">{text("plan.wholeFlat")}</option>{flat.rooms.map((room) => <option value={room.id} key={room.id}>{room.name[state.language]}</option>)}</select></label>
@@ -184,6 +196,7 @@ export function FlatEditorApp({ SceneViewport }: { SceneViewport?: ComponentType
             </div>
           </aside>
         </div>
+        </>}
       </main>
       <footer className="app-footer"><p>{translate(state.language, "footer.privacy")}</p><p>{translate(state.language, "footer.project")}</p></footer>
     </div>
