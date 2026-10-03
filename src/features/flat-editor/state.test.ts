@@ -83,6 +83,13 @@ describe("pointer and dial math", () => {
     expect(clientToPlan({ x: 250, z: 150 }, { left: 50, top: 50, width: 400, height: 200 }, { minX: 0, minZ: 0, width: 100, height: 100 })).toEqual({ x: 50, z: 50 });
   });
 
+  it("maps pointer coordinates through a zoomed and panned view", () => {
+    const screen = { left: 20, top: 10, width: 700, height: 680 };
+    const zoomed = { minX: 430, minZ: 150, width: 175, height: 170 };
+    expect(clientToPlan({ x: 20, z: 10 }, screen, zoomed)).toEqual({ x: 430, z: 150 });
+    expect(clientToPlan({ x: 370, z: 350 }, screen, zoomed)).toEqual({ x: 517.5, z: 235 });
+  });
+
   it("preserves drag grab offsets for mouse and touch", () => {
     expect(draggedPosition({ x: 250, z: 270 }, { x: 240, z: 260 }, { x: 260, z: 275 })).toEqual({ x: 270, z: 285 });
   });

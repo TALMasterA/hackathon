@@ -11,13 +11,12 @@ import { doorGeometry, wallAxis, wallParts } from "@/lib/geometry/architecture";
 import { issueItemIds, issuePolygons } from "@/lib/geometry/layout";
 import { floorTrianglePositions, polygonCentre, rectanglePolygon, scenePositionCm, threeRotation } from "@/lib/geometry/oriented";
 import type { Flat, FlatFurniture, Position2D } from "@/types/domain";
+import { cameraDistanceLimits, INITIAL_CAMERA_POSITION, roomCameraFrame, WHOLE_FLAT_TARGET } from "./camera";
 import { FURNITURE_COLORS, METRES_PER_CM, RESERVED_COLOR, SCENE_BACKGROUND } from "./palette";
 import { SofaModel } from "./sofa-model";
 
-const INITIAL_CAMERA_POSITION: [number, number, number] = [8.5, 10, -11.5];
-
 export interface CameraCommand {
-  action: "reset" | "in" | "out";
+  action: "reset" | "in" | "out" | "focus";
   sequence: number;
 }
 
@@ -25,9 +24,11 @@ export interface RoomSceneProps extends EditorSceneProps {
   cameraCommand: CameraCommand;
 }
 
-function CameraControls({ command }: { command: CameraCommand }) {
+function CameraControls({ command, flat, focusRoomId }: { command: CameraCommand; flat: Flat; focusRoomId: string | null }) {
   const controls = useRef<ComponentRef<typeof OrbitControls>>(null);
   const { camera, invalidate } = useThree();
+  const room = flat.rooms.find((entry) => entry.id === focusRoomId) ?? null;
+  const limits = cameraDistanceLimits(room);
 
   useEffect(() => {
     const control = controls.current;
@@ -35,20 +36,22 @@ function CameraControls({ command }: { command: CameraCommand }) {
     const dampingEnabled = control.enableDamping;
     control.enableDamping = false;
     control.update();
-    if (command.action === "reset") {
-      camera.position.set(...INITIAL_CAMERA_POSITION);
-      control.target.set(0, 0.6, 0);
-    } else {
+    if (command.action === "in" || command.action === "out") {
       const offset = camera.position.clone().sub(control.target);
-      const nextDistance = Math.min(22, Math.max(6, offset.length() * (command.action === "in" ? 0.82 : 1.22)));
+      const nextDistance = Math.min(control.maxDistance, Math.max(control.minDistance, offset.length() * (command.action === "in" ? 0.82 : 1.22)));
       camera.position.copy(control.target).add(offset.setLength(nextDistance));
+    } else {
+      const direction = command.action === "focus" ? camera.position.clone().sub(control.target).toArray() : undefined;
+      const frame = roomCameraFrame(room, { width: flat.width, depth: flat.depth }, direction);
+      camera.position.set(...frame.position);
+      control.target.set(...frame.target);
     }
     control.update();
     control.enableDamping = dampingEnabled;
     invalidate();
-  }, [command, camera, invalidate]);
+  }, [command, room, flat.width, flat.depth, camera, invalidate]);
 
-  return <OrbitControls ref={controls} makeDefault target={[0, 0.6, 0]} enablePan={false} enableDamping minDistance={6} maxDistance={22} minPolarAngle={0.2} maxPolarAngle={Math.PI / 2 - 0.05} minAzimuthAngle={Math.PI * 0.75} maxAzimuthAngle={Math.PI * 1.25} />;
+  return <OrbitControls ref={controls} makeDefault target={WHOLE_FLAT_TARGET} enablePan={false} enableDamping minDistance={limits.min} maxDistance={limits.max} minPolarAngle={0.2} maxPolarAngle={Math.PI / 2 - 0.05} minAzimuthAngle={Math.PI * 0.75} maxAzimuthAngle={Math.PI * 1.25} />;
 }
 
 function FloorPolygon({ polygon, flat, color, opacity, elevation = 0.012 }: { polygon: readonly Position2D[]; flat: Flat; color: string; opacity: number; elevation?: number }) {
@@ -97,7 +100,7 @@ function FurnitureModel({ item, flat, selected, colliding, onSelect }: { item: F
   );
 }
 
-export default function RoomScene({ flat, furniture, baseline, issues, selectedId, focusedIds, language, cameraCommand, onSelect }: RoomSceneProps) {
+export default function RoomScene({ flat, furniture, baseline, issues, selectedId, focusedIds, focusRoomId, language, cameraCommand, onSelect }: RoomSceneProps) {
   const colliding = new Set(issues.flatMap(issueItemIds));
   const highlights = issuePolygons(issues);
   return (
@@ -123,7 +126,7 @@ export default function RoomScene({ flat, furniture, baseline, issues, selectedI
         const [x, , z] = scenePositionCm(item.position, flat);
         return <Html key={issue.id} position={[x, item.height / 100 + 0.12, z]} center zIndexRange={[3, 0]} style={{ pointerEvents: "none" }}><span className="scene-issue-label">+{formatCm(issue.excess, language)} {editorText(language, "editor.unit")}</span></Html>;
       })}
-      <CameraControls command={cameraCommand} />
+      <CameraControls command={cameraCommand} flat={flat} focusRoomId={focusRoomId} />
     </Canvas>
   );
 }

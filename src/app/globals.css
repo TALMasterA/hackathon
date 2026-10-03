@@ -205,7 +205,11 @@ main { animation: arrive .4s ease-out both; }
 .flat-views { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .view-heading, .layout-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
 .view-heading h2, .item-detail h2, .issues-heading h2 { font-size: 17px; font-weight: 600; }
-.plan-stage { background: #e5eae4; width: 100%; }
+.plan-stage { background: #e5eae4; width: 100%; position: relative; }
+.plan-stage .scene-toolbar { justify-content: flex-end; }
+.room-focus { display: flex; flex-wrap: wrap; margin-bottom: 10px; }
+.room-focus button { font-size: 12px; padding: 6px 10px; }
+.plan-hint { font-size: 11px; color: var(--muted); margin-top: 8px; }
 .flat-plan { display: block; width: 100%; height: auto; touch-action: none; user-select: none; }
 .flat-plan [role="button"]:focus-visible { outline: 3px solid #b35c2e; }
 .flat-plan [role="button"] { cursor: grab; }
