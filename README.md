@@ -46,16 +46,17 @@ Reset Demo returns to the empty flat, empty baseline, default ceiling and empty 
 - Live red item tint, floor overlap polygons and numeric labels in 2D/3D; issue clicks select the item and outline all involved furniture.
 - Multiple position and user-defined distance locks, editable/removable lists, zero-distance locks, no forced wall spacing, and lock-only snap-back.
 - Immediate baseline/current comparison, both-view ghost outlines, change markers and user re-baselining.
-- Adjustable shared ceiling height, simplified dimensionally bounded sofa/box models, open ceiling and translucent full-height walls for inspection.
+- Adjustable shared ceiling height, open ceiling and translucent full-height walls for inspection.
+- Low-poly furniture models (Kenney Furniture Kit, CC0) for every furniture kind, each stretched to exactly its item's width x depth x height box. Models are appearance only: collisions, locks, issues, the plan and Before/After use the box. A **Models / Boxes** toggle in the 3D toolbar shows the exact checked boxes (and the previous box/sofa look); a model that fails to load falls back to its box.
 - English / Traditional Chinese labels, object names, numeric errors/issues, lock messages, sources and limitations.
 - Preserved orbit, wheel/pinch zoom, zoom buttons, Reset View and Reset Demo; room focus frames the 3D camera with 2-10 m distance limits; no furniture dragging in 3D.
-- No external models, textures, fonts, expensive effects, or shadows.
+- No externally fetched models, textures or fonts, and no expensive effects or shadows; the bundled models are served with the app.
 - Browser-only state and calculations, with textual results independent of WebGL availability.
 - Pure geometry/input/lock/editor/baseline/history/suggestion, plan-zoom and camera-framing maths, and bilingual-message tests.
 
 ## Explicit Non-Goals
 
-No corridor, backend/API/database/account, persistence, deployment, photo/camera/scanning/OCR/AI analysis, AR, external models/textures, 3D furniture dragging, automatic layout solving, wall-distance locks, persistence of history or zoom, 3D panning or wall cutaways, delivery/lift/corridor/doorway-passage analysis, analytics or paid runtime service is added. Initial placement probes only the requested new library item, and suggestions only add the team's fixed example placements while skipping blocked ones; neither rearranges existing furniture or solves a layout. No deployment was performed.
+No corridor, backend/API/database/account, persistence, deployment, photo/camera/scanning/OCR/AI analysis, AR, external textures, 3D furniture dragging, automatic layout solving, wall-distance locks, persistence of history or zoom, 3D panning or wall cutaways, delivery/lift/corridor/doorway-passage analysis, analytics or paid runtime service is added. Initial placement probes only the requested new library item, and suggestions only add the team's fixed example placements while skipping blocked ones; neither rearranges existing furniture or solves a layout. No deployment was performed.
 
 ## Local Setup
 
@@ -110,6 +111,7 @@ Direct dependencies are pinned; exact transitive versions are in the lockfile. T
 | Drei | 10.7.9 | [OrbitControls and edges](https://drei.docs.pmnd.rs/) |
 | Lucide React | 1.50.0 | [Interface icons](https://lucide.dev/) |
 | Vitest | 5.0.3 | [Pure TypeScript tests](https://vitest.dev/) |
+| Kenney Furniture Kit (asset) | 2.0 | [Low-poly furniture models](https://kenney.nl/assets/furniture-kit) by Kenney (www.kenney.nl), CC0 1.0; the fourteen used files are in `public/models/furniture/` with the kit's `License.txt` |
 | ESLint / Next config | 9.39.5 / 16.3.8 | [Static checks](https://eslint.org/) |
 
 ESLint 9 is retained because the selected stable Next lint configuration includes plugins whose peer ranges exclude ESLint 10. npm marks ESLint 9 as out of support; a compatible lint-stack upgrade remains maintenance work. No force or legacy-peer-dependency flags are used. Three.js emits an upstream `THREE.Clock` deprecation warning through R3F; browser verification found no application console errors. See [docs/DECISIONS.md](docs/DECISIONS.md).
@@ -158,7 +160,7 @@ Each item mutation validates all its applicable locks. Position locks block cent
 
 **All dimensions are generated team demo assumptions, not Housing Authority-certified measurements.** The flat is 660 x 640 cm gross (42.24 square metres), with default ceiling 260 cm and uniform 10 cm walls. Five rooms total 38.21 square metres of assumed usable area: living/dining, kitchen, bathroom, master bedroom and second bedroom. There is no corridor.
 
-The flat starts empty. Twenty zero-degree suggested placements span all rooms, and fourteen library presets include sofa, tables/chairs, beds, wardrobes, desks, counter, fridge, toilet and vanity. Even kitchen/bathroom boxes are editable; plumbing is not modelled. The empty default has no warnings or locks, and the full suggested set is also warning-free. The old entrance rectangle is replaced by the front-door swing zone and the sofa-table clear strip is removed.
+The flat starts empty. Twenty suggested placements span all rooms (six wall-backed or seated items are turned 180 or 90 degrees so their models face into the room; each turned footprint is unchanged), and fourteen library presets include sofa, tables/chairs, beds, wardrobes, desks, counter, fridge, toilet and vanity. Even kitchen/bathroom boxes are editable; plumbing is not modelled. The empty default has no warnings or locks, and the full suggested set is also warning-free. The old entrance rectangle is replaced by the front-door swing zone and the sofa-table clear strip is removed.
 
 All room/wall/opening/window/item dimensions and centres are recorded in [docs/FLAT_DEMO_DATA.md](docs/FLAT_DEMO_DATA.md), with data-sanity tests. New library items use a bounded 20 cm candidate grid plus room centre/edge candidates; if none is clear, nothing is added and a bilingual message identifies the room. Existing items are never moved by this process.
 
@@ -186,7 +188,7 @@ npm run test:run
 npm run build
 ```
 
-The current suite has **158 tests in nine files**, covering undo/redo granularity and limits, empty start and suggestion skip rules, plan zoom/pan/fit maths, 3D room-framing maths, rotated SAT at 0/30/45/90/135/360 degrees, contact/epsilon, penetration and clipping area, convex distance, walls/door openings/swings/envelope/height, locks and bounce-back, generic manual validation, library/baseline/change detection, flat sanity, transform consistency and bilingual templates. The latest type, unit and lint gates pass; builds pass at every pushed milestone.
+The current suite has **184 tests in twelve files**, covering furniture-model fitting/facing/mapping (including loading the committed model files), undo/redo granularity and limits, empty start and suggestion skip rules, plan zoom/pan/fit maths, 3D room-framing maths, rotated SAT at 0/30/45/90/135/360 degrees, contact/epsilon, penetration and clipping area, convex distance, walls/door openings/swings/envelope/height, locks and bounce-back, generic manual validation, library/baseline/change detection, flat sanity, transform consistency and bilingual templates. The latest type, unit and lint gates pass; builds pass at every pushed milestone.
 
 Revision 2 uses cheap verification: typecheck/tests after meaningful changes, lint before commits, build only at milestone pushes, and roughly three-minute check limits. One bounded final browser smoke is recorded separately; any unperformed behavior stays under pending manual check in [docs/TEST_PLAN.md](docs/TEST_PLAN.md). Revision 1 browser evidence is not claimed for this editor. The Revision 3 implementation session had no browser tools, so no Revision 3 browser smoke was run; its UI behaviour is listed under pending manual check. Physical-phone touch/pinch, broader browsers, accessibility users and household studies still need team testing.
 

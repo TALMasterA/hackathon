@@ -247,7 +247,7 @@ main { animation: arrive .4s ease-out both; }
 .layout-issue-list svg { margin-top: 2px; }
 .view-heading > span { font-size: 11px; color: var(--muted); }
 .flat-scene-stage { height: 470px; margin: 0; }
-.flat-scene-stage .scene-toolbar { justify-content: flex-end; z-index: 5; }
+.flat-scene-stage .scene-toolbar { justify-content: flex-end; flex-wrap: wrap; z-index: 5; }
 .scene-issue-label { display: block; background: #fff9f7ee; color: #962b26; border: 1px solid #dfbeb7; padding: 3px 5px; font-size: 11px; font-weight: 700; white-space: nowrap; border-radius: 3px; }
 .flat-workspace .demo-tag { white-space: normal; }
 .room-picker, .ceiling-control > label { font-size: 12px; color: var(--muted); }

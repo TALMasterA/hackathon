@@ -58,6 +58,19 @@ describe("whole-flat data sanity", () => {
   it("keeps the suggested set free of any collision, door, envelope, or height warning", () => {
     expect(analyzeLayout(DEMO_FLAT, SUGGESTED_FURNITURE, 260)).toEqual([]);
   });
+
+  it("turns suggested items only where the footprint is unchanged, so the sofa and TV console face each other", () => {
+    for (const entry of SUGGESTED_FURNITURE.filter((suggestion) => suggestion.orientation !== 0)) {
+      const corners = (polygon: { x: number; z: number }[]) => polygon.map((point) => `${point.x.toFixed(6)},${point.z.toFixed(6)}`).sort();
+      expect(corners(rectanglePolygon(entry)), entry.id).toEqual(corners(rectanglePolygon({ ...entry, orientation: 0 })));
+    }
+    const front = (angle: number) => ({ x: Math.sin(angle * Math.PI / 180), z: -Math.cos(angle * Math.PI / 180) });
+    const sofa = SUGGESTED_FURNITURE.find((entry) => entry.id === "living-sofa")!;
+    const tv = SUGGESTED_FURNITURE.find((entry) => entry.id === "living-tv")!;
+    const toward = (from: typeof sofa, to: typeof sofa) => (to.position.x - from.position.x) * front(from.orientation).x + (to.position.z - from.position.z) * front(from.orientation).z;
+    expect(toward(sofa, tv)).toBeGreaterThan(0);
+    expect(toward(tv, sofa)).toBeGreaterThan(0);
+  });
 });
 
 describe("live whole-flat warnings", () => {

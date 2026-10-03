@@ -17,6 +17,10 @@ export const FURNITURE_COLORS: Record<FurnitureKind, string> = {
 };
 
 export const CANDIDATE_COLOR = "#33765d";
+export const COLLISION_COLOR = "#ba4c43";
+export const COLLISION_OPACITY = 0.55;
+export const EDGE_COLOR = "#59635a";
+export const SELECTED_EDGE_COLOR = "#174c3d";
 export const RESERVED_COLOR = "#ae8128";
 export const SCENE_BACKGROUND = "#e8eeeb";
 export const METRES_PER_CM = 0.01;

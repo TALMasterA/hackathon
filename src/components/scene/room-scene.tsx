@@ -12,8 +12,9 @@ import { issueItemIds, issuePolygons } from "@/lib/geometry/layout";
 import { floorTrianglePositions, polygonCentre, rectanglePolygon, scenePositionCm, threeRotation } from "@/lib/geometry/oriented";
 import type { Flat, FlatFurniture, Position2D } from "@/types/domain";
 import { cameraDistanceLimits, INITIAL_CAMERA_POSITION, roomCameraFrame, WHOLE_FLAT_TARGET } from "./camera";
-import { FURNITURE_COLORS, METRES_PER_CM, RESERVED_COLOR, SCENE_BACKGROUND } from "./palette";
-import { SofaModel } from "./sofa-model";
+import { FurnitureMesh } from "./furniture-mesh";
+import type { FurnitureAppearance } from "./furniture-models";
+import { RESERVED_COLOR, SCENE_BACKGROUND } from "./palette";
 
 export interface CameraCommand {
   action: "reset" | "in" | "out" | "focus";
@@ -22,6 +23,7 @@ export interface CameraCommand {
 
 export interface RoomSceneProps extends EditorSceneProps {
   cameraCommand: CameraCommand;
+  appearance: FurnitureAppearance;
 }
 
 function CameraControls({ command, flat, focusRoomId }: { command: CameraCommand; flat: Flat; focusRoomId: string | null }) {
@@ -85,22 +87,15 @@ function RoomShell({ flat }: { flat: Flat }) {
   );
 }
 
-function FurnitureModel({ item, flat, selected, colliding, onSelect }: { item: FlatFurniture; flat: Flat; selected: boolean; colliding: boolean; onSelect: (id: string) => void }) {
-  const color = colliding ? "#ba4c43" : FURNITURE_COLORS[item.kind];
+function FurnitureModel({ item, flat, selected, colliding, appearance, onSelect }: { item: FlatFurniture; flat: Flat; selected: boolean; colliding: boolean; appearance: FurnitureAppearance; onSelect: (id: string) => void }) {
   return (
     <group name={item.id} position={scenePositionCm(item.position, flat)} rotation={[0, threeRotation(item.orientation), 0]} onClick={(event) => { event.stopPropagation(); onSelect(item.id); }}>
-      {item.kind === "sofa" ? <SofaModel {...item} color={color} selected={selected} opacity={colliding ? 0.55 : 1} /> : (
-        <mesh position={[0, item.height * METRES_PER_CM / 2, 0]}>
-          <boxGeometry args={[item.width * METRES_PER_CM, item.height * METRES_PER_CM, item.depth * METRES_PER_CM]} />
-          <meshStandardMaterial color={color} roughness={0.75} transparent={colliding} opacity={colliding ? 0.55 : 1} depthWrite={!colliding} />
-          <Edges color={selected ? "#174c3d" : "#59635a"} linewidth={selected ? 2 : 1} />
-        </mesh>
-      )}
+      <FurnitureMesh item={item} selected={selected} colliding={colliding} appearance={appearance} />
     </group>
   );
 }
 
-export default function RoomScene({ flat, furniture, baseline, issues, selectedId, focusedIds, focusRoomId, language, cameraCommand, onSelect }: RoomSceneProps) {
+export default function RoomScene({ flat, furniture, baseline, issues, selectedId, focusedIds, focusRoomId, language, cameraCommand, appearance, onSelect }: RoomSceneProps) {
   const colliding = new Set(issues.flatMap(issueItemIds));
   const highlights = issuePolygons(issues);
   return (
@@ -113,7 +108,7 @@ export default function RoomScene({ flat, furniture, baseline, issues, selectedI
         const [x, , z] = scenePositionCm(item.position, flat);
         return <mesh key={`baseline-${item.id}`} name={`baseline-${item.id}`} position={[x, 0.01, z]} rotation={[0, threeRotation(item.orientation), 0]}><boxGeometry args={[item.width / 100, 0.004, item.depth / 100]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /><Edges color="#53675b" transparent opacity={0.28} /></mesh>;
       })}
-      {furniture.map((item) => <FurnitureModel key={item.id} item={item} flat={flat} selected={selectedId === item.id || focusedIds.includes(item.id)} colliding={colliding.has(item.id)} onSelect={onSelect} />)}
+      {furniture.map((item) => <FurnitureModel key={item.id} item={item} flat={flat} selected={selectedId === item.id || focusedIds.includes(item.id)} colliding={colliding.has(item.id)} appearance={appearance} onSelect={onSelect} />)}
       {highlights.map((highlight, index) => {
         const centre = polygonCentre(highlight.polygon);
         const [x, , z] = scenePositionCm(centre, flat);

@@ -1,5 +1,40 @@
 # Decisions
 
+## Revision 4 Team Decisions
+
+The Revision 4 fixing prompt replaces the box look with furniture models (milestone 1). Everything from Revision 3 still applies.
+
+### Furniture 3D models (milestone 1)
+
+- **Models are appearance only.** Each item's width x depth x height box remains the only geometry for collisions, locks, issues, the plan and Before/After. `fitObjectToBox(bounds, dimensions, rotationDeg)` stretches a model non-uniformly so its bounding box is exactly that box (cm to m), with its base on the floor and centred on the item position, inside the item's existing `threeRotation` group. Proportions are therefore distorted when an item's size differs a lot from the model's.
+- **Model mapping** (Kenney Furniture Kit 2.0, CC0, GLB files copied under FitIn names into `public/models/furniture/` with the kit's `License.txt`):
+
+  | FitIn kind | Kenney model | File |
+  | --- | --- | --- |
+  | sofa | loungeSofa | sofa.glb |
+  | coffee-table | tableCoffee | coffee-table.glb |
+  | tv-console | cabinetTelevision | tv-console.glb |
+  | side-table | sideTable | side-table.glb |
+  | dining-table | table | dining-table.glb |
+  | chair | chair | chair.glb |
+  | bed, width >= 120 cm | bedDouble | bed-double.glb |
+  | bed, width < 120 cm | bedSingle | bed-single.glb |
+  | wardrobe | bookcaseClosedDoors (tall closed cabinet with doors) | wardrobe.glb |
+  | desk | desk | desk.glb |
+  | kitchen-counter | kitchenCabinet | kitchen-counter.glb |
+  | fridge | kitchenFridge | fridge.glb |
+  | toilet | toilet | toilet.glb |
+  | vanity | bathroomCabinetDrawer (drawer unit with a basin on top) | vanity.glb |
+
+  Every kind has a match, so no kind keeps the box look in Models mode. `bathroomSink` is a pedestal basin and `bathroomCabinet` a small mirrored wall cabinet, so the kit's drawer-and-basin unit is the closer vanity. The kit's `sideTable` is a narrow console-style table; it is stretched to the 40 x 40 cm side-table box.
+- **Facing rule.** glTF models face +Z (checked in the kit: sofa/chair backrests, bed headboard and toilet tank are at -Z; doors, drawers and fridge handle protrude at +Z). FitIn fronts face local -Z, as `SofaModel`'s backrest is at +Z, so every model turns 180 degrees before fitting. A test loads the real sofa and TV-console files and confirms they face each other in the suggested living room.
+- **Suggested angles changed (geometry-neutral).** In the suggested set the sofa and TV console were both at 0 degrees, so under the facing rule the console faced the wall. The TV console, north dining chair, fridge, vanity and second-bedroom desk are now at 180 degrees and the west dining chair at 90 degrees, so each faces into its room or table. Every turned footprint is identical to its 0-degree footprint (tested), so warnings and fit are unchanged; only the displayed angle differs.
+- **Lit materials.** The kit's materials are flagged unlit (`KHR_materials_unlit`), which renders every face of a model in one flat colour. Each unlit material gets one shared `MeshStandardMaterial` copy with the same colour, so the scene's existing ambient and directional lights shade it. No light was added.
+- **Collision and selection.** A colliding model gets per-item cloned materials tinted the existing translucent red (#ba4c43, opacity 0.55, no depth write); the cached materials are never mutated, and the clones are disposed when the item stops colliding or unmounts. A selected or focused model also draws the exact box `Edges` outline, so the checked box stays visible.
+- **Fallback.** Boxes mode, a model still loading (`Suspense`), a load failure (per-item error boundary) or a kind without a mapping draws today's box, or the composed sofa for sofas.
+- **Models / Boxes toggle.** A bilingual two-button toggle in the 3D toolbar, defaulting to Models. Boxes shows the exact checked geometry. It is 3D view state: not undo history, not persisted, and back to Models after Reset Demo (the 3D view remounts).
+- **Loading.** All fourteen files (about 250 KB in total) are preloaded once when the 3D view loads, cloned per item sharing geometry, and loaded without Draco or Meshopt decoders, so nothing is fetched from a CDN. Shadows, lights, demand rendering and the pixel-ratio cap are unchanged.
+
 ## Revision 3 Team Decisions
 
 The Revision 3 fixing prompt adds undo/redo, floor-plan zoom with a room focus shared by both views, and an empty start with team-prepared suggested furniture. It supersedes Revision 2's "no undo/redo" and "twenty items loaded at start" rules; everything else below still applies.
@@ -97,5 +132,9 @@ No dependency upgrade was needed. Existing stable Next/React/R3F/Drei/Three/npm 
 - Revision 3: the suggestion lock-skip rule is defensive. Under the pairwise lock model, adding an item cannot break an existing lock: deletion removes related locks, and history snapshots are consistent. The automated case therefore uses a constructed lock that references not-yet-placed items.
 - Revision 3: non-scaling outlines are slightly thicker than before at whole-flat zoom on small screens. Double-tap thresholds (350 ms / 24 px), wheel sensitivity and the idle leftover finger after a pinch are untested on physical devices.
 - Revision 3: the suggestion status clears on the next layout change, and Suggest for room is never disabled while editable.
+
+- Revision 4: six suggested items were turned (180 or 90 degrees, footprints unchanged) so their models face into the room. The alternative was a per-kind facing exception, which would make the same angle mean different things for different kinds.
+- Revision 4: the vanity uses the kit's drawer-and-basin unit rather than `bathroomSink`/`bathroomCabinet`, and the 40 x 40 cm side table stretches a narrow console-style `sideTable`. Strongly non-uniform stretching (for example the 180 cm sofa from a 98 x 41 cm model) changes the model's proportions by design.
+- Revision 4: unlit kit materials are converted to lit ones for shading, and the Models / Boxes choice resets to Models after Reset Demo.
 
 These are recorded smallest-scope choices for the team's next judgement, not blockers or newly advertised capabilities.

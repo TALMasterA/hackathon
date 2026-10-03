@@ -60,30 +60,30 @@ Window sill and clearance, pipes, fixtures and skirting boards are not collision
 
 ## Furniture
 
-Since Revision 3 the flat starts empty, and these twenty items are the team's fixed suggested placements (`SUGGESTED_FURNITURE`), added per room or for the whole flat on request. Every item starts at 0 degrees and, once placed, is movable, rotatable, resizable and replaceable. The default scene has no position or distance locks. All sizes below are W x D x H in cm.
+Since Revision 3 the flat starts empty, and these twenty items are the team's fixed suggested placements (`SUGGESTED_FURNITURE`), added per room or for the whole flat on request. Items start at 0 degrees except six turned so their furniture models face into the room (Revision 4): the TV console, north dining chair, fridge, vanity and second-bedroom desk at 180 degrees and the west dining chair at 90 degrees. Each turned footprint is identical to its 0-degree footprint. Once placed, every item is movable, rotatable, resizable and replaceable. The default scene has no position or distance locks. All sizes below are W x D x H in cm.
 
-| ID | Room | Centre X/Z | Size |
-| --- | --- | --- | --- |
-| living-sofa | living | 250 / 270 | 180 x 80 x 82 |
-| living-coffee-table | living | 250 / 170 | 100 x 55 x 42 |
-| living-tv | living | 235 / 40 | 160 x 40 x 50 |
-| living-side-table | living | 370 / 270 | 40 x 40 x 45 |
-| dining-table | living | 115 / 135 | 85 x 75 x 75 |
-| dining-chair-north | living | 115 / 65 | 42 x 42 x 82 |
-| dining-chair-south | living | 115 / 205 | 42 x 42 x 82 |
-| dining-chair-west | living | 45 / 135 | 42 x 42 x 82 |
-| kitchen-fridge | kitchen | 610 / 60 | 70 x 65 x 180 |
-| kitchen-counter | kitchen | 600 / 140 | 100 x 60 x 90 |
-| bathroom-toilet | bathroom | 610 / 275 | 55 x 65 x 80 |
-| bathroom-vanity | bathroom | 605 / 215 | 80 x 35 x 85 |
-| master-bed | master | 110 / 490 | 140 x 190 x 55 |
-| master-wardrobe | master | 270 / 570 | 90 x 55 x 210 |
-| master-desk | master | 255 / 460 | 100 x 50 x 75 |
-| master-side-table | master | 200 / 560 | 40 x 40 x 45 |
-| second-bed | second | 480 / 510 | 100 x 190 x 55 |
-| second-wardrobe | second | 590 / 575 | 90 x 55 x 210 |
-| second-desk | second | 585 / 375 | 110 x 50 x 75 |
-| second-chair | second | 585 / 450 | 42 x 42 x 82 |
+| ID | Room | Centre X/Z | Size | Angle |
+| --- | --- | --- | --- | --- |
+| living-sofa | living | 250 / 270 | 180 x 80 x 82 | 0 |
+| living-coffee-table | living | 250 / 170 | 100 x 55 x 42 | 0 |
+| living-tv | living | 235 / 40 | 160 x 40 x 50 | 180 |
+| living-side-table | living | 370 / 270 | 40 x 40 x 45 | 0 |
+| dining-table | living | 115 / 135 | 85 x 75 x 75 | 0 |
+| dining-chair-north | living | 115 / 65 | 42 x 42 x 82 | 180 |
+| dining-chair-south | living | 115 / 205 | 42 x 42 x 82 | 0 |
+| dining-chair-west | living | 45 / 135 | 42 x 42 x 82 | 90 |
+| kitchen-fridge | kitchen | 610 / 60 | 70 x 65 x 180 | 180 |
+| kitchen-counter | kitchen | 600 / 140 | 100 x 60 x 90 | 0 |
+| bathroom-toilet | bathroom | 610 / 275 | 55 x 65 x 80 | 0 |
+| bathroom-vanity | bathroom | 605 / 215 | 80 x 35 x 85 | 180 |
+| master-bed | master | 110 / 490 | 140 x 190 x 55 | 0 |
+| master-wardrobe | master | 270 / 570 | 90 x 55 x 210 | 0 |
+| master-desk | master | 255 / 460 | 100 x 50 x 75 | 0 |
+| master-side-table | master | 200 / 560 | 40 x 40 x 45 | 0 |
+| second-bed | second | 480 / 510 | 100 x 190 x 55 | 0 |
+| second-wardrobe | second | 590 / 575 | 90 x 55 x 210 | 0 |
+| second-desk | second | 585 / 375 | 110 x 50 x 75 | 180 |
+| second-chair | second | 585 / 450 | 42 x 42 x 82 | 0 |
 
 The library has 14 templates: sofa, coffee table, TV console, side table, dining table, chair, double/single bed, wardrobe, desk, counter, fridge, toilet and vanity. Template dimensions are the listed representative dimensions (desk defaults to 110 x 50 x 75). The master desk is an explicit 100 cm-wide preset variation.
 

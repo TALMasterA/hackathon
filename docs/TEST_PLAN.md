@@ -1,4 +1,4 @@
-# Test Plan (Revision 3)
+# Test Plan (Revision 4)
 
 ## Cheap Verification Policy
 
@@ -74,7 +74,13 @@ Additional state cases cover incomplete drafts, readonly Before, shared ceiling 
 - Type checking, the 158-case suite and lint pass after each of the three feature milestones; a production build passed once before handover.
 - The implementation session had no browser automation tools, so **no Revision 3 browser smoke was performed**. Every Revision 3 UI behaviour below is unverified in a real browser.
 
+## Revision 4 Verification Record
+
+- Milestone 1 (furniture models): type checking, the unit suite and lint pass. Automated model checks load all fourteen committed GLB files in Node with Three.js' `GLTFLoader` and confirm that each library template's fitted model measures exactly its width x height x depth, rests on the floor and is centred on the item; that the suggested sofa's backrest is on the side away from the TV console and the console's front faces the sofa; and that collision tints never mutate cached materials. The session had no browser tools, so the rendered models were not seen in a browser.
+
 ## Pending Manual Check
+
+- Revision 4 milestone 1, in a real browser: every kind's model appears and faces into its room in the fully suggested flat (the sofa and TV console face each other; chairs face the dining table/desk); models sit on the floor inside their outlines; colliding models turn translucent red and recover; selected/focused models show the box outline; Models / Boxes toggle in both languages and at 320/375 px (the toolbar may wrap onto two rows); loading flashes boxes only briefly; clicking a model selects it; frame rate on a low-end phone with all twenty models.
 
 - Revision 3, all in a real browser: Undo/Redo buttons and shortcuts (including Ctrl+Z inside fields), drag/dial/typing step granularity, room chips/picker/double-tap focus, zoom buttons, gated wheel zoom, empty-floor panning, phone pinch and second-finger-during-drag, reveal-on-select, constant-size labels/lock icon/outlines while zoomed, 3D room framing/Reset View/zoom limits, the Suggested furniture panel and status text in both languages, empty-room hints, and layout at 320/375/1440 px with the new controls.
 

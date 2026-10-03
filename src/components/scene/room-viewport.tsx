@@ -6,6 +6,7 @@ import { LoaderCircle, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
 import { translate } from "@/i18n/dictionary";
 import { editorText } from "@/i18n/editor";
 import type { EditorSceneProps } from "@/features/flat-editor/workspace";
+import type { FurnitureAppearance } from "./furniture-models";
 import type { CameraCommand } from "./room-scene";
 import { SceneErrorBoundary } from "./scene-error-boundary";
 
@@ -14,6 +15,7 @@ const RoomScene = dynamic(() => import("./room-scene"), { ssr: false, loading: (
 export function RoomViewport(props: EditorSceneProps) {
   const [cameraCommand, setCameraCommand] = useState<CameraCommand>({ action: "reset", sequence: 0 });
   const [framedRevision, setFramedRevision] = useState(props.focusRevision);
+  const [appearance, setAppearance] = useState<FurnitureAppearance>("models");
   const { language } = props;
   if (framedRevision !== props.focusRevision) {
     setFramedRevision(props.focusRevision);
@@ -26,9 +28,13 @@ export function RoomViewport(props: EditorSceneProps) {
     <>
       <div className="scene-stage flat-scene-stage" role="region" aria-label={editorText(language, "editor.scene")} data-testid="scene-stage" data-items={props.furniture.length}>
         <SceneErrorBoundary fallback={<div className="scene-fallback" role="status">{text("scene.unavailable")}</div>}>
-          <RoomScene {...props} cameraCommand={cameraCommand} />
+          <RoomScene {...props} cameraCommand={cameraCommand} appearance={appearance} />
         </SceneErrorBoundary>
         <div className="scene-toolbar">
+          <div className="segmented comparison-switch" role="group" aria-label={text("scene.appearance")}>
+            <button type="button" aria-pressed={appearance === "models"} title={text("scene.modelsHint")} onClick={() => setAppearance("models")}>{text("scene.models")}</button>
+            <button type="button" aria-pressed={appearance === "boxes"} title={text("scene.boxesHint")} onClick={() => setAppearance("boxes")}>{text("scene.boxes")}</button>
+          </div>
           <div className="camera-tools">
             <button type="button" className="icon-button" aria-label={text("scene.zoomIn")} title={text("scene.zoomIn")} data-tooltip={text("scene.zoomIn")} onClick={() => cameraAction("in")}><ZoomIn size={18} aria-hidden="true" /></button>
             <button type="button" className="icon-button" aria-label={text("scene.zoomOut")} title={text("scene.zoomOut")} data-tooltip={text("scene.zoomOut")} onClick={() => cameraAction("out")}><ZoomOut size={18} aria-hidden="true" /></button>

@@ -10,3 +10,5 @@ next-env.d.ts
 npm-debug.log*
 .DS_Store
 Thumbs.db
+# Third-party asset download (models are copied into public/models)
+kenney_furniture-kit.zip

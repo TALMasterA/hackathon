@@ -37,14 +37,15 @@ There are no fake APIs, predetermined fit outcomes, hidden layout solving, or un
 | React / React DOM | Client state and accessible interface |
 | TypeScript / type definitions | Strict domain, geometry, and UI contracts |
 | Tailwind CSS / PostCSS plugin | CSS tooling and responsive interface |
-| Three.js | Simplified WebGL room and furniture primitives |
+| Three.js | Simplified WebGL room and furniture primitives, glTF model loading |
+| Kenney Furniture Kit (CC0 asset) | Low-poly furniture appearance, stretched to each checked box |
 | React Three Fiber 9 | Stable React 19-compatible scene renderer |
-| Drei / transitive three-stdlib | Existing OrbitControls and edge rendering |
+| Drei / transitive three-stdlib | OrbitControls, edge rendering and cached glTF loading |
 | Lucide React | Tool icons |
 | Vitest | Automated deterministic tests |
 | ESLint / eslint-config-next | Static quality checks |
 
-The npm lockfile records direct and transitive dependencies and upstream licences. README contains versions and upstream credits. No externally downloaded model, texture, reference-plan image, or PDF is redistributed. No project software licence has been added without the owner's request.
+The npm lockfile records direct and transitive dependencies and upstream licences. README contains versions and upstream credits. Fourteen CC0 furniture models from the Kenney Furniture Kit 2.0 are redistributed in `public/models/furniture/` with the kit's licence file and a README credit. No other externally downloaded model, texture, reference-plan image or PDF is redistributed. No project software licence has been added without the owner's request.
 
 ## AI Coding-Assistant Disclosure and Review
 

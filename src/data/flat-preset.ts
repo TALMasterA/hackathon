@@ -65,31 +65,36 @@ export const FURNITURE_LIBRARY: readonly FurnitureTemplate[] = [
   { id: "vanity", name: { en: "Bathroom vanity", "zh-Hant": "浴室洗手盆櫃" }, kind: "vanity", width: 80, depth: 35, height: 85 },
 ];
 
-function item(id: string, templateId: string, roomId: string, x: number, z: number, names?: [string, string], dimensions?: Partial<Pick<FlatFurniture, "width" | "depth" | "height">>): FlatFurniture {
+function item(id: string, templateId: string, roomId: string, x: number, z: number, names?: [string, string], overrides?: Partial<Pick<FlatFurniture, "width" | "depth" | "height" | "orientation">>): FlatFurniture {
   const template = FURNITURE_LIBRARY.find((entry) => entry.id === templateId);
   if (!template) throw new Error(`Unknown furniture template: ${templateId}`);
-  return { ...template, ...dimensions, id, roomId, position: { x, z }, orientation: 0, name: names ? { en: names[0], "zh-Hant": names[1] } : template.name };
+  return { ...template, orientation: 0, ...overrides, id, roomId, position: { x, z }, name: names ? { en: names[0], "zh-Hant": names[1] } : template.name };
 }
+
+// Fronts face local -Z at 0 degrees. Items backed against a -Z wall, or seated on the -Z side of a
+// table, are turned 180 degrees (90 for the west chair) so models face into the room. Every turned
+// footprint is symmetric, so the checked geometry is unchanged.
+const FACE_BACK = { orientation: 180 };
 
 export const SUGGESTED_FURNITURE: readonly FlatFurniture[] = [
   item("living-sofa", "sofa", "living", 250, 270),
   item("living-coffee-table", "coffee-table", "living", 250, 170),
-  item("living-tv", "tv-console", "living", 235, 40),
+  item("living-tv", "tv-console", "living", 235, 40, undefined, FACE_BACK),
   item("living-side-table", "side-table", "living", 370, 270),
   item("dining-table", "dining-table", "living", 115, 135),
-  item("dining-chair-north", "chair", "living", 115, 65, ["Dining chair 1", "餐椅 1"]),
+  item("dining-chair-north", "chair", "living", 115, 65, ["Dining chair 1", "餐椅 1"], FACE_BACK),
   item("dining-chair-south", "chair", "living", 115, 205, ["Dining chair 2", "餐椅 2"]),
-  item("dining-chair-west", "chair", "living", 45, 135, ["Dining chair 3", "餐椅 3"]),
-  item("kitchen-fridge", "fridge", "kitchen", 610, 60),
+  item("dining-chair-west", "chair", "living", 45, 135, ["Dining chair 3", "餐椅 3"], { orientation: 90 }),
+  item("kitchen-fridge", "fridge", "kitchen", 610, 60, undefined, FACE_BACK),
   item("kitchen-counter", "kitchen-counter", "kitchen", 600, 140),
   item("bathroom-toilet", "toilet", "bathroom", 610, 275),
-  item("bathroom-vanity", "vanity", "bathroom", 605, 215),
+  item("bathroom-vanity", "vanity", "bathroom", 605, 215, undefined, FACE_BACK),
   item("master-bed", "double-bed", "master", 110, 490, ["Master bed", "主人房床"]),
   item("master-wardrobe", "wardrobe", "master", 270, 570, ["Master wardrobe", "主人房衣櫃"]),
   item("master-desk", "desk", "master", 255, 460, ["Master desk", "主人房書枱"], { width: 100 }),
   item("master-side-table", "side-table", "master", 200, 560, ["Bedside table", "床頭櫃"]),
   item("second-bed", "single-bed", "second", 480, 510, ["Second-bedroom bed", "睡房床"]),
   item("second-wardrobe", "wardrobe", "second", 590, 575, ["Second-bedroom wardrobe", "睡房衣櫃"]),
-  item("second-desk", "desk", "second", 585, 375, ["Second-bedroom desk", "睡房書枱"]),
+  item("second-desk", "desk", "second", 585, 375, ["Second-bedroom desk", "睡房書枱"], FACE_BACK),
   item("second-chair", "chair", "second", 585, 450, ["Desk chair", "書枱椅"]),
 ];
