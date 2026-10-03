@@ -14,7 +14,10 @@ Work on the existing main branch, commit coherent checked milestones, fetch befo
 | --- | --- | --- |
 | 1 | First-version implementation prompt | Single-room fixed-centre sofa checker, delivered in commit 038ba1a |
 | 2 | hackathon-2-fixing-prompt.md | Whole-flat arbitrary-angle editor, live issues, generic locks/bounce, library and immediate baseline comparison; all feature milestones implemented |
+| 3 | hackathon-3-fixing-prompt.md | Document undo/redo, floor-plan zoom with room focus shared by 2D and 3D, empty start with team-prepared suggested furniture; all milestones implemented |
 
 Revision 2 milestones: data/geometry/tests; plan drag/rotation; 3D sync/issues; locks/bounce; library/baseline; current documentation/final verification. A foundation commit does not imply that its future UI is already exposed.
 
 Checked feature milestones: 84ac6f0 (data/geometry), 8fba37c (plan/dial), d09c866 (3D sync/issues), bc4ac58 (locks/snap-back), cbbe46b (library/baseline). Documentation now describes the current revision. The one final smoke completed within five browser calls; results and all pending checks are in TEST_PLAN. This log does not claim physical-phone or household testing.
+
+Revision 3 milestones, each type-checked, unit-tested and linted before commit: undo/redo (0c820c8), plan zoom and shared room focus (28510ee), empty start and suggested furniture (1b0ba6a), then this documentation commit. A production build ran once before handing over. The implementation session had no browser automation tools, so no Revision 3 browser smoke was performed. All Revision 3 UI behaviour is listed under pending manual check in TEST_PLAN. This log does not claim physical-phone or household testing.

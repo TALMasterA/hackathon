@@ -1,6 +1,6 @@
 # FitIn
 
-FitIn Revision 2 is a browser-only English / Traditional Chinese furniture-layout editor for non-expert households. A five-room whole-flat demo is shared by a touch-capable 2D plan and a view-only-for-dragging 3D scene. Every furniture item can be moved, rotated, resized, replaced or deleted; a preset library adds new items.
+FitIn Revision 3 is a browser-only English / Traditional Chinese furniture-layout editor for non-expert households. A five-room whole-flat demo is shared by a touch-capable, zoomable 2D plan and a view-only-for-dragging 3D scene. The flat starts empty: fixed example placements prepared by the team, or preset library items, can be added, and every item can then be moved, rotated, resized, replaced or deleted, with undo/redo.
 
 The flat is a **simplified demo assumption**, not a measured reconstruction or a guarantee of real-world fit. Geometry is deterministic; the app does not use AI at runtime. Development follows the team's [judge-and-fix loop](docs/DEVELOPMENT_METHOD.md), not unrequested feature expansion.
 
@@ -19,22 +19,27 @@ This is a simplified proof of capability. It does not establish professional app
 
 ## Current Workflow
 
-1. Confirm the assumed whole flat and shared ceiling height (220-350 cm).
-2. Select any item in the plan, 3D scene or list. After is the editable current layout; Before is the read-only baseline.
-3. Drag in the 2D plan with mouse or touch, or enter precise global X/Z coordinates. Rotate with the side-panel circular dial, numeric degree field or reset-to-0 button.
-4. Edit width/depth/height manually to resize or replace dimensions without changing centre or rotation. Incomplete input retains the last accepted pose and shows field errors; values are not silently clamped.
-5. Inspect live Issues: furniture, wall, door-swing, envelope and height warnings. Overlap is allowed and appears in both views; there is no Check button or valid-After gate.
-6. Optionally lock positions or create several minimum edge-distance locks. A lock-breaking move/rotation/resize/replacement snaps to its last accepted state with required/attempted numbers.
-7. Choose a room and library type to add a default-zero-degree item in a free initial position. Replace the selected item from a preset while keeping pose, or delete it and its related locks.
-8. Toggle Before/After immediately in both views without resetting the camera. After includes faint baseline outlines and moved/rotated/resized/added/removed/preset-replaced markers.
-9. Set current layout as baseline to take a new independent snapshot. Geometric warnings may be included; incomplete drafts may not. Switching comparison views discards incomplete drafts, not accepted layout changes.
+1. Start from the assumed whole flat, which has architecture only, no furniture and an empty baseline. Confirm the shared ceiling height (220-350 cm).
+2. Optionally use **Suggested furniture** to add fixed example placements prepared by the team, for the whole flat or for the selected room. These are not computed recommendations or a guarantee of fit. Suggestions that are already present, or that would overlap existing furniture, a wall, a door swing or the envelope, exceed the ceiling or break a distance lock, are skipped with a bilingual reason. Existing furniture is never moved.
+3. Choose a room with the room chips above the plan, the toolbar room picker or a double-tap on the room's empty floor. The 2D plan zooms to that room and the 3D camera frames it from the same viewing direction; **Whole flat** or Fit returns both views. Zoom the plan freely with its zoom buttons, a two-finger pinch or Ctrl/Cmd + wheel (the plain wheel zooms only once the plan is zoomed in; otherwise it scrolls the page), and drag empty floor to pan. Free 2D zoom does not move the 3D camera.
+4. Select any item in the plan, 3D scene or list. After is the editable current layout; Before is the read-only baseline. Selecting from the list, 3D scene or Issues pans a zoomed plan to an item that is out of view.
+5. Drag in the 2D plan with mouse or touch, or enter precise global X/Z coordinates. Rotate with the side-panel circular dial, numeric degree field or reset-to-0 button.
+6. Edit width/depth/height manually to resize or replace dimensions without changing centre or rotation. Incomplete input retains the last accepted pose and shows field errors; values are not silently clamped.
+7. Inspect live Issues: furniture, wall, door-swing, envelope and height warnings. Overlap is allowed and appears in both views; there is no Check button or valid-After gate.
+8. Optionally lock positions or create several minimum edge-distance locks. A lock-breaking move/rotation/resize/replacement snaps to its last accepted state with required/attempted numbers.
+9. Choose a room and library type to add a default-zero-degree item in a free initial position. Replace the selected item from a preset while keeping pose, or delete it and its related locks.
+10. Toggle Before/After immediately in both views without resetting the camera. After includes faint baseline outlines and moved/rotated/resized/added/removed/preset-replaced markers.
+11. Set current layout as baseline to take a new independent snapshot. Geometric warnings may be included; incomplete drafts may not. Switching comparison views discards incomplete drafts, not accepted layout changes.
+12. Undo/Redo (toolbar buttons, or Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z and Ctrl+Y outside text fields) step through up to 100 layout changes. A whole drag or dial drag is one step, as is typing into one field until it loses focus, a suggestion batch, a lock change, a new baseline and Reset Demo. Rejected or incomplete edits, selection, room choice, language, Before/After, zoom and camera are not history.
 
-Reset Demo restores the original furniture, ceiling, baseline and empty locks, resets transient controls and camera, and keeps the language. Reset View changes only the camera. Nothing is persisted.
+Reset Demo returns to the empty flat, empty baseline, default ceiling and empty locks, resets transient controls, returns both views to the whole flat and keeps the language; Undo restores the previous layout. Reset View reframes the 3D camera on the current room focus, or the whole flat. Nothing is persisted.
 
 ## Implemented Features
 
 - Five directly connected rooms, 10 cm-thick walls, real door gaps, configured swing zones, entrance door and visual windows; no corridor.
-- Twenty existing movable/replaceable items and fourteen bilingual library presets.
+- Empty start, twenty team-prepared suggested placements (whole flat or per room, with skip reasons) and fourteen bilingual library presets; every placed item is movable/replaceable.
+- Floor-plan zoom buttons, pinch, gated wheel zoom and empty-floor panning, plus a room focus shared by the 2D plan and 3D camera; labels, lock icons and outlines keep their on-screen size at any zoom.
+- 100-step document undo/redo with one step per drag, dial drag or field-typing session, and an undoable Reset Demo.
 - Pointer-captured mouse/touch plan dragging, expanded finger hit areas, numeric dimensions/positions, and accessible rotation dial/degree input.
 - Continuous clockwise angles stored in [0, 360); input 360 is normalised to 0.
 - SAT collisions, containment-correct minimum translation/penetration, convex overlap clipping, and exact polygon edge distance.
@@ -43,14 +48,14 @@ Reset Demo restores the original furniture, ceiling, baseline and empty locks, r
 - Immediate baseline/current comparison, both-view ghost outlines, change markers and user re-baselining.
 - Adjustable shared ceiling height, simplified dimensionally bounded sofa/box models, open ceiling and translucent full-height walls for inspection.
 - English / Traditional Chinese labels, object names, numeric errors/issues, lock messages, sources and limitations.
-- Preserved orbit, wheel/pinch zoom, zoom buttons, Reset View and Reset Demo; no furniture dragging in 3D.
+- Preserved orbit, wheel/pinch zoom, zoom buttons, Reset View and Reset Demo; room focus frames the 3D camera with 2-10 m distance limits; no furniture dragging in 3D.
 - No external models, textures, fonts, expensive effects, or shadows.
 - Browser-only state and calculations, with textual results independent of WebGL availability.
-- Pure geometry/input/lock/editor/baseline and bilingual-message tests.
+- Pure geometry/input/lock/editor/baseline/history/suggestion, plan-zoom and camera-framing maths, and bilingual-message tests.
 
 ## Explicit Non-Goals
 
-No corridor, backend/API/database/account, persistence, deployment, photo/camera/scanning/OCR/AI analysis, AR, external models/textures, 3D furniture dragging, automatic layout solving, wall-distance locks, undo/redo, delivery/lift/corridor/doorway-passage analysis, analytics or paid runtime service is added. Initial placement probes only the requested new library item; it never rearranges existing furniture or solves a layout. No deployment was performed.
+No corridor, backend/API/database/account, persistence, deployment, photo/camera/scanning/OCR/AI analysis, AR, external models/textures, 3D furniture dragging, automatic layout solving, wall-distance locks, persistence of history or zoom, 3D panning or wall cutaways, delivery/lift/corridor/doorway-passage analysis, analytics or paid runtime service is added. Initial placement probes only the requested new library item, and suggestions only add the team's fixed example placements while skipping blocked ones; neither rearranges existing furniture or solves a layout. No deployment was performed.
 
 ## Local Setup
 
@@ -116,8 +121,8 @@ The Housing Authority is credited as the public scenario reference, not as the s
 ```text
 src/
 	app/                   App Router shell, stylesheet, static icon
-	components/            Header/source, pointer plan, dial, 3D models/overlays
-	features/flat-editor/  Single reducer, item/lock/library panels, baseline logic
+	components/            Header/source, zoomable pointer plan, dial, 3D models/overlays/camera framing
+	features/flat-editor/  Single reducer with undo history, item/lock/library/suggestion panels, baseline logic
 	features/fit-check/    Thin client entry retained for the App Router page
 	lib/geometry/          Decimal parsing, SAT/clipping/distance, walls, locks
 	data/                  Whole-flat assumptions, library and official links
@@ -126,7 +131,7 @@ src/
 docs/                    Architecture, decisions, test plan, compliance
 ```
 
-Geometry never imports React, Three.js or translation functions. Stable warning/lock codes, object IDs and unrounded numbers are translated in the UI. The reducer owns the current layout, independent baseline, drafts, selection and locks. Both views consume one displayed snapshot; rendering never decides whether an edit is accepted. Only locks can reject a complete pose proposal.
+Geometry never imports React, Three.js or translation functions. Stable warning/lock codes, object IDs and unrounded numbers are translated in the UI. The reducer owns the current layout, independent baseline, drafts, selection, locks and a bounded undo/redo history of document snapshots. Plan zoom and room focus are view state outside the reducer. Both views consume one displayed snapshot; rendering never decides whether an edit is accepted. Only locks can reject a complete pose proposal.
 
 Further documentation:
 
@@ -153,7 +158,7 @@ Each item mutation validates all its applicable locks. Position locks block cent
 
 **All dimensions are generated team demo assumptions, not Housing Authority-certified measurements.** The flat is 660 x 640 cm gross (42.24 square metres), with default ceiling 260 cm and uniform 10 cm walls. Five rooms total 38.21 square metres of assumed usable area: living/dining, kitchen, bathroom, master bedroom and second bedroom. There is no corridor.
 
-Twenty zero-degree existing items span all rooms, and fourteen library presets include sofa, tables/chairs, beds, wardrobes, desks, counter, fridge, toilet and vanity. Even kitchen/bathroom boxes are editable; plumbing is not modelled. The default has no geometry warnings or locks. The old entrance rectangle is replaced by the front-door swing zone and the sofa-table clear strip is removed.
+The flat starts empty. Twenty zero-degree suggested placements span all rooms, and fourteen library presets include sofa, tables/chairs, beds, wardrobes, desks, counter, fridge, toilet and vanity. Even kitchen/bathroom boxes are editable; plumbing is not modelled. The empty default has no warnings or locks, and the full suggested set is also warning-free. The old entrance rectangle is replaced by the front-door swing zone and the sofa-table clear strip is removed.
 
 All room/wall/opening/window/item dimensions and centres are recorded in [docs/FLAT_DEMO_DATA.md](docs/FLAT_DEMO_DATA.md), with data-sanity tests. New library items use a bounded 20 cm candidate grid plus room centre/edge candidates; if none is clear, nothing is added and a bilingual message identifies the room. Existing items are never moved by this process.
 
@@ -181,9 +186,9 @@ npm run test:run
 npm run build
 ```
 
-The current suite has **113 tests in seven files**, covering rotated SAT at 0/30/45/90/135/360 degrees, contact/epsilon, penetration and clipping area, convex distance, walls/door openings/swings/envelope/height, locks and bounce-back, generic manual validation, library/baseline/change detection, flat sanity, transform consistency and bilingual templates. The latest type, unit and lint gates pass; builds pass at every pushed milestone.
+The current suite has **158 tests in nine files**, covering undo/redo granularity and limits, empty start and suggestion skip rules, plan zoom/pan/fit maths, 3D room-framing maths, rotated SAT at 0/30/45/90/135/360 degrees, contact/epsilon, penetration and clipping area, convex distance, walls/door openings/swings/envelope/height, locks and bounce-back, generic manual validation, library/baseline/change detection, flat sanity, transform consistency and bilingual templates. The latest type, unit and lint gates pass; builds pass at every pushed milestone.
 
-Revision 2 uses cheap verification: typecheck/tests after meaningful changes, lint before commits, build only at milestone pushes, and roughly three-minute check limits. One bounded final browser smoke is recorded separately; any unperformed behavior stays under pending manual check in [docs/TEST_PLAN.md](docs/TEST_PLAN.md). Revision 1 browser evidence is not claimed for this editor. Physical-phone touch/pinch, broader browsers, accessibility users and household studies still need team testing.
+Revision 2 uses cheap verification: typecheck/tests after meaningful changes, lint before commits, build only at milestone pushes, and roughly three-minute check limits. One bounded final browser smoke is recorded separately; any unperformed behavior stays under pending manual check in [docs/TEST_PLAN.md](docs/TEST_PLAN.md). Revision 1 browser evidence is not claimed for this editor. The Revision 3 implementation session had no browser tools, so no Revision 3 browser smoke was run; its UI behaviour is listed under pending manual check. Physical-phone touch/pinch, broader browsers, accessibility users and household studies still need team testing.
 
 ## Privacy, Data Flow, and Cost
 
@@ -191,7 +196,7 @@ All inputs and calculations stay in the browser. No photo is collected. No accou
 
 Initial page/assets are served by the local Next.js server. Opening an official-source link visits the Housing Authority website; browser networking and that site's policies then apply. Normal browser and GitHub/npm network activity during development is outside the application workflow. Next CLI telemetry was disabled in the implementation environment; other developers can opt out with `npm exec -- next telemetry disable`.
 
-Revision 2 uses **no paid runtime API**. This is not a promise that every future version, infrastructure choice, or service will be free.
+Revision 3 uses **no paid runtime API**. This is not a promise that every future version, infrastructure choice, or service will be free.
 
 ## Limitations and Error Statement
 
@@ -206,7 +211,7 @@ Revision 2 uses **no paid runtime API**. This is not a promise that every future
 
 ## AI Coding-Assistant Use
 
-GitHub Copilot assisted with implementation, tests, documentation, and browser-based verification. AI assistance is not a runtime feature. Team members must review the generated code, numerical assumptions, translations, source attribution, dependency constraints, and HacKU rules. Passing automated checks is not a substitute for human or household usability review.
+GitHub Copilot assisted with implementation, tests, documentation, and browser-based verification. Revision 3 was implemented with Claude Code (Anthropic). AI assistance is not a runtime feature. Team members must review the generated code, numerical assumptions, translations, source attribution, dependency constraints, and HacKU rules. Passing automated checks is not a substitute for human or household usability review.
 
 ## Next Judge / Fix Cycle
 

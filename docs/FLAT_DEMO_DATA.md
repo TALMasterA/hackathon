@@ -60,7 +60,7 @@ Window sill and clearance, pipes, fixtures and skirting boards are not collision
 
 ## Furniture
 
-Every item starts at 0 degrees and is movable, rotatable, resizable and replaceable in Revision 2. The default scene has no position or distance locks. All sizes below are W x D x H in cm.
+Since Revision 3 the flat starts empty, and these twenty items are the team's fixed suggested placements (`SUGGESTED_FURNITURE`), added per room or for the whole flat on request. Every item starts at 0 degrees and, once placed, is movable, rotatable, resizable and replaceable. The default scene has no position or distance locks. All sizes below are W x D x H in cm.
 
 | ID | Room | Centre X/Z | Size |
 | --- | --- | --- | --- |

@@ -19,13 +19,13 @@ The demo is a simplified proof of capability, not proof of professional-level de
 
 ## Complete-Task Coverage
 
-1. Load five assumed rooms with uniform walls, real door gaps/swing zones, visual windows and twenty items; no corridor.
+1. Load five assumed rooms with uniform walls, real door gaps/swing zones and visual windows, with no furniture and no corridor. On request, add twenty team-prepared example placements for the whole flat or one room, skipping blocked ones with reasons.
 2. Select any item; drag in the pointer-based 2D plan or use numeric X/Z/dimensions and continuous-angle dial/input. The same state appears in 3D.
 3. Resize or replace manually at the same centre/angle, or use one of fourteen library presets; add in a free initial spot or delete with related-lock cleanup.
 4. Run pure SAT, penetration/translation, overlap clipping and convex-distance checks; show every furniture/wall/door/envelope/height issue in text and both views.
 5. Allow temporary overlap; only optional position/distance locks reject edits and restore the last accepted pose with numeric bilingual messages.
 6. Compare independent baseline/current snapshots immediately, with ghost outlines and changed/removed markers; set a new baseline without camera reset.
-7. Keep all names, input/lock/issues/source messages bilingual. Reset restores original data/empty locks while keeping language.
+7. Keep all names, input/lock/issues/source messages bilingual. Reset returns to the empty flat with empty locks while keeping language, and can be undone like any other layout change.
 
 There are no fake APIs, predetermined fit outcomes, hidden layout solving, or unimplemented features advertised as available.
 
@@ -48,7 +48,7 @@ The npm lockfile records direct and transitive dependencies and upstream licence
 
 ## AI Coding-Assistant Disclosure and Review
 
-GitHub Copilot assisted with code, geometry tests, translations, documentation, and local browser verification. There is no runtime AI service in FitIn. The team must review all generated code and wording, validate the geometry independently, verify Traditional Chinese terminology, confirm source attribution, and disclose AI assistance according to event rules. Automated checks do not replace required human review.
+GitHub Copilot assisted with code, geometry tests, translations, documentation, and local browser verification. Revision 3 was implemented with Claude Code (Anthropic). There is no runtime AI service in FitIn. The team must review all generated code and wording, validate the geometry independently, verify Traditional Chinese terminology, confirm source attribution, and disclose AI assistance according to event rules. Automated checks do not replace required human review.
 
 ## Cost Statement
 

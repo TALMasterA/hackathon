@@ -1,19 +1,19 @@
-# Architecture (Revision 2)
+# Architecture (Revision 3)
 
 ## Module Boundaries
 
 | Area | Responsibility |
 | --- | --- |
 | Domain | Localised names, flat/room/wall/door/window/item contracts, snapshots, lock and warning unions |
-| Data | Generated five-room assumptions, twenty items, fourteen templates, official links |
+| Data | Generated five-room assumptions, twenty suggested placements, fourteen templates, official links |
 | Geometry input/edit | Shared strict decimal parser, draft validation, pose-preserving dimension replacement |
 | Oriented geometry | Rotated corners, SAT, penetration/translation, convex clipping/area, convex distance, plan/3D transforms |
 | Architecture geometry | Door-gap wall segments, conservative swing rectangles, room membership |
 | Layout analysis | All furniture/wall/door/envelope/height warnings with IDs and unrounded values |
 | Lock geometry | Validated minimums and all applicable lock violations; accept or return last accepted item |
-| Flat-editor state/layout | One reducer, numeric drafts, baseline copies, bounded new-item placement and changed-item detection |
-| Plan/dial | Pointer capture, touch-friendly hit selection, SVG view conversion, numeric and circular rotation controls |
-| 3D | Client-only dimensions, generated furniture/architecture, floor polygons, ghost outlines, labels and camera |
+| Flat-editor state/layout | One reducer with undo/redo history, numeric drafts, baseline copies, bounded new-item placement, suggestion fit checks and changed-item detection |
+| Plan/dial | Pointer capture, touch-friendly hit selection, zoom/pan/pinch view box and room fit, SVG view conversion, numeric and circular rotation controls |
+| 3D | Client-only dimensions, generated furniture/architecture, floor polygons, ghost outlines, labels and room-focused camera framing |
 | i18n | Typed core/editor dictionaries and UI-only formatting of stable codes/numbers |
 
 The App Router page retains a thin client entry. There is no API route, server action, database or calculation backend. Geometry imports no React, Three.js or translations.
@@ -22,14 +22,17 @@ The App Router page retains a thin client entry. There is no API route, server a
 
 The reducer owns current furniture and ceiling, an independent baseline snapshot, selected item/room, focus IDs, language, numeric drafts/errors, position/distance locks, library/lock notices and ID counters. Panel-local state is limited to unsubmitted lock/library choices; it is not a second furniture layout.
 
-1. Initial current/baseline snapshots contain the same preset values but do not share mutable positions. The editable view defaults to After and has no locks.
+1. Initial current/baseline snapshots are both empty (architecture only). Suggestions append fixed example items without moving existing ones. The editable view defaults to After and has no locks.
 2. Complete draft edits and pointer/dial proposals call the same lock acceptance function. Geometry warnings do not reject a proposal.
 3. An accepted edit updates the current item immediately. A rejected edit returns the previous accepted item and resets its displayed draft, with every applicable lock violation.
 4. Dragging proposes continuously. Position locks prevent drag start; distance failure keeps the last accepted pose, including at pointer release/cancel.
 5. Incomplete numeric text stays a draft; its last complete pose remains displayed with field errors. Comparison switching discards incomplete drafts without changing accepted geometry.
 6. Before chooses the baseline snapshot in both views and is read-only. After chooses current. Neither action remounts the camera.
 7. Re-baseline deep-copies the current accepted numeric layout, including ceiling. Geometric warnings are permitted; incomplete drafts block this action. Current locks remain current, not historical snapshot data.
-8. Deletion removes an item and its related position/distance locks. Reset restores original current/baseline data, empty locks and transient controls, retaining language and remounting the camera/plan.
+8. Deletion removes an item and its related position/distance locks. Reset restores the empty current/baseline data, empty locks and transient controls, retaining language and remounting the camera/plan; it is itself an undoable step.
+9. A wrapper around the reducer records document snapshots (current, baseline, locks, ID counters) in a 100-entry undo stack. Plan and dial drags are bracketed by gesture start/end actions so that each is one entry, and field typing coalesces by item and field. Unchanged documents never create entries.
+
+Plan zoom/pan and the shared room focus are view state held outside the reducer. The room focus fits the plan's view box and drives a 3D "focus" camera command; free plan zoom stays local to the plan.
 
 ## Geometry And Locks
 
@@ -53,7 +56,7 @@ The client viewport dynamically loads R3F Canvas with SSR disabled. Both rendere
 
 All rooms, physical-height wall segments, open door leaves, visual windows and item models are generated locally. Walls are translucent for inspection but retain their full collision geometry. Colliding furniture is translucent red so highlighted floor intersections remain visible through it. Convex regions are triangulated with tested upward winding just above the floor; labels show numeric cm values. Both involved furniture items receive selection/focus outlines after issue selection.
 
-After additionally draws faint baseline footprint outlines, including removed baseline items. Added/current items and change markers are derived from snapshot values, not mutable flags. Changing Before/After or baseline preserves camera state. Reset View clears damping and restores its shared initial pose; orbit/distance/elevation limits are retained for the larger envelope.
+After additionally draws faint baseline footprint outlines, including removed baseline items. Added/current items and change markers are derived from snapshot values, not mutable flags. Changing Before/After or baseline preserves camera state. Reset View clears damping and reframes the current room focus, or the shared initial whole-flat pose; orbit/elevation limits are retained, and distance limits follow the focus (6-22 m whole flat, 2-10 m for a room).
 
 Rendering is demand-driven, caps pixel ratio at 1.5, uses one directional plus ambient light, and has no shadows, textures, imported models or postprocessing. A scene error boundary leaves the plan/numeric editor available. Unsupported-device fallback still needs physical-device verification.
 
