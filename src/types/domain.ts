@@ -1,6 +1,6 @@
 export type Language = "en" | "zh-Hant";
 export type LocalizedName = Record<Language, string>;
-export type Orientation = 0 | 90;
+export type Orientation = number;
 
 export interface Dimensions {
   width: number;
@@ -21,30 +21,6 @@ export interface Room extends Dimensions {
   dimensionSource: "team-demo-assumptions";
 }
 
-export interface FurnitureItem extends Dimensions {
-  id: string;
-  name: LocalizedName;
-  kind: "sofa" | "coffee-table" | "tv-console" | "side-table";
-  position: Position2D;
-  orientation: Orientation;
-  replaceable: boolean;
-}
-
-export interface ReservedZone {
-  id: string;
-  name: LocalizedName;
-  position: Position2D;
-  width: number;
-  depth: number;
-  basis: "demo-preference";
-}
-
-export interface CandidateFurniture extends Dimensions {
-  position: Position2D;
-  orientation: Orientation;
-  replacesId: string;
-}
-
 export type InputField = keyof Dimensions | "roomHeight";
 
 export interface ReplacementInput {
@@ -62,33 +38,7 @@ export interface InputIssue {
   minimum?: number;
 }
 
-export interface Footprint {
-  minX: number;
-  maxX: number;
-  minZ: number;
-  maxZ: number;
-  width: number;
-  depth: number;
-}
-
 export type BoundarySide = "left" | "right" | "front" | "back";
-export type PlacementCheckCode = "boundary" | "height" | "collision" | "reserved";
-
-export interface PlacementCheck {
-  code: PlacementCheckCode;
-  passed: boolean;
-}
-
-export type PlacementViolation =
-  | { code: "boundary"; side: BoundarySide; excess: number }
-  | { code: "height"; excess: number }
-  | { code: "collision"; furnitureId: string; name: LocalizedName; overlapX: number; overlapZ: number }
-  | { code: "reserved"; zoneId: string; name: LocalizedName; overlapX: number; overlapZ: number };
-
-export type FitResult =
-  | { status: "incomplete"; issues: InputIssue[] }
-  | { status: "valid"; candidate: CandidateFurniture; roomHeight: number; checks: PlacementCheck[] }
-  | { status: "invalid"; candidate: CandidateFurniture; roomHeight: number; checks: PlacementCheck[]; violations: PlacementViolation[] };
 
 export type FurnitureKind = "sofa" | "coffee-table" | "tv-console" | "side-table" | "dining-table" | "chair" | "bed" | "wardrobe" | "desk" | "kitchen-counter" | "fridge" | "toilet" | "vanity";
 
@@ -96,7 +46,7 @@ export interface OrientedRectangle {
   width: number;
   depth: number;
   position: Position2D;
-  orientation: number;
+  orientation: Orientation;
 }
 
 export interface FlatFurniture extends Dimensions, OrientedRectangle {

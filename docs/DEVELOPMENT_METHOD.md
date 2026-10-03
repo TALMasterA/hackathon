@@ -17,4 +17,4 @@ Work on the existing main branch, commit coherent checked milestones, fetch befo
 
 Revision 2 milestones: data/geometry/tests; plan drag/rotation; 3D sync/issues; locks/bounce; library/baseline; current documentation/final verification. A foundation commit does not imply that its future UI is already exposed.
 
-Data/geometry is delivered in 84ac6f0. The plan-editor milestone supplies a tested reducer, pointer-capture SVG plan, circular/keyboard rotation dial, precise numeric controls, bilingual issues and item list. The public entry still uses Revision 1 until the 3D integration milestone replaces it; library and lock-management controls are not yet offered.
+Data/geometry is delivered in 84ac6f0 and plan controls in 8fba37c. The whole-flat entry now uses the tested reducer, pointer-capture SVG plan, circular/keyboard rotation dial, numeric controls, bilingual issues and item list. The synchronized 3D milestone adds walls with door gaps, visual windows, open doors and floor-highlight warnings. No Check or valid-After gate remains. Library and lock-management controls are still the next milestones.

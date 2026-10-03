@@ -236,6 +236,10 @@ main { animation: arrive .4s ease-out both; }
 .layout-issue-list button { width: 100%; min-height: 44px; border: 0; display: flex; text-align: left; align-items: flex-start; gap: 9px; padding: 10px 0; background: transparent; color: var(--red); font-size: 12px; line-height: 1.6; }
 .layout-issue-list svg { margin-top: 2px; }
 .view-heading > span { font-size: 11px; color: var(--muted); }
+.flat-scene-stage { height: 470px; margin: 0; }
+.flat-scene-stage .scene-toolbar { justify-content: flex-end; }
+.scene-issue-label { display: block; background: #fff9f7ee; color: #962b26; border: 1px solid #dfbeb7; padding: 3px 5px; font-size: 11px; font-weight: 700; white-space: nowrap; border-radius: 3px; }
+.flat-workspace .demo-tag { white-space: normal; }
 .room-picker, .ceiling-control > label { font-size: 12px; color: var(--muted); }
 .room-picker { display: flex; gap: 8px; align-items: center; }
 .room-picker select { max-width: 220px; min-height: 44px; border: 1px solid #bdc9c1; border-radius: 5px; padding: 8px; background: white; color: var(--ink); font: inherit; }
@@ -268,4 +272,6 @@ select:focus-visible { outline: 3px solid #b35c2e; outline-offset: 3px; }
 @media (max-width: 600px) {
   .flat-workspace { padding-left: 18px; padding-right: 18px; gap: 20px; }
   .rotation-dial { width: 88px; height: 88px; }
+  .flat-scene-stage { height: 360px; margin: 0; }
+  .app-shell:has(.flat-workspace) .overview { flex-wrap: wrap; }
 }

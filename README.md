@@ -1,8 +1,10 @@
 # FitIn
 
-## Revision 2 In Progress
+## Revision 2 Integration In Progress
 
-Revision 2 follows the team's [judge-and-fix development method](docs/DEVELOPMENT_METHOD.md). The first milestone adds a five-room assumed flat, exact rotated-rectangle geometry, wall opening/swing geometry, and pure lock rejection. The visible interface remains Revision 1 until the editor/rendering milestones are integrated. The new data is documented in [docs/FLAT_DEMO_DATA.md](docs/FLAT_DEMO_DATA.md); no whole-flat UI is claimed as delivered by this foundation milestone.
+Revision 2 follows the team's [judge-and-fix development method](docs/DEVELOPMENT_METHOD.md). The running page now exposes the five-room whole-flat plan and synchronized 3D editor: all 20 items can be selected, dragged in 2D, precisely moved/resized through numeric input, or rotated continuously with the side-panel dial. Before/After is immediate; geometric overlap is shown as live warnings rather than rejection. The old sofa-only checker and hard-coded clear gap have been removed.
+
+The assumed flat, walls, doors, windows and item dimensions are documented in [docs/FLAT_DEMO_DATA.md](docs/FLAT_DEMO_DATA.md). Position/distance-lock management, library controls, changed-item markers and re-baselining are still in the next milestones; their pure contracts are tested but not yet exposed. The sections below describe the historical Revision 1 and will be replaced with current complete documentation at the documentation milestone, not advertised as current functionality.
 
 FitIn helps a non-expert household check whether a replacement sofa can occupy the position of an existing sofa before purchase. This is the first working development version for HacKU 2026, not a professional design tool or a guarantee of real-world fit.
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GEOMETRY_EPSILON_CM } from "./footprint";
-import { clipPolygon, normalizeAngle, polygonArea, polygonDistance, polygonOverlap, rectanglePolygon, scenePositionCm, threeRotation } from "./oriented";
+import { clipPolygon, floorTrianglePositions, normalizeAngle, polygonArea, polygonDistance, polygonOverlap, rectanglePolygon, scenePositionCm, threeRotation } from "./oriented";
 
 const rectangle = (x = 0, z = 0, orientation = 0, width = 10, depth = 10) => rectanglePolygon({ position: { x, z }, width, depth, orientation });
 
@@ -74,5 +74,18 @@ describe("oriented rectangle geometry", () => {
     expect(fromThree.x).toBeCloseTo(corner.x, 10);
     expect(fromThree.z).toBeCloseTo(corner.z, 10);
     expect(scenePositionCm({ x: 430, z: 420 }, { width: 660, depth: 640 })).toEqual([1, 0, 1]);
+  });
+
+  it("triangulates floor highlights with matching area and upward winding", () => {
+    const positions = floorTrianglePositions(rectangle(), { width: 10, depth: 10 });
+    expect(positions).toHaveLength(18);
+    let area = 0;
+    for (let index = 0; index < positions.length; index += 9) {
+      const crossY = (positions[index + 5] - positions[index + 2]) * (positions[index + 6] - positions[index]) - (positions[index + 3] - positions[index]) * (positions[index + 8] - positions[index + 2]);
+      expect(crossY).toBeGreaterThan(0);
+      area += crossY / 2;
+      expect(positions[index + 1]).toBeCloseTo(0.012, 6);
+    }
+    expect(area * 10000).toBeCloseTo(100, 4);
   });
 });

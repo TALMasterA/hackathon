@@ -2,33 +2,27 @@
 
 import { useEffect, useRef, type ComponentRef } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
-import { Edges, OrbitControls } from "@react-three/drei";
-import type { SceneView } from "@/features/fit-check/state";
-import type { CandidateFurniture, FurnitureItem, Language, Position2D, ReservedZone, Room } from "@/types/domain";
-import { CANDIDATE_COLOR, FURNITURE_COLORS, METRES_PER_CM, RESERVED_COLOR, SCENE_BACKGROUND } from "./palette";
+import { Edges, Html, OrbitControls } from "@react-three/drei";
+import { DoubleSide } from "three";
+import type { EditorSceneProps } from "@/features/flat-editor/workspace";
+import { formatCm } from "@/i18n/dictionary";
+import { editorText } from "@/i18n/editor";
+import { doorGeometry, wallAxis, wallParts } from "@/lib/geometry/architecture";
+import { issueItemIds, issuePolygons } from "@/lib/geometry/layout";
+import { floorTrianglePositions, polygonCentre, rectanglePolygon, scenePositionCm, threeRotation } from "@/lib/geometry/oriented";
+import type { Flat, FlatFurniture, Position2D } from "@/types/domain";
+import { FURNITURE_COLORS, METRES_PER_CM, RESERVED_COLOR, SCENE_BACKGROUND } from "./palette";
 import { SofaModel } from "./sofa-model";
 
-const INITIAL_CAMERA_POSITION: [number, number, number] = [2, 6, -6.5];
+const INITIAL_CAMERA_POSITION: [number, number, number] = [8.5, 10, -11.5];
 
 export interface CameraCommand {
   action: "reset" | "in" | "out";
   sequence: number;
 }
 
-export interface RoomSceneProps {
-  room: Room;
-  furniture: readonly FurnitureItem[];
-  zones: readonly ReservedZone[];
-  candidate: CandidateFurniture | null;
-  view: SceneView;
-  selectedId: string;
-  language: Language;
+export interface RoomSceneProps extends EditorSceneProps {
   cameraCommand: CameraCommand;
-  onSelect: (id: string) => void;
-}
-
-function scenePosition(position: Position2D, room: Room): [number, number, number] {
-  return [(position.x - room.width / 2) * METRES_PER_CM, 0, (position.z - room.depth / 2) * METRES_PER_CM];
 }
 
 function CameraControls({ command }: { command: CameraCommand }) {
@@ -46,7 +40,7 @@ function CameraControls({ command }: { command: CameraCommand }) {
       control.target.set(0, 0.6, 0);
     } else {
       const offset = camera.position.clone().sub(control.target);
-      const nextDistance = Math.min(12, Math.max(4.2, offset.length() * (command.action === "in" ? 0.82 : 1.22)));
+      const nextDistance = Math.min(22, Math.max(6, offset.length() * (command.action === "in" ? 0.82 : 1.22)));
       camera.position.copy(control.target).add(offset.setLength(nextDistance));
     }
     control.update();
@@ -54,59 +48,77 @@ function CameraControls({ command }: { command: CameraCommand }) {
     invalidate();
   }, [command, camera, invalidate]);
 
-  return <OrbitControls ref={controls} makeDefault target={[0, 0.6, 0]} enablePan={false} enableDamping minDistance={4.2} maxDistance={12} minPolarAngle={0.2} maxPolarAngle={Math.PI / 2 - 0.05} minAzimuthAngle={Math.PI * 0.75} maxAzimuthAngle={Math.PI * 1.25} />;
+  return <OrbitControls ref={controls} makeDefault target={[0, 0.6, 0]} enablePan={false} enableDamping minDistance={6} maxDistance={22} minPolarAngle={0.2} maxPolarAngle={Math.PI / 2 - 0.05} minAzimuthAngle={Math.PI * 0.75} maxAzimuthAngle={Math.PI * 1.25} />;
 }
 
-function RoomShell({ room }: { room: Room }) {
-  const width = room.width * METRES_PER_CM;
-  const depth = room.depth * METRES_PER_CM;
-  const height = room.height * METRES_PER_CM;
-  const wallThickness = 0.06;
+function FloorPolygon({ polygon, flat, color, opacity, elevation = 0.012 }: { polygon: readonly Position2D[]; flat: Flat; color: string; opacity: number; elevation?: number }) {
+  const positions = floorTrianglePositions(polygon, flat, elevation);
+  return positions.length > 0 && <mesh><bufferGeometry><bufferAttribute attach="attributes-position" args={[positions, 3]} /></bufferGeometry><meshBasicMaterial color={color} transparent opacity={opacity} depthWrite={false} side={DoubleSide} /></mesh>;
+}
+
+function RoomShell({ flat }: { flat: Flat }) {
   return (
     <group name="room-shell">
-      <mesh position={[0, -0.04, 0]}><boxGeometry args={[width, 0.08, depth]} /><meshStandardMaterial color="#cdd9d0" roughness={1} /><Edges color="#a5b4a9" /></mesh>
-      <mesh position={[0, height / 2, depth / 2 + wallThickness / 2]}><boxGeometry args={[width + 2 * wallThickness, height, wallThickness]} /><meshStandardMaterial color="#e7e9e3" roughness={1} /></mesh>
-      <mesh position={[-width / 2 - wallThickness / 2, height / 2, 0]}><boxGeometry args={[wallThickness, height, depth]} /><meshStandardMaterial color="#dce3dc" roughness={1} /></mesh>
-      <mesh position={[width / 2 + wallThickness / 2, height / 2, 0]}><boxGeometry args={[wallThickness, height, depth]} /><meshStandardMaterial color="#e3e8e0" roughness={1} /></mesh>
+      <mesh position={[0, -0.04, 0]}><boxGeometry args={[flat.width / 100, 0.08, flat.depth / 100]} /><meshStandardMaterial color="#cdd9d0" roughness={1} /><Edges color="#a5b4a9" /></mesh>
+      {flat.rooms.map((room) => <FloorPolygon key={room.id} polygon={rectanglePolygon(room)} flat={flat} color="#ecf0e8" opacity={0.85} elevation={0.002} />)}
+      {wallParts(flat).map((wall) => {
+        const [x, , z] = scenePositionCm(wall.position, flat);
+        return <mesh key={wall.id} name={wall.id} position={[x, flat.height / 200, z]}><boxGeometry args={[wall.width / 100, flat.height / 100, wall.depth / 100]} /><meshStandardMaterial color={wall.outer ? "#cfd9d2" : "#d8dfd5"} transparent opacity={wall.outer ? 0.22 : 0.38} roughness={1} depthWrite={false} /><Edges color="#a8b6aa" /></mesh>;
+      })}
+      {flat.windows.map((window) => {
+        const wall = flat.walls.find((entry) => entry.id === window.wallId)!;
+        const axis = wallAxis(wall);
+        const [x, , z] = scenePositionCm(window.position, flat);
+        return <mesh key={window.id} name={window.id} position={[x, (window.sillHeight + window.height / 2) / 100, z]}><boxGeometry args={[axis === "x" ? window.width / 100 : 0.025, window.height / 100, axis === "z" ? window.width / 100 : 0.025]} /><meshBasicMaterial color="#70a6b2" transparent opacity={0.55} depthWrite={false} /><Edges color="#568c98" /></mesh>;
+      })}
+      {flat.doors.map((door) => {
+        const geometry = doorGeometry(door, flat);
+        const middle = { x: (geometry.hinge.x + geometry.openEnd.x) / 2, z: (geometry.hinge.z + geometry.openEnd.z) / 2 };
+        const [x, , z] = scenePositionCm(middle, flat);
+        const alongX = geometry.normal.x !== 0;
+        return <group key={door.id} name={door.id}><FloorPolygon polygon={rectanglePolygon(geometry.zone)} flat={flat} color={RESERVED_COLOR} opacity={0.2} elevation={0.005} /><mesh position={[x, 1, z]}><boxGeometry args={[alongX ? door.width / 100 : 0.02, 2, alongX ? 0.02 : door.width / 100]} /><meshStandardMaterial color="#b5a273" transparent opacity={0.3} depthWrite={false} /><Edges color="#a39060" /></mesh></group>;
+      })}
     </group>
   );
 }
 
-function FurnitureModel({ item, room, selected, onSelect }: { item: FurnitureItem; room: Room; selected: boolean; onSelect: (id: string) => void }) {
-  const position = scenePosition(item.position, room);
+function FurnitureModel({ item, flat, selected, colliding, onSelect }: { item: FlatFurniture; flat: Flat; selected: boolean; colliding: boolean; onSelect: (id: string) => void }) {
+  const color = colliding ? "#ba4c43" : FURNITURE_COLORS[item.kind];
   return (
-    <group name={item.id} position={position} rotation={[0, item.orientation * Math.PI / 180, 0]} onClick={item.replaceable ? (event) => { event.stopPropagation(); onSelect(item.id); } : undefined}>
-      {item.kind === "sofa" ? <SofaModel {...item} color={FURNITURE_COLORS[item.kind]} selected={selected} /> : (
+    <group name={item.id} position={scenePositionCm(item.position, flat)} rotation={[0, threeRotation(item.orientation), 0]} onClick={(event) => { event.stopPropagation(); onSelect(item.id); }}>
+      {item.kind === "sofa" ? <SofaModel {...item} color={color} selected={selected} opacity={colliding ? 0.55 : 1} /> : (
         <mesh position={[0, item.height * METRES_PER_CM / 2, 0]}>
           <boxGeometry args={[item.width * METRES_PER_CM, item.height * METRES_PER_CM, item.depth * METRES_PER_CM]} />
-          <meshStandardMaterial color={FURNITURE_COLORS[item.kind]} roughness={0.75} />
-          <Edges color="#59635a" />
+          <meshStandardMaterial color={color} roughness={0.75} transparent={colliding} opacity={colliding ? 0.55 : 1} depthWrite={!colliding} />
+          <Edges color={selected ? "#174c3d" : "#59635a"} linewidth={selected ? 2 : 1} />
         </mesh>
       )}
     </group>
   );
 }
 
-export default function RoomScene({ room, furniture, zones, candidate, view, selectedId, cameraCommand, onSelect }: RoomSceneProps) {
-  const after = view === "after" && candidate !== null;
+export default function RoomScene({ flat, furniture, issues, selectedId, focusedIds, language, cameraCommand, onSelect }: RoomSceneProps) {
+  const colliding = new Set(issues.flatMap(issueItemIds));
+  const highlights = issuePolygons(issues);
   return (
-    <Canvas frameloop="demand" dpr={[1, 1.5]} camera={{ position: INITIAL_CAMERA_POSITION, fov: 42, near: 0.1, far: 60 }} gl={{ antialias: true, alpha: false, powerPreference: "low-power" }}>
+    <Canvas frameloop="demand" dpr={[1, 1.5]} camera={{ position: INITIAL_CAMERA_POSITION, fov: 40, near: 0.1, far: 80 }} gl={{ antialias: true, alpha: false, powerPreference: "low-power" }}>
       <color attach="background" args={[SCENE_BACKGROUND]} />
       <ambientLight intensity={1.3} />
-      <directionalLight position={[-3, 7, -4]} intensity={2} />
-      <RoomShell room={room} />
-      {zones.map((zone) => {
-        const [x, , z] = scenePosition(zone.position, room);
-        return (
-          <mesh key={zone.id} name={zone.id} position={[x, 0.008, z]}>
-            <boxGeometry args={[zone.width * METRES_PER_CM, 0.006, zone.depth * METRES_PER_CM]} />
-            <meshBasicMaterial color={RESERVED_COLOR} transparent opacity={0.24} depthWrite={false} />
-            <Edges color={RESERVED_COLOR} />
-          </mesh>
-        );
+      <directionalLight position={[-3, 9, -5]} intensity={2} />
+      <RoomShell flat={flat} />
+      {furniture.map((item) => <FurnitureModel key={item.id} item={item} flat={flat} selected={selectedId === item.id || focusedIds.includes(item.id)} colliding={colliding.has(item.id)} onSelect={onSelect} />)}
+      {highlights.map((highlight, index) => {
+        const centre = polygonCentre(highlight.polygon);
+        const [x, , z] = scenePositionCm(centre, flat);
+        const nearCount = highlights.slice(0, index).filter((other) => Math.hypot(polygonCentre(other.polygon).x - centre.x, polygonCentre(other.polygon).z - centre.z) < 45).length;
+        return <group key={highlight.id}><FloorPolygon polygon={highlight.polygon} flat={flat} color="#e33e35" opacity={0.65} elevation={0.012 + index * 0.00005} /><Html position={[x, 0.05 + nearCount * 0.18, z]} center zIndexRange={[3, 0]} style={{ pointerEvents: "none" }}><span className="scene-issue-label">{formatCm(highlight.value, language)} {editorText(language, "editor.unit")}</span></Html></group>;
       })}
-      {furniture.filter((item) => !(after && item.id === candidate.replacesId)).map((item) => <FurnitureModel key={item.id} item={item} room={room} selected={item.id === selectedId} onSelect={onSelect} />)}
-      {after && <group name="candidate-sofa" position={scenePosition(candidate.position, room)} rotation={[0, candidate.orientation * Math.PI / 180, 0]}><SofaModel {...candidate} color={CANDIDATE_COLOR} /></group>}
+      {issues.filter((issue) => issue.code === "height").map((issue) => {
+        const item = furniture.find((entry) => entry.id === issue.itemId);
+        if (!item) return null;
+        const [x, , z] = scenePositionCm(item.position, flat);
+        return <Html key={issue.id} position={[x, item.height / 100 + 0.12, z]} center zIndexRange={[3, 0]} style={{ pointerEvents: "none" }}><span className="scene-issue-label">+{formatCm(issue.excess, language)} {editorText(language, "editor.unit")}</span></Html>;
+      })}
       <CameraControls command={cameraCommand} />
     </Canvas>
   );

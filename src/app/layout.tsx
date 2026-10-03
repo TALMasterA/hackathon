@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "FitIn | Sofa replacement",
-  description: "A simplified, bilingual furniture replacement checker for one preset room. HacKU 2026 first development version.",
+  title: "FitIn | Whole-flat layout",
+  description: "A browser-only bilingual whole-flat furniture editor with rotated-footprint checks. Simplified demo assumptions for HacKU 2026.",
   robots: { index: false, follow: false },
 };
 

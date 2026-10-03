@@ -144,3 +144,14 @@ export function scenePositionCm(position: Position2D, envelope: { width: number;
 export function polygonCentre(polygon: readonly Position2D[]): Position2D {
   return { x: polygon.reduce((sum, point) => sum + point.x, 0) / polygon.length, z: polygon.reduce((sum, point) => sum + point.z, 0) / polygon.length };
 }
+
+export function floorTrianglePositions(polygon: readonly Position2D[], envelope: { width: number; depth: number }, elevation = 0.012): Float32Array {
+  const positions: number[] = [];
+  for (let index = 1; index < polygon.length - 1; index++) {
+    for (const point of [polygon[0], polygon[index + 1], polygon[index]]) {
+      const [x, , z] = scenePositionCm(point, envelope);
+      positions.push(x, elevation, z);
+    }
+  }
+  return new Float32Array(positions);
+}
