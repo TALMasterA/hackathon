@@ -73,8 +73,8 @@ export function FlatMenu({ flat, needsConfirm, language, onTrace, onUse }: FlatM
           <div className="flat-menu-actions">
             <button type="button" className="secondary-button" disabled={!onTrace} onClick={() => { if (menu.current) menu.current.open = false; onTrace?.(); }}><ScanLine size={17} aria-hidden="true" />{text("flat.trace")}</button>
             <button type="button" className="secondary-button" onClick={() => fileInput.current?.click()}><FileUp size={17} aria-hidden="true" />{text("flat.open")}</button>
-            {/* A flat file holds straight-walled flats only; Harmony's outline and diagonal walls are built in. */}
-            <button type="button" className="secondary-button" disabled={Boolean(flat.outline)} onClick={download}><Download size={17} aria-hidden="true" />{text("flat.download")}</button>
+            {/* The built-in PDF-derived plan (Harmony) ships with the app, and its approximate source data is not a flat file. */}
+            <button type="button" className="secondary-button" disabled={Boolean(flat.source)} onClick={download}><Download size={17} aria-hidden="true" />{text("flat.download")}</button>
             <input ref={fileInput} type="file" accept="application/json,.json" hidden onChange={(event) => { void openFile(event.target.files?.[0]); event.target.value = ""; }} />
           </div>
         )}

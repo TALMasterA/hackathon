@@ -8,7 +8,8 @@ import { editorText } from "@/i18n/editor";
 import { containingRoom, doorGeometry, flatVoids, openingEndpoints, planWallParts } from "@/lib/geometry/architecture";
 import { issueItemIds, issuePolygons } from "@/lib/geometry/layout";
 import { polygonBounds, polygonCentre, rectanglePolygon } from "@/lib/geometry/oriented";
-import type { Flat, FlatFurniture, Language, LayoutViolation, Position2D } from "@/types/domain";
+import { interiorPoint } from "@/lib/geometry/polygon";
+import type { Flat, FlatFurniture, FlatRoom, Language, LayoutViolation, Position2D } from "@/types/domain";
 import { clampView, clientToPlan, draggedPosition, ensureVisible, fitRoomView, flatBounds, isZoomed, MIN_VIEW_WIDTH_CM, nearestPlanItem, panBy, planHome, ROOM_MARGIN_CM, zoomAt, type PlanBox } from "./interaction";
 
 /** A request to the plan view; a new revision re-applies it even when the id is unchanged. */
@@ -38,6 +39,12 @@ interface FloorPlanProps {
 }
 
 const points = (polygon: readonly Position2D[]) => polygon.map((point) => `${point.x},${point.z}`).join(" ");
+/** Where a room's name goes: its top-left corner, or for a shaped room its topmost (then leftmost) corner. */
+const labelCorner = (room: FlatRoom): Position2D => room.outline
+  ? room.outline.reduce((best, point) => point.z < best.z - 0.01 || (Math.abs(point.z - best.z) <= 0.01 && point.x < best.x) ? point : best)
+  : { x: room.position.x - room.width / 2, z: room.position.z - room.depth / 2 };
+/** A point well inside a room, for its empty-room hint. */
+const roomMiddle = (room: FlatRoom): Position2D => room.outline ? interiorPoint(room.outline) : room.position;
 const BUTTON_ZOOM = 1.25;
 const DOUBLE_TAP_MS = 350;
 const DOUBLE_TAP_PX = 24;
@@ -216,8 +223,8 @@ export function FloorPlan({ flat, furniture, baseline = [], issues, selectedId, 
           <defs><pattern id="plan-outside-hatch" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="12" height="12" fill="#d3d9d3" /><line x1="0" y1="0" x2="0" y2="12" stroke="#a9b3ac" strokeWidth="4" /></pattern></defs>
           {flat.outline ? <polygon points={points(flat.outline)} fill="#f4f6ef" data-testid="flat-outline" /> : <rect x="0" y="0" width={flat.width} height={flat.depth} fill="#e5eae4" />}
           {flatVoids(flat).map((area, index) => <rect key={`void-${index}`} x={area.position.x - area.width / 2} y={area.position.z - area.depth / 2} width={area.width} height={area.depth} fill="url(#plan-outside-hatch)"><title>{editorText(language, "plan.outside")}</title></rect>)}
-          {flat.rooms.map((room) => <polygon key={room.id} points={points(room.outline ?? rectanglePolygon(room))} fill={flat.outline ? "#f4f6ef" : "#f6f7f2"} stroke="#d4ddd3" strokeDasharray={flat.outline ? "3 4" : undefined} vectorEffect="non-scaling-stroke" />)}
-          {planWallParts(flat).map((wall) => <polygon key={wall.id} points={points(rectanglePolygon(wall))} fill={flat.outline ? "#6f7a73" : "#6b756f"} data-wall-id={wall.wallId} />)}
+          {flat.rooms.map((room) => <polygon key={room.id} points={points(room.outline ?? rectanglePolygon(room))} fill={flat.source ? "#f4f6ef" : "#f6f7f2"} stroke="#d4ddd3" strokeDasharray={flat.source ? "3 4" : undefined} vectorEffect="non-scaling-stroke" />)}
+          {planWallParts(flat).map((wall) => <polygon key={wall.id} points={points(rectanglePolygon(wall))} fill={flat.source ? "#6f7a73" : "#6b756f"} data-wall-id={wall.wallId} />)}
           {flat.windows.map((window) => {
             const wall = flat.walls.find((entry) => entry.id === window.wallId)!;
             const endpoints = openingEndpoints(window, wall);
@@ -227,8 +234,11 @@ export function FloorPlan({ flat, furniture, baseline = [], issues, selectedId, 
             const geometry = doorGeometry(door, flat);
             return <g key={door.id} className="plan-door"><title>{`${door.name[language]} · ${formatCm(door.width, language)} ${editorText(language, "editor.unit")}`}</title><polygon points={points(rectanglePolygon(geometry.zone))} fill="#ead99c" fillOpacity="0.26" stroke="#9d7d2e" strokeWidth="1" strokeDasharray="4 3" vectorEffect="non-scaling-stroke" /><path d={`M ${geometry.closedEnd.x} ${geometry.closedEnd.z} A ${door.width} ${door.width} 0 0 ${geometry.sweep} ${geometry.openEnd.x} ${geometry.openEnd.z}`} fill="none" stroke="#9d7d2e" strokeWidth="1.5" /><line x1={geometry.hinge.x} y1={geometry.hinge.z} x2={geometry.openEnd.x} y2={geometry.openEnd.z} stroke="#9d7d2e" strokeWidth="3" /></g>;
           })}
-          {flat.rooms.map((room) => <text key={`name-${room.id}`} x={room.position.x - room.width / 2 + 12 * k} y={room.position.z - room.depth / 2 + 19 * k} className="plan-room-name" style={{ fontSize: 14 * k }}>{room.name[language]}</text>)}
-          {editable && flat.rooms.filter((room) => !furniture.some((item) => item.roomId === room.id)).map((room) => <text key={`empty-${room.id}`} x={room.position.x} y={room.position.z} textAnchor="middle" dominantBaseline="middle" className="plan-empty-hint" style={{ fontSize: 13 * k }}>{editorText(language, "plan.empty")}</text>)}
+          {flat.rooms.map((room) => {
+            const corner = labelCorner(room);
+            return <text key={`name-${room.id}`} x={corner.x + 12 * k} y={corner.z + 19 * k} className="plan-room-name" style={{ fontSize: 14 * k }}>{room.name[language]}</text>;
+          })}
+          {editable && flat.rooms.filter((room) => !furniture.some((item) => item.roomId === room.id)).map((room) => <text key={`empty-${room.id}`} x={roomMiddle(room).x} y={roomMiddle(room).z} textAnchor="middle" dominantBaseline="middle" className="plan-empty-hint" style={{ fontSize: 13 * k }}>{editorText(language, "plan.empty")}</text>)}
           {baseline.map((item) => <polygon key={`baseline-${item.id}`} points={points(rectanglePolygon(item))} fill="none" stroke="#53675b" strokeWidth="2" strokeDasharray="5 4" opacity="0.28" vectorEffect="non-scaling-stroke" pointerEvents="none" />)}
           {furniture.map((item) => {
             const polygon = rectanglePolygon(item);

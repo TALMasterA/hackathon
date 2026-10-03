@@ -1,7 +1,8 @@
 import { FURNITURE_LIBRARY } from "../../data/flat-preset";
 import { examplesForFlat } from "../../data/flat-scenarios";
-import { rectangleBox, type Box } from "../../lib/geometry/architecture";
 import { analyzeLayout, issueItemIds } from "../../lib/geometry/layout";
+import { normalizeAngle, polygonArea, polygonOutsideArea, rectanglePolygon } from "../../lib/geometry/oriented";
+import { clockwise } from "../../lib/geometry/polygon";
 import type { Flat, FlatFurniture, FlatRoom, FurnitureKind, FurnitureTemplate, LocalizedName, Position2D, RoomKind } from "../../types/domain";
 
 /** One planned suggestion on a traced flat: a library template for one room, under a stable item ID. */
@@ -13,13 +14,17 @@ export interface SuggestionSlot {
   againstWall: boolean;
 }
 
-type WallSide = "top" | "bottom" | "left" | "right";
+/** One wall of a room: where it starts, which way it runs and which way is into the room. */
+interface RoomWall {
+  start: Position2D;
+  direction: Position2D;
+  inward: Position2D;
+  length: number;
+}
 
-/** Furniture fronts face local -Z at 0°, so an item backed against a wall turns to face into the room. */
-const SIDE_ORIENTATION: Record<WallSide, number> = { top: 180, bottom: 0, left: 90, right: 270 };
-const OPPOSITE_SIDE: Record<WallSide, WallSide> = { top: "bottom", bottom: "top", left: "right", right: "left" };
-const ORIENTATION_SIDE = new Map(Object.entries(SIDE_ORIENTATION).map(([side, angle]) => [angle, side as WallSide]));
 const WALL_CLEARANCE_CM = 1;
+/** How much of an item may poke outside a shaped room through rounding, per cm of its edges. */
+const INSIDE_SLACK_CM = 0.01;
 const WALL_STEP_CM = 10;
 const AGAINST_WALL = new Set<FurnitureKind>(["sofa", "tv-console", "bed", "wardrobe", "desk", "kitchen-counter", "fridge", "toilet", "vanity"]);
 
@@ -48,7 +53,8 @@ function template(id: string): FurnitureTemplate {
  */
 export function suggestionSlots(flat: Pick<Flat, "rooms">): SuggestionSlot[] {
   const bedrooms = flat.rooms.filter((room) => room.kind === "bedroom");
-  const largest = bedrooms.reduce<FlatRoom | null>((best, room) => !best || room.width * room.depth > best.width * best.depth ? room : best, null);
+  const area = (room: FlatRoom) => polygonArea(room.outline ?? rectanglePolygon(room));
+  const largest = bedrooms.reduce<FlatRoom | null>((best, room) => !best || area(room) > area(best) ? room : best, null);
   return flat.rooms.flatMap((room) => {
     const set = [...ROOM_SETS[room.kind ?? "other"]].map(([id, count]) => [room === largest && id === "single-bed" ? "double-bed" : id, count] as const);
     if (room.kind === "living" && bedrooms.length === 0 && !flat.rooms.slice(0, flat.rooms.indexOf(room)).some((entry) => entry.kind === "living")) set.push(["single-bed", 1]);
@@ -71,17 +77,46 @@ export function suggestionIds(flat: Flat): string[] {
   return examplesForFlat(flat)?.map((item) => item.id) ?? suggestionSlots(flat).map((slot) => slot.id);
 }
 
-/** Positions along one wall, middle first, with the item's back against the room edge. */
-function wallPositions(room: Box, footprint: { width: number; depth: number }, side: WallSide): Position2D[] {
-  const horizontal = side === "top" || side === "bottom";
-  const [low, high] = horizontal ? [room.minX, room.maxX] : [room.minZ, room.maxZ];
-  const from = low + footprint.width / 2 + WALL_CLEARANCE_CM;
-  const to = high - footprint.width / 2 - WALL_CLEARANCE_CM;
+/**
+ * A room's walls: a box room's in the order top, bottom, left, right (so equal walls keep that order);
+ * a shaped room's along its outline.
+ */
+function roomWalls(room: FlatRoom): RoomWall[] {
+  if (!room.outline) {
+    const [minX, minZ, maxX, maxZ] = [room.position.x - room.width / 2, room.position.z - room.depth / 2, room.position.x + room.width / 2, room.position.z + room.depth / 2];
+    return [
+      { start: { x: minX, z: minZ }, direction: { x: 1, z: 0 }, inward: { x: 0, z: 1 }, length: room.width },
+      { start: { x: minX, z: maxZ }, direction: { x: 1, z: 0 }, inward: { x: 0, z: -1 }, length: room.width },
+      { start: { x: minX, z: minZ }, direction: { x: 0, z: 1 }, inward: { x: 1, z: 0 }, length: room.depth },
+      { start: { x: maxX, z: minZ }, direction: { x: 0, z: 1 }, inward: { x: -1, z: 0 }, length: room.depth },
+    ];
+  }
+  const outline = clockwise(room.outline);
+  return outline.map((start, index) => {
+    const end = outline[(index + 1) % outline.length];
+    const length = Math.hypot(end.x - start.x, end.z - start.z);
+    const direction = { x: (end.x - start.x) / length, z: (end.z - start.z) / length };
+    return { start, direction, inward: { x: -direction.z, z: direction.x }, length };
+  });
+}
+
+/** Furniture fronts face local -Z at 0°, so an item backed against a wall turns its front to the wall's inward side. */
+function facingInto(inward: Position2D): number {
+  return Math.round(normalizeAngle(Math.atan2(inward.x, -inward.z) * 180 / Math.PI) * 1e6) / 1e6 % 360;
+}
+
+/** The direction an item's front faces at an orientation (0° faces -Z). */
+const frontOf = (orientation: number): Position2D => {
+  const radians = orientation * Math.PI / 180;
+  return { x: Math.sin(radians), z: -Math.cos(radians) };
+};
+
+/** Positions along one wall, middle first, with the item's back against it. */
+function wallPositions(wall: RoomWall, footprint: { width: number; depth: number }): Position2D[] {
+  const from = footprint.width / 2 + WALL_CLEARANCE_CM;
+  const to = wall.length - footprint.width / 2 - WALL_CLEARANCE_CM;
   if (from > to) return [];
-  const across = side === "top" ? room.minZ + footprint.depth / 2 + WALL_CLEARANCE_CM
-    : side === "bottom" ? room.maxZ - footprint.depth / 2 - WALL_CLEARANCE_CM
-    : side === "left" ? room.minX + footprint.depth / 2 + WALL_CLEARANCE_CM
-    : room.maxX - footprint.depth / 2 - WALL_CLEARANCE_CM;
+  const across = footprint.depth / 2 + WALL_CLEARANCE_CM;
   const middle = (from + to) / 2;
   const along = [middle];
   for (let offset = WALL_STEP_CM; middle - offset >= from || middle + offset <= to; offset += WALL_STEP_CM) {
@@ -89,31 +124,33 @@ function wallPositions(room: Box, footprint: { width: number; depth: number }, s
     if (middle + offset <= to) along.push(middle + offset);
   }
   along.push(from, to);
-  return along.map((value) => horizontal ? { x: value, z: across } : { x: across, z: value });
+  return along.map((value) => ({ x: wall.start.x + wall.direction.x * value + wall.inward.x * across, z: wall.start.z + wall.direction.z * value + wall.inward.z * across }));
 }
 
 /**
- * Wall-first probe: tries the room's walls longest first (or a preferred wall first), placing the item
- * with its back against the wall and its front into the room, and keeps the first spot with no issue.
+ * Wall-first probe: tries the room's walls longest first (or the wall facing a preferred way first),
+ * placing the item with its back against the wall and its front into the room, and keeps the first
+ * spot inside the room with no issue.
  */
-export function placeAgainstWall(flat: Flat, furniture: readonly FlatFurniture[], entry: FurnitureTemplate, room: FlatRoom, id: string, preferred?: WallSide): FlatFurniture | null {
-  const box = rectangleBox(room);
-  const sides: WallSide[] = (["top", "bottom", "left", "right"] as const).map((side, index) => ({ side, index, length: side === "top" || side === "bottom" ? room.width : room.depth }))
-    .sort((first, second) => Number(second.side === preferred) - Number(first.side === preferred) || second.length - first.length || first.index - second.index)
-    .map(({ side }) => side);
-  for (const side of sides) {
-    for (const position of wallPositions(box, entry, side)) {
-      const item: FlatFurniture = { ...entry, id, roomId: room.id, position, orientation: SIDE_ORIENTATION[side], name: { ...entry.name } };
+export function placeAgainstWall(flat: Flat, furniture: readonly FlatFurniture[], entry: FurnitureTemplate, room: FlatRoom, id: string, preferred?: Position2D): FlatFurniture | null {
+  const prefers = (wall: RoomWall) => preferred !== undefined && wall.inward.x * preferred.x + wall.inward.z * preferred.z > 0.99;
+  const walls = roomWalls(room).map((wall, index) => ({ wall, index }))
+    .sort((first, second) => Number(prefers(second.wall)) - Number(prefers(first.wall)) || second.wall.length - first.wall.length || first.index - second.index);
+  for (const { wall } of walls) {
+    for (const position of wallPositions(wall, entry)) {
+      const item: FlatFurniture = { ...entry, id, roomId: room.id, position, orientation: facingInto(wall.inward), name: { ...entry.name } };
+      if (room.outline && polygonOutsideArea(rectanglePolygon(item), room.outline) > INSIDE_SLACK_CM * (item.width + item.depth) * 2) continue;
       if (!analyzeLayout(flat, [...furniture, item], flat.height).some((issue) => issueItemIds(issue).includes(id))) return item;
     }
   }
   return null;
 }
 
-/** The wall a TV console should try first: the one facing the room's suggested sofa, when there is one. */
-export function preferredWall(slot: SuggestionSlot, furniture: readonly FlatFurniture[]): WallSide | undefined {
+/** Which way the wall a TV console should try first faces: towards the room's suggested sofa, when there is one. */
+export function preferredWall(slot: SuggestionSlot, furniture: readonly FlatFurniture[]): Position2D | undefined {
   if (slot.template.kind !== "tv-console") return undefined;
   const sofa = furniture.find((item) => item.id === `${slot.roomId}-sofa`);
-  const side = sofa && ORIENTATION_SIDE.get(sofa.orientation);
-  return side ? OPPOSITE_SIDE[side] : undefined;
+  if (!sofa) return undefined;
+  const front = frontOf(sofa.orientation);
+  return { x: -front.x, z: -front.z };
 }

@@ -15,7 +15,8 @@ export function wallAxis(wall: Wall): "x" | "z" {
 
 export function wallParts(flat: Pick<Flat, "walls" | "doors" | "outline">): WallPart[] {
   return flat.walls.flatMap((wall) => {
-    if (flat.outline) return segmentParts(wall, flat.doors.filter((door) => door.wallId === wall.id));
+    // Angled walls (and every wall of an outlined flat) are cut along their own direction.
+    if (flat.outline || !isAxisWall(wall)) return segmentParts(wall, flat.doors.filter((door) => door.wallId === wall.id));
     const axis = wallAxis(wall);
     const gaps = flat.doors.filter((door) => door.wallId === wall.id)
       .map((door) => [door.position[axis] - door.width / 2, door.position[axis] + door.width / 2] as const)
@@ -43,6 +44,24 @@ export function wallParts(flat: Pick<Flat, "walls" | "doors" | "outline">): Wall
 export function wallDirection(wall: Wall): Position2D {
   const length = Math.hypot(wall.end.x - wall.start.x, wall.end.z - wall.start.z);
   return { x: (wall.end.x - wall.start.x) / length, z: (wall.end.z - wall.start.z) / length };
+}
+
+/** A wall's footprint: its centre line widened by half its thickness on each side, at any angle. */
+export function wallPolygon(wall: Wall): Position2D[] {
+  const direction = wallDirection(wall);
+  const half = wall.thickness / 2;
+  const normal = { x: -direction.z * half, z: direction.x * half };
+  return [
+    { x: wall.start.x - normal.x, z: wall.start.z - normal.z },
+    { x: wall.end.x - normal.x, z: wall.end.z - normal.z },
+    { x: wall.end.x + normal.x, z: wall.end.z + normal.z },
+    { x: wall.start.x + normal.x, z: wall.start.z + normal.z },
+  ];
+}
+
+/** True when the wall runs exactly horizontally or vertically. */
+export function isAxisWall(wall: Wall): boolean {
+  return wall.start.z === wall.end.z || wall.start.x === wall.end.x;
 }
 
 export function openingEndpoints(opening: { position: Position2D; width: number }, wall: Wall) {
