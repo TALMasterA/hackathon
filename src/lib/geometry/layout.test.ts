@@ -143,3 +143,16 @@ describe("live whole-flat warnings", () => {
     expect(new Set(issues.map((issue) => issue.code))).toEqual(new Set(["furniture", "wall", "door", "envelope", "height"]));
   });
 });
+describe("single-item checks", () => {
+  it("itemViolations equals analyzeLayout filtered to the item, in order and value", async () => {
+    const { itemViolations, issueItemIds } = await import("./layout");
+    const { HARMONY_EXAMPLES, HARMONY_FLAT } = await import("../../data/harmony-preset");
+    const crowded = SUGGESTED_FURNITURE.map((entry) => entry.id === "living-side-table" ? { ...entry, position: { x: 330, z: 300 } } : entry.id === "living-coffee-table" ? { ...entry, position: { x: 365, z: 60 }, orientation: 30 } : entry);
+    for (const [flat, furniture] of [[DEMO_FLAT, crowded], [DEMO_FLAT, SUGGESTED_FURNITURE], [HARMONY_FLAT, HARMONY_EXAMPLES]] as const) {
+      const all = analyzeLayout(flat, furniture, 260);
+      for (const entry of furniture) expect(itemViolations(flat, furniture, entry.id, 260)).toEqual(all.filter((issue) => issueItemIds(issue).includes(entry.id)));
+    }
+    expect(analyzeLayout(DEMO_FLAT, crowded, 260).length).toBeGreaterThan(0);
+    expect(itemViolations(DEMO_FLAT, crowded, "missing", 260)).toEqual([]);
+  });
+});

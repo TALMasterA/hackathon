@@ -36,6 +36,8 @@ interface FloorPlanProps {
   onFocusRoom: (id: string | null) => void;
   onGestureStart: () => void;
   onGestureEnd: () => void;
+  /** Areas the design assistant was asked to keep open, drawn dashed; display only. */
+  zones?: readonly { id: string; polygon: readonly Position2D[] }[];
 }
 
 const points = (polygon: readonly Position2D[]) => polygon.map((point) => `${point.x},${point.z}`).join(" ");
@@ -50,7 +52,7 @@ const DOUBLE_TAP_MS = 350;
 const DOUBLE_TAP_PX = 24;
 const clientPoint = (event: { clientX: number; clientY: number }): Position2D => ({ x: event.clientX, z: event.clientY });
 
-export function FloorPlan({ flat, furniture, baseline = [], issues, selectedId, focusedIds, positionLocks, language, editable, onSelect, onRoom, onPropose, focus, reveal, onFocusRoom, onGestureStart, onGestureEnd }: FloorPlanProps) {
+export function FloorPlan({ flat, furniture, baseline = [], issues, selectedId, focusedIds, positionLocks, language, editable, onSelect, onRoom, onPropose, focus, reveal, onFocusRoom, onGestureStart, onGestureEnd, zones = [] }: FloorPlanProps) {
   const drag = useRef<{ id: string; pointerId: number; start: Position2D; origin: Position2D } | null>(null);
   const pointers = useRef(new Map<number, Position2D>());
   const pan = useRef<{ pointerId: number; last: Position2D } | null>(null);
@@ -234,6 +236,7 @@ export function FloorPlan({ flat, furniture, baseline = [], issues, selectedId, 
             const geometry = doorGeometry(door, flat);
             return <g key={door.id} className="plan-door"><title>{`${door.name[language]} · ${formatCm(door.width, language)} ${editorText(language, "editor.unit")}`}</title><polygon points={points(rectanglePolygon(geometry.zone))} fill="#ead99c" fillOpacity="0.26" stroke="#9d7d2e" strokeWidth="1" strokeDasharray="4 3" vectorEffect="non-scaling-stroke" /><path d={`M ${geometry.closedEnd.x} ${geometry.closedEnd.z} A ${door.width} ${door.width} 0 0 ${geometry.sweep} ${geometry.openEnd.x} ${geometry.openEnd.z}`} fill="none" stroke="#9d7d2e" strokeWidth="1.5" /><line x1={geometry.hinge.x} y1={geometry.hinge.z} x2={geometry.openEnd.x} y2={geometry.openEnd.z} stroke="#9d7d2e" strokeWidth="3" /></g>;
           })}
+          {zones.map((zone) => <polygon key={zone.id} points={points(zone.polygon)} fill="#2f7d6a" fillOpacity="0.1" stroke="#245f50" strokeWidth="2" strokeDasharray="7 5" vectorEffect="non-scaling-stroke" pointerEvents="none" data-testid="plan-zone" />)}
           {flat.rooms.map((room) => {
             const corner = labelCorner(room);
             return <text key={`name-${room.id}`} x={corner.x + 12 * k} y={corner.z + 19 * k} className="plan-room-name" style={{ fontSize: 14 * k }}>{room.name[language]}</text>;
