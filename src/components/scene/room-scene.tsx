@@ -16,6 +16,7 @@ import { cameraDistanceLimits, orthographicFitZoom, roomCameraFrame, setOrthogra
 import { FurnitureMesh } from "./furniture-mesh";
 import type { FurnitureAppearance } from "./furniture-models";
 import { RESERVED_COLOR, SCENE_BACKGROUND } from "./palette";
+import { SCENE_INK } from "@/lib/theme";
 
 export interface CameraCommand {
   action: "reset" | "in" | "out" | "focus";
@@ -94,25 +95,25 @@ function RoomShell({ flat }: { flat: Flat }) {
   const panels = flat.outline ? wallPanels(flat) : wallParts(flat).map((wall) => ({ ...wall, bottom: 0, height: flat.height }));
   return (
     <group name="room-shell">
-      {floorShape ? <mesh name="polygon-floor" position={[0, -0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}><extrudeGeometry args={[floorShape, { depth: 0.1, bevelEnabled: false }]} /><meshStandardMaterial color="#f4f6ef" roughness={1} /><Edges color="#a5b4a9" /></mesh> : <mesh position={[0, -0.04, 0]}><boxGeometry args={[flat.width / 100, 0.08, flat.depth / 100]} /><meshStandardMaterial color="#cdd9d0" roughness={1} /><Edges color="#a5b4a9" /></mesh>}
-      {!preset && flat.rooms.map((room) => <FloorPolygon key={room.id} polygon={room.outline ?? rectanglePolygon(room)} flat={flat} color="#ecf0e8" opacity={0.85} elevation={0.002} />)}
-      {flatVoids(flat).map((area, index) => <FloorPolygon key={`void-${index}`} polygon={rectanglePolygon(area)} flat={flat} color="#7d8a82" opacity={0.6} elevation={0.003} />)}
+      {floorShape ? <mesh name="polygon-floor" position={[0, -0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}><extrudeGeometry args={[floorShape, { depth: 0.1, bevelEnabled: false }]} /><meshStandardMaterial color={SCENE_INK.floor} roughness={1} /><Edges color={SCENE_INK.floorEdge} /></mesh> : <mesh position={[0, -0.04, 0]}><boxGeometry args={[flat.width / 100, 0.08, flat.depth / 100]} /><meshStandardMaterial color={SCENE_INK.floor} roughness={1} /><Edges color={SCENE_INK.floorEdge} /></mesh>}
+      {!preset && flat.rooms.map((room) => <FloorPolygon key={room.id} polygon={room.outline ?? rectanglePolygon(room)} flat={flat} color={SCENE_INK.roomFloor} opacity={0.85} elevation={0.002} />)}
+      {flatVoids(flat).map((area, index) => <FloorPolygon key={`void-${index}`} polygon={rectanglePolygon(area)} flat={flat} color={SCENE_INK.outside} opacity={0.6} elevation={0.003} />)}
       {panels.map((wall) => {
         const [x, , z] = scenePositionCm(wall.position, flat);
-        return <mesh key={wall.id} name={wall.id} position={[x, (wall.bottom + wall.height / 2) / 100, z]} rotation={[0, threeRotation(wall.orientation), 0]}><boxGeometry args={[wall.width / 100, wall.height / 100, wall.depth / 100]} /><meshStandardMaterial color={preset ? "#6f7a73" : wall.outer ? "#cfd9d2" : "#d8dfd5"} transparent opacity={preset ? 0.18 : wall.outer ? 0.22 : 0.38} roughness={1} depthWrite={false} /><Edges color="#a8b6aa" /></mesh>;
+        return <mesh key={wall.id} name={wall.id} position={[x, (wall.bottom + wall.height / 2) / 100, z]} rotation={[0, threeRotation(wall.orientation), 0]}><boxGeometry args={[wall.width / 100, wall.height / 100, wall.depth / 100]} /><meshStandardMaterial color={preset ? SCENE_INK.wallPreset : wall.outer ? SCENE_INK.wallOuter : SCENE_INK.wallInner} transparent opacity={preset ? 0.14 : wall.outer ? 0.22 : 0.38} roughness={1} depthWrite={false} /><Edges color={SCENE_INK.wallEdge} /></mesh>;
       })}
       {flat.windows.map((window) => {
         const wall = flat.walls.find((entry) => entry.id === window.wallId)!;
         const direction = wallDirection(wall);
         const [x, , z] = scenePositionCm(window.position, flat);
-        return <mesh key={window.id} name={window.id} position={[x, (window.sillHeight + window.height / 2) / 100, z]} rotation={[0, threeRotation(Math.atan2(direction.z, direction.x) * 180 / Math.PI), 0]}><boxGeometry args={[window.width / 100, window.height / 100, 0.025]} /><meshBasicMaterial color={preset ? "#67a9b4" : "#70a6b2"} transparent opacity={0.55} depthWrite={false} /><Edges color="#568c98" /></mesh>;
+        return <mesh key={window.id} name={window.id} position={[x, (window.sillHeight + window.height / 2) / 100, z]} rotation={[0, threeRotation(Math.atan2(direction.z, direction.x) * 180 / Math.PI), 0]}><boxGeometry args={[window.width / 100, window.height / 100, 0.025]} /><meshBasicMaterial color={SCENE_INK.window} transparent opacity={0.55} depthWrite={false} /><Edges color={SCENE_INK.windowEdge} /></mesh>;
       })}
       {flat.doors.map((door) => {
         const geometry = doorGeometry(door, flat);
         const hinge = scenePositionCm(geometry.hinge, flat);
         const angle = Math.atan2(geometry.normal.z, geometry.normal.x) * 180 / Math.PI;
         const height = door.height ?? 200;
-        return <group key={door.id} name={door.id}><FloorPolygon polygon={rectanglePolygon(geometry.zone)} flat={flat} color={RESERVED_COLOR} opacity={0.2} elevation={0.005} /><group position={hinge} rotation={[0, threeRotation(angle), 0]}><mesh position={[door.width / 200, height / 200, 0]}><boxGeometry args={[door.width / 100, height / 100, 0.02]} /><meshStandardMaterial color={preset ? "#a18738" : "#b5a273"} transparent opacity={0.3} depthWrite={false} /><Edges color="#a39060" /></mesh></group></group>;
+        return <group key={door.id} name={door.id}><FloorPolygon polygon={rectanglePolygon(geometry.zone)} flat={flat} color={RESERVED_COLOR} opacity={0.2} elevation={0.005} /><group position={hinge} rotation={[0, threeRotation(angle), 0]}><mesh position={[door.width / 200, height / 200, 0]}><boxGeometry args={[door.width / 100, height / 100, 0.02]} /><meshStandardMaterial color={SCENE_INK.door} transparent opacity={0.3} depthWrite={false} /><Edges color={SCENE_INK.doorEdge} /></mesh></group></group>;
       })}
     </group>
   );
@@ -138,14 +139,14 @@ export default function RoomScene({ flat, furniture, baseline, issues, selectedI
       <RoomShell flat={flat} />
       {baseline.map((item) => {
         const [x, , z] = scenePositionCm(item.position, flat);
-        return <mesh key={`baseline-${item.id}`} name={`baseline-${item.id}`} position={[x, 0.01, z]} rotation={[0, threeRotation(item.orientation), 0]}><boxGeometry args={[item.width / 100, 0.004, item.depth / 100]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /><Edges color="#53675b" transparent opacity={0.28} /></mesh>;
+        return <mesh key={`baseline-${item.id}`} name={`baseline-${item.id}`} position={[x, 0.01, z]} rotation={[0, threeRotation(item.orientation), 0]}><boxGeometry args={[item.width / 100, 0.004, item.depth / 100]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /><Edges color={SCENE_INK.ghost} transparent opacity={0.45} /></mesh>;
       })}
       {furniture.map((item) => <FurnitureModel key={item.id} item={item} flat={flat} selected={selectedId === item.id || focusedIds.includes(item.id)} colliding={colliding.has(item.id)} appearance={appearance} look={looks?.get(item.id)} onSelect={onSelect} />)}
       {highlights.map((highlight, index) => {
         const centre = polygonCentre(highlight.polygon);
         const [x, , z] = scenePositionCm(centre, flat);
         const nearCount = highlights.slice(0, index).filter((other) => Math.hypot(polygonCentre(other.polygon).x - centre.x, polygonCentre(other.polygon).z - centre.z) < 45).length;
-        return <group key={highlight.id}><FloorPolygon polygon={highlight.polygon} flat={flat} color="#e33e35" opacity={0.65} elevation={0.012 + index * 0.00005} />{highlight.value !== null && <Html position={[x, 0.05 + nearCount * 0.18, z]} center zIndexRange={[3, 0]} style={{ pointerEvents: "none" }}><span className="scene-issue-label">{formatCm(highlight.value, language)} {editorText(language, "editor.unit")}</span></Html>}</group>;
+        return <group key={highlight.id}><FloorPolygon polygon={highlight.polygon} flat={flat} color={SCENE_INK.highlight} opacity={0.65} elevation={0.012 + index * 0.00005} />{highlight.value !== null && <Html position={[x, 0.05 + nearCount * 0.18, z]} center zIndexRange={[3, 0]} style={{ pointerEvents: "none" }}><span className="scene-issue-label">{formatCm(highlight.value, language)} {editorText(language, "editor.unit")}</span></Html>}</group>;
       })}
       {issues.filter((issue) => issue.code === "height").map((issue) => {
         const item = furniture.find((entry) => entry.id === issue.itemId);

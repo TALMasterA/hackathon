@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch } from "react";
 import { AppWindow, ArrowLeftRight, ArrowRight, Check, DoorOpen, MousePointer2, PenLine, Redo2, ScanSearch, Square, Trash2, Undo2, X } from "lucide-react";
 import { formatCm } from "@/i18n/dictionary";
+import { ROOM_KIND_INKS, TRACE_INK } from "@/lib/theme";
 import { traceText, type TraceTranslationKey } from "@/i18n/trace";
 import { doorGeometry, openingEndpoints, wallPolygon } from "@/lib/geometry/architecture";
 import { pointInPolygon, polygonArea } from "@/lib/geometry/oriented";
@@ -21,12 +22,12 @@ import type { TraceAction, TraceState } from "./trace-state";
 
 type Mode = "select" | "box" | "shape" | "door" | "window";
 
-export const KIND_COLORS: Record<RoomKind, string> = { living: "#efd49b", bedroom: "#a9cde6", kitchen: "#efb9a9", bathroom: "#b5dcc6", other: "#d4cbe3" };
+export const KIND_COLORS: Record<RoomKind, string> = ROOM_KIND_INKS;
 const EDGE_STYLE: Record<EdgeStatus, { stroke: string; width: number; dash?: [number, number] }> = {
-  verified: { stroke: "#1f6b56", width: 2.5 },
-  manual: { stroke: "#202c29", width: 2.5 },
-  unverified: { stroke: "#c77d0a", width: 3.5, dash: [7, 5] },
-  open: { stroke: "#6f7f76", width: 2, dash: [2, 4] },
+  verified: { stroke: TRACE_INK.verified, width: 2.5 },
+  manual: { stroke: TRACE_INK.manual, width: 2.5 },
+  unverified: { stroke: TRACE_INK.unverified, width: 3.5, dash: [7, 5] },
+  open: { stroke: TRACE_INK.open, width: 2, dash: [2, 4] },
 };
 const HANDLE_PX = 7;
 const HIT_PX = 14;
@@ -425,7 +426,7 @@ export function ReviewStep({ state, dispatch, analysis, language }: ReviewStepPr
           <>
             {geometry.walls.map((wall) => {
               const selected = selection?.kind === "wall" && selection.id === wall.id;
-              return <polygon key={wall.id} points={pathOf(wallPolygon(wall))} fill={selected ? "#245f5099" : "#3e4a4466"} />;
+              return <polygon key={wall.id} points={pathOf(wallPolygon(wall))} fill={selected ? TRACE_INK.wallSelected : TRACE_INK.wall} fillOpacity={selected ? 0.6 : 0.4} />;
             })}
             {plan.rooms.map((room, roomIndex) => {
               const points = shownPoints(room);
@@ -439,32 +440,32 @@ export function ReviewStep({ state, dispatch, analysis, language }: ReviewStepPr
                     const dragged = (edgeDrag?.roomId === room.id && edgeDrag.index === edge.index) || (cornerDrag?.roomId === room.id && cornerDrag.moved && (edge.index === cornerDrag.index || (edge.index + 1) % points.length === cornerDrag.index));
                     const style = EDGE_STYLE[dragged ? "manual" : room.edges[edge.index]?.status ?? "manual"];
                     const lit = highlight?.roomId === room.id && highlight.index === edge.index;
-                    return <line key={edge.index} x1={edge.start.x} y1={edge.start.z} x2={edge.end.x} y2={edge.end.z} stroke={lit ? "#0f7ea6" : style.stroke} strokeWidth={(lit ? 6 : style.width) * unit} strokeDasharray={style.dash && !lit ? `${style.dash[0] * unit} ${style.dash[1] * unit}` : undefined} strokeLinecap="round" />;
+                    return <line key={edge.index} x1={edge.start.x} y1={edge.start.z} x2={edge.end.x} y2={edge.end.z} stroke={lit ? TRACE_INK.lit : style.stroke} strokeWidth={(lit ? 6 : style.width) * unit} strokeDasharray={style.dash && !lit ? `${style.dash[0] * unit} ${style.dash[1] * unit}` : undefined} strokeLinecap="round" />;
                   })}
                   <text x={label.x + 6 * unit} y={label.z + 16 * unit} fontSize={12 * unit} className="trace-room-label">{geometry.rooms[roomIndex].name[language]}</text>
                   <text x={label.x + 6 * unit} y={label.z + 31 * unit} fontSize={11 * unit} className="trace-room-size">{isBoxRoom({ points }) ? `${formatCm(bounds.maxX - bounds.minX, language)} × ${formatCm(bounds.maxZ - bounds.minZ, language)}` : `${formatCm(Math.round(polygonArea(points) / 1000) / 10, language)} m²`}</text>
                   {selected && roomEdges({ points }).map((edge) => {
                     const at = middle(edge.start, edge.end);
-                    return <rect key={`edge-${edge.index}`} x={at.x - HANDLE_PX * 0.8 * unit} y={at.z - HANDLE_PX * 0.8 * unit} width={HANDLE_PX * 1.6 * unit} height={HANDLE_PX * 1.6 * unit} fill="white" stroke="#245f50" strokeWidth={2 * unit} className="trace-handle" />;
+                    return <rect key={`edge-${edge.index}`} x={at.x - HANDLE_PX * 0.8 * unit} y={at.z - HANDLE_PX * 0.8 * unit} width={HANDLE_PX * 1.6 * unit} height={HANDLE_PX * 1.6 * unit} fill={TRACE_INK.handleFill} stroke={TRACE_INK.handle} strokeWidth={2 * unit} className="trace-handle" />;
                   })}
-                  {selected && points.map((point, index) => <circle key={`corner-${index}`} cx={point.x} cy={point.z} r={HANDLE_PX * unit} fill={selectedCorner === index ? "#245f50" : "white"} stroke="#245f50" strokeWidth={2 * unit} className="trace-handle" />)}
+                  {selected && points.map((point, index) => <circle key={`corner-${index}`} cx={point.x} cy={point.z} r={HANDLE_PX * unit} fill={selectedCorner === index ? TRACE_INK.handle : TRACE_INK.handleFill} stroke={TRACE_INK.handle} strokeWidth={2 * unit} className="trace-handle" />)}
                 </g>
               );
             })}
             {geometry.doors.map((door) => {
               const leaf = doorGeometry(door, pseudoFlat);
               const selected = selection?.kind === "door" && selection.id === door.id;
-              const color = selected ? "#245f50" : plan.doors.find((entry) => entry.id === door.id)?.flagged ? "#c77d0a" : "#8a6d1f";
+              const color = selected ? TRACE_INK.selection : plan.doors.find((entry) => entry.id === door.id)?.flagged ? TRACE_INK.doorFlagged : TRACE_INK.door;
               const wall = geometry.walls.find((entry) => entry.id === door.wallId)!;
               const ends = openingEndpoints(door, wall);
               return (
                 <g key={door.id}>
-                  <line x1={ends.start.x} y1={ends.start.z} x2={ends.end.x} y2={ends.end.z} stroke="#f7f4ec" strokeWidth={wall.thickness} />
+                  <line x1={ends.start.x} y1={ends.start.z} x2={ends.end.x} y2={ends.end.z} stroke={TRACE_INK.doorGap} strokeWidth={wall.thickness} />
                   <path d={`M ${leaf.closedEnd.x} ${leaf.closedEnd.z} A ${door.width} ${door.width} 0 0 ${leaf.sweep} ${leaf.openEnd.x} ${leaf.openEnd.z}`} fill="none" stroke={color} strokeWidth={1.5 * unit} strokeDasharray={`${4 * unit} ${3 * unit}`} />
                   <line x1={leaf.hinge.x} y1={leaf.hinge.z} x2={leaf.openEnd.x} y2={leaf.openEnd.z} stroke={color} strokeWidth={3 * unit} />
                   <circle cx={leaf.hinge.x} cy={leaf.hinge.z} r={3 * unit} fill={color} />
-                  {selected && [ends.start, ends.end].map((end, index) => <circle key={index} cx={end.x} cy={end.z} r={HANDLE_PX * unit} fill="white" stroke="#245f50" strokeWidth={2 * unit} className="trace-handle" />)}
-                  {selected && <circle cx={door.position.x} cy={door.position.z} r={5 * unit} fill="#245f50" />}
+                  {selected && [ends.start, ends.end].map((end, index) => <circle key={index} cx={end.x} cy={end.z} r={HANDLE_PX * unit} fill={TRACE_INK.handleFill} stroke={TRACE_INK.handle} strokeWidth={2 * unit} className="trace-handle" />)}
+                  {selected && <circle cx={door.position.x} cy={door.position.z} r={5 * unit} fill={TRACE_INK.handle} />}
                 </g>
               );
             })}
@@ -474,21 +475,21 @@ export function ReviewStep({ state, dispatch, analysis, language }: ReviewStepPr
               const selected = selection?.kind === "window" && selection.id === window.id;
               return (
                 <g key={window.id}>
-                  <line x1={ends.start.x} y1={ends.start.z} x2={ends.end.x} y2={ends.end.z} stroke={selected ? "#245f50" : "#2f86a0"} strokeWidth={6 * unit} strokeLinecap="round" />
-                  {selected && [ends.start, ends.end].map((end, index) => <circle key={index} cx={end.x} cy={end.z} r={HANDLE_PX * unit} fill="white" stroke="#245f50" strokeWidth={2 * unit} className="trace-handle" />)}
-                  {selected && <circle cx={window.position.x} cy={window.position.z} r={5 * unit} fill="#245f50" />}
+                  <line x1={ends.start.x} y1={ends.start.z} x2={ends.end.x} y2={ends.end.z} stroke={selected ? TRACE_INK.selection : TRACE_INK.window} strokeWidth={6 * unit} strokeLinecap="round" />
+                  {selected && [ends.start, ends.end].map((end, index) => <circle key={index} cx={end.x} cy={end.z} r={HANDLE_PX * unit} fill={TRACE_INK.handleFill} stroke={TRACE_INK.handle} strokeWidth={2 * unit} className="trace-handle" />)}
+                  {selected && <circle cx={window.position.x} cy={window.position.z} r={5 * unit} fill={TRACE_INK.handle} />}
                 </g>
               );
             })}
             {geometry.problems.map((problem) => {
               const entry = plan.doors.find((door) => door.id === problem.id) ?? plan.windows.find((window) => window.id === problem.id);
-              return entry && <circle key={problem.id} cx={entry.at.x} cy={entry.at.z} r={7 * unit} fill="#de393599" stroke="#aa352d" strokeWidth={2 * unit} />;
+              return entry && <circle key={problem.id} cx={entry.at.x} cy={entry.at.z} r={7 * unit} fill={TRACE_INK.problem} fillOpacity={0.6} stroke={TRACE_INK.problemRule} strokeWidth={2 * unit} />;
             })}
-            {box && <rect x={Math.min(box.from.x, box.to.x)} y={Math.min(box.from.z, box.to.z)} width={Math.abs(box.to.x - box.from.x)} height={Math.abs(box.to.z - box.from.z)} fill="#245f5022" stroke="#245f50" strokeWidth={2 * unit} strokeDasharray={`${6 * unit} ${4 * unit}`} />}
+            {box && <rect x={Math.min(box.from.x, box.to.x)} y={Math.min(box.from.z, box.to.z)} width={Math.abs(box.to.x - box.from.x)} height={Math.abs(box.to.z - box.from.z)} fill={TRACE_INK.selection} fillOpacity={0.13} stroke={TRACE_INK.selection} strokeWidth={2 * unit} strokeDasharray={`${6 * unit} ${4 * unit}`} />}
             {shape && (
               <g pointerEvents="none">
-                <polyline points={pathOf(hover ? [...shape, hover.point] : shape)} fill={hover?.snap === "close" ? "#245f5022" : "none"} stroke="#245f50" strokeWidth={2.5 * unit} strokeLinejoin="round" />
-                {shape.map((point, index) => <circle key={index} cx={point.x} cy={point.z} r={(index === 0 ? HANDLE_PX : 4) * unit} fill={index === 0 ? "white" : "#245f50"} stroke="#245f50" strokeWidth={2 * unit} />)}
+                <polyline points={pathOf(hover ? [...shape, hover.point] : shape)} fill={hover?.snap === "close" ? TRACE_INK.selection : "none"} fillOpacity={0.13} stroke={TRACE_INK.selection} strokeWidth={2.5 * unit} strokeLinejoin="round" />
+                {shape.map((point, index) => <circle key={index} cx={point.x} cy={point.z} r={(index === 0 ? HANDLE_PX : 4) * unit} fill={index === 0 ? TRACE_INK.handleFill : TRACE_INK.handle} stroke={TRACE_INK.handle} strokeWidth={2 * unit} />)}
                 {hover && shape.length > 0 && (() => {
                   const last = shape.at(-1)!;
                   const at = middle(last, hover.point);
@@ -500,8 +501,8 @@ export function ReviewStep({ state, dispatch, analysis, language }: ReviewStepPr
               const span = openingSpan(opening.hit.edge, opening.from, opening.to);
               return (
                 <g pointerEvents="none">
-                  <line x1={span.start.x} y1={span.start.z} x2={span.end.x} y2={span.end.z} stroke={opening.kind === "door" ? "#8a6d1f" : "#2f86a0"} strokeWidth={7 * unit} strokeLinecap="round" />
-                  <circle cx={span.start.x} cy={span.start.z} r={5 * unit} fill="#245f50" />
+                  <line x1={span.start.x} y1={span.start.z} x2={span.end.x} y2={span.end.z} stroke={opening.kind === "door" ? TRACE_INK.door : TRACE_INK.window} strokeWidth={7 * unit} strokeLinecap="round" />
+                  <circle cx={span.start.x} cy={span.start.z} r={5 * unit} fill={TRACE_INK.handle} />
                   <text x={span.at.x + 10 * unit} y={span.at.z - 10 * unit} fontSize={12 * unit} strokeWidth={3 * unit} className="trace-measure">{formatCm(span.width, language)} {t("trace.cm")}</text>
                 </g>
               );
@@ -512,7 +513,7 @@ export function ReviewStep({ state, dispatch, analysis, language }: ReviewStepPr
               const at = middle(start, end);
               return (
                 <g pointerEvents="none">
-                  <line x1={start.x} y1={start.z} x2={end.x} y2={end.z} stroke="#245f50" strokeWidth={7 * unit} strokeLinecap="round" strokeOpacity={0.7} />
+                  <line x1={start.x} y1={start.z} x2={end.x} y2={end.z} stroke={TRACE_INK.selection} strokeWidth={7 * unit} strokeLinecap="round" strokeOpacity={0.7} />
                   <text x={at.x + 10 * unit} y={at.z - 10 * unit} fontSize={12 * unit} strokeWidth={3 * unit} className="trace-measure">{formatCm(Math.round(Math.abs(to - from) * 2) / 2, language)} {t("trace.cm")}</text>
                 </g>
               );

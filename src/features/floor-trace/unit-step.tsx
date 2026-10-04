@@ -4,6 +4,7 @@ import { useState, type Dispatch } from "react";
 import { LoaderCircle, PencilRuler, Sparkles } from "lucide-react";
 import { traceText, type TraceTranslationKey } from "@/i18n/trace";
 import { formatCm } from "@/i18n/dictionary";
+import { TRACE_INK } from "@/lib/theme";
 import type { Box } from "@/lib/geometry/architecture";
 import { flatTypeIn } from "@/lib/floorplan/labels";
 import { FLAT_TYPES, isFlatType } from "@/lib/floorplan/trace";
@@ -71,7 +72,7 @@ export function UnitStep({ state, dispatch, source, overview, language, preparin
   return (
     <div className="trace-body">
       <PlanView width={source.width} height={source.height} image={overview} label={t("trace.plan")} zoomInLabel={t("trace.zoomIn")} zoomOutLabel={t("trace.zoomOut")} fitLabel={t("trace.fit")} hint={t("trace.panHint")} tool={tool}>
-        {(unitSize) => box && <rect x={box.minX} y={box.minZ} width={box.maxX - box.minX} height={box.maxZ - box.minZ} fill="#245f5022" stroke="#245f50" strokeWidth={2 * unitSize} strokeDasharray={drag ? `${6 * unitSize} ${4 * unitSize}` : undefined} />}
+        {(unitSize) => box && <rect x={box.minX} y={box.minZ} width={box.maxX - box.minX} height={box.maxZ - box.minZ} fill={TRACE_INK.selection} fillOpacity={0.13} stroke={TRACE_INK.selection} strokeWidth={2 * unitSize} strokeDasharray={drag ? `${6 * unitSize} ${4 * unitSize}` : undefined} />}
       </PlanView>
       <aside className="trace-panel" aria-labelledby="trace-unit-title">
         <h2 id="trace-unit-title">{t("unit.title")}</h2>

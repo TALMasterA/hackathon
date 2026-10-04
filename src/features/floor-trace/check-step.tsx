@@ -3,6 +3,7 @@
 import { useMemo, type Dispatch } from "react";
 import { ArrowLeft, Check, CircleAlert, TriangleAlert } from "lucide-react";
 import { formatCm } from "@/i18n/dictionary";
+import { TRACE_INK } from "@/lib/theme";
 import { traceText, type TraceTranslationKey } from "@/i18n/trace";
 import { doorGeometry, wallParts } from "@/lib/geometry/architecture";
 import { polygonBounds, rectanglePolygon } from "@/lib/geometry/oriented";
@@ -36,10 +37,10 @@ function FlatPreview({ rooms, walls, doors, label, language }: Pick<Flat, "rooms
   return (
     <svg className="trace-preview" viewBox={`${minX - 20} ${minZ - 20} ${width + 40} ${depth + 40}`} role="img" aria-label={label}>
       {shapes.map(({ room, polygon }) => <polygon key={room.id} points={points(polygon)} fill={KIND_COLORS[room.kind ?? "other"]} fillOpacity={0.6} />)}
-      {parts.map((part) => <polygon key={part.id} points={points(rectanglePolygon(part))} fill="#4f5a54" />)}
+      {parts.map((part) => <polygon key={part.id} points={points(rectanglePolygon(part))} fill={TRACE_INK.wall} />)}
       {doors.map((door) => {
         const shape = doorGeometry(door, { walls, rooms });
-        return <path key={door.id} d={`M ${shape.closedEnd.x} ${shape.closedEnd.z} A ${door.width} ${door.width} 0 0 ${shape.sweep} ${shape.openEnd.x} ${shape.openEnd.z} L ${shape.hinge.x} ${shape.hinge.z}`} fill="none" stroke="#8a6d1f" strokeWidth={1.5 * unit} />;
+        return <path key={door.id} d={`M ${shape.closedEnd.x} ${shape.closedEnd.z} A ${door.width} ${door.width} 0 0 ${shape.sweep} ${shape.openEnd.x} ${shape.openEnd.z} L ${shape.hinge.x} ${shape.hinge.z}`} fill="none" stroke={TRACE_INK.door} strokeWidth={1.5 * unit} />;
       })}
       {shapes.map(({ room, polygon }) => <text key={`label-${room.id}`} x={(room.outline ? interiorPoint(polygon) : room.position).x} y={(room.outline ? interiorPoint(polygon) : room.position).z} textAnchor="middle" dominantBaseline="middle" fontSize={13 * unit} className="trace-room-label">{room.name[language]}</text>)}
     </svg>

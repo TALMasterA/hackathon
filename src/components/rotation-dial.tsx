@@ -5,6 +5,7 @@ import { RotateCcw } from "lucide-react";
 import { formatCm } from "@/i18n/dictionary";
 import { editorText } from "@/i18n/editor";
 import { normalizeAngle, rotationFromPoint } from "@/lib/geometry/oriented";
+import { INK } from "@/lib/theme";
 import type { Language } from "@/types/domain";
 
 export function RotationDial({ angle, language, disabled, onRotate, onGestureStart, onGestureEnd }: { angle: number; language: Language; disabled: boolean; onRotate: (angle: number) => void; onGestureStart?: () => void; onGestureEnd?: () => void }) {
@@ -34,7 +35,7 @@ export function RotationDial({ angle, language, disabled, onRotate, onGestureSta
         const direction = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 0;
         if (direction || event.key === "Home" || event.key === "End") { event.preventDefault(); onRotate(event.key === "Home" ? 0 : event.key === "End" ? 359 : normalizeAngle(angle + direction * amount)); }
       }}>
-        <svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="37" fill="#f1f5f0" stroke="#b2c5b9" strokeWidth="2" /><line x1="50" y1="50" x2={50 + 31 * Math.cos(radians)} y2={50 + 31 * Math.sin(radians)} stroke="#245f50" strokeWidth="3" /><circle cx={50 + 37 * Math.cos(radians)} cy={50 + 37 * Math.sin(radians)} r="6" fill="#245f50" /><text x="50" y="54" textAnchor="middle">{formatCm(Number(angle.toFixed(1)), language)}°</text></svg>
+        <svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="37" fill={INK.paper} stroke={INK.black} strokeWidth="1" /><circle cx="50" cy="50" r="33" fill="none" stroke={INK.rule} strokeWidth="1" /><line x1="50" y1="50" x2={50 + 31 * Math.cos(radians)} y2={50 + 31 * Math.sin(radians)} stroke={INK.ultramarine} strokeWidth="2.5" /><circle cx={50 + 37 * Math.cos(radians)} cy={50 + 37 * Math.sin(radians)} r="5.5" fill={INK.ultramarine} /><text x="50" y="54" textAnchor="middle">{formatCm(Number(angle.toFixed(1)), language)}°</text></svg>
       </div>
       <button type="button" className="icon-button" disabled={disabled} aria-label={editorText(language, "editor.resetAngle")} title={editorText(language, "editor.resetAngle")} data-tooltip={editorText(language, "editor.resetAngle")} onClick={() => onRotate(0)}><RotateCcw size={18} aria-hidden="true" /></button>
     </div>
