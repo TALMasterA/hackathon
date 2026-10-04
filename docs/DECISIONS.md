@@ -1,7 +1,5 @@
 # Decisions
 
-This is a chronological decision log. Later sections may describe earlier implementations that have since been superseded. The current behavior is summarized in README and ARCHITECTURE. Completed working briefs named below are archived in Git history at `a2b93ae`, not current root files.
-
 ## Design Assistant / 設計協作助手 (2026-10-03)
 
 Built from `hackathon-4-designer-feedback-prompt.md` and its approved plan. Smallest reasonable choices where the brief left room; flagged for team review.
@@ -20,7 +18,7 @@ Built from `hackathon-4-designer-feedback-prompt.md` and its approved plan. Smal
 - **One undo step.** Applying uses a new `apply-layout` editor action that changes only position and orientation, refuses another layout revision and any lock violation, and is one history entry; undo reuses the editor's undo, allowed from the assistant only when nothing changed after applying.
 - **Revision.** `layoutRevision` hashes the flat id, ceiling, every item's id, kind, size and pose (0.01 cm) and all locks, so any edit, lock change, reset or plan switch makes a session stale.
 - **Editing during a preview** is paused (plan drag, fields, library, locks, ceiling, Set baseline, toolbar and keyboard undo/redo) instead of isolating edits on the draft.
-- **Process.** The brief asked for no commit; the team's session instruction asked for a commit on a new branch `designer-feedback` and a push of that branch. That was done without touching main in that session; it was later merged to main in `a2b93ae` on 2026-10-04. Nothing was deployed by that session. The original brief remains in Git history after root-file cleanup.
+- **Process.** The brief asked for no commit; the team's session instruction asked for a commit on a new branch `designer-feedback` and a push of that branch. That was done; main was not touched and nothing was deployed. The brief itself was added to the repository root like the earlier prompts.
 
 ## Read My Floor Plan: Rooms of Any Shape, Dragged Doors and Windows (2026-10-04)
 
@@ -48,8 +46,8 @@ The two sections below were built in parallel from the same base: the selectable
 - **`EditorState.flat` is the flat.** Each session carries its flat rather than a scenario id, so all three kinds share one reducer. The first room is selected by `defaultRoomId` (first living room, else first room), which gives "living" on the demo and "central" on Harmony, so the scenario list no longer stores it.
 - **Outline beats voids.** A flat with a traced `outline` (Harmony) is checked against that polygon only; `flatVoids` returns nothing for it. The bounding-box voids would otherwise flag Harmony's 45-degree bay as outside and double-report its notch.
 - **Fixed examples by id and source.** The demo and Harmony offer the team's fixed placements; any other flat gets per-room-kind suggestions. A flat counts as built-in only when both its id and `dimensionSource` match, so a traced flat reusing a built-in id is still treated as traced.
-- **No download on Harmony.** Download this flat remains disabled for the built-in PDF-derived source (`flat.source`). Version 2 files now support traced outlines and angled walls; the restriction is not a format limitation.
-- **3D.** The built-in PDF-derived source uses the orthographic camera; traced flats, including those with outlines, use the perspective camera scaled by their size.
+- **No download on Harmony.** A flat file holds straight-walled flats with no outline (version 1), so Download this flat is disabled there; Harmony is built in anyway.
+- **3D.** Outline flats use the orthographic camera; every other flat uses the perspective camera scaled by its size.
 
 ## Revision 4 Milestone 3: Read My Floor Plan (2026-10-04)
 
@@ -130,7 +128,7 @@ Milestone 3 of `hackathon-4-fixing-prompt.md` asked for a hand trace of a floor-
 - Heights are assumptions: walls 260 cm, doors 205 cm, sill 90 cm, window 120 cm, floor 10 cm. Source-derived architecture is visibly approximate and incomplete in both languages; checks cover only represented geometry. User-entered furniture measurements still require independent verification.
 - Independent in-memory `EditorState` per plan preserves current/baseline snapshots, ceiling, counters, locks, selection, drafts, comparison and 100-entry histories. Switching is not a document edit; an active gesture is closed before switching. Reset/undo affect only the active plan. Language is global. Focus and inspector/view/template choices are cached; incoming cameras may refit. No disk/server persistence or permanently duplicated scenario GPU scenes.
 - Optional look storage and job targets are keyed by scenario plus item ID. The panel stays mounted across switching, so a pending job is not cancelled or attached to another plan's identically named item. Existing consent/cache/privacy behavior is retained. No live fal request was made.
-- Historical merge check: older generated types still referenced removed model3d status/file handlers; a production build regenerated them. The current single POST streams progress and the GLB, so separate handlers are not required. No API/backend change was made by the selectable-plans session, and its checks did not certify live photo completion or a GLB-upload control.
+- Existing checkout limitation: only the model3d POST route is present; status/file handlers referenced by older generated route types are absent. No API/backend changes were authorized or made. Regenerating Next types through the production build resolved the stale typecheck failures; live photo completion and historical GLB-upload claims remain unverified, not newly certified functionality.
 - No dependencies, commits, pushes or deployments. Verification and remaining manual checks are recorded in TEST_PLAN.
 
 ## Revision 3 UI Polish (2026-10-03)
@@ -189,12 +187,12 @@ The Revision 4 fixing prompt replaces the box look with furniture models (milest
 - **Status mapping.** `IN_QUEUE` to queued, `IN_PROGRESS` to running, `COMPLETED` to done unless fal reports an error, anything else failed; a 4xx from fal is failed and other upstream errors are `upstream`.
 - **Client job.** Reads the stream, shows the phase, elapsed seconds and Cancel, and stops at 180 s from Confirm with a timeout message. Cancel closes the response, which cancels a job still queued at fal; a job already running may still finish and is not fetched. One job runs at a time; it stays tied to the item it was started for even if the selection changes.
 - **Session cache.** Finished GLBs are cached in memory by the SHA-256 of the resized photo for the session; choosing the same photo again reuses the model without sending anything. Where Web Crypto is unavailable (plain-HTTP LAN addresses), nothing is cached.
-- **Looks state.** A `useLooks` hook outside the editor reducer holds looks keyed by plan scope plus item ID, `Look = { object, quarterTurns, name, kind }`. Looks are not undo history and are not persisted. They are kept when an item is deleted or on Reset Demo, so undo brings the item back with its look, and are cleared by an accepted library replacement (a lock-rejected replacement keeps the look), Remove look, or replacement of the own-flat session. A look renders only for matching items in the active displayed snapshot, including the baseline in Before.
+- **Looks state.** A `useLooks` hook outside the editor reducer holds `Map<itemId, Look>`, `Look = { object, quarterTurns, name, kind }`. Looks are not undo history and are not persisted. They are kept when an item is deleted or on Reset Demo, so undo brings the item back with its look, and are cleared only by an accepted library replacement (a lock-rejected replacement keeps the look) or Remove look. A look renders only for items that currently exist in the displayed snapshot, including the baseline in Before.
 - **Kind guard (added).** `Look` also records the item kind it was made for, and renders only while the item still has that kind. Undo restores the item-ID counter, so an undone library item's ID can be reused by a new item; without the guard, for example, a new wardrobe could inherit an undone sofa's look. Suggested items keep stable IDs, so re-adding the suggested sofa after Reset Demo shows its earlier look again.
 - **Starting turn (added).** The one real TRELLIS model faced +X with its long side along Z, so with no turn a sofa look would have appeared sideways and stretched across the wrong axes. A new look therefore starts at one quarter turn when its longer horizontal side clearly (by at least 1.2x) lies across the item's longer side, and at none otherwise. For that sofa, one turn also put its front toward FitIn's front. Front versus back cannot be inferred, so Turn 90 degrees remains the fix.
 - **Turn 90 degrees** turns the look a quarter turn clockwise in the plan, matching item angles. A turned look is stretched to the same box, so its proportions change.
 - **GLB loading.** The returned binary glTF is parsed with Three.js' `GLTFLoader` on demand, without Draco or Meshopt. A loading manager blocks every non-`data:`/`blob:` URL, so a model referencing external files fails instead of fetching them. A model with no geometry is rejected. (The first version also let users upload their own `.glb`; that button was later removed.)
-- **Materials.** `parseGlb` applies `matteLookMaterials` so generated looks are lit and their photo colours remain visible. Removed or replaced look resources are disposed by `useLooks`; no geometry check depends on their materials.
+- **Materials.** Look materials are kept as authored (no unlit-to-lit conversion). A look's GPU resources are disposed about one second after it is removed or replaced.
 - **Failures** keep the kind model or box: the panel shows a bilingual message plus "The item keeps its current look", and a look that throws while rendering falls back to the kind model through an error boundary.
 - **Panel placement.** "3D look (optional)" sits under the selected-item panel. It is visible in Before but its actions are disabled there, matching the read-only baseline. The preview canvas shows the look inside the item's W x D x H outline from the item's front and can be orbited, but not zoomed.
 

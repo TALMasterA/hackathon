@@ -10,11 +10,9 @@ Work on the existing main branch, commit coherent checked milestones, fetch befo
 
 ## Revision Log
 
-The three completed Revision 3, Revision 4 and designer-feedback working briefs were removed from the repository root during submission cleanup. Their original contents remain in Git history at `a2b93ae`; filenames below identify archived instructions, not current files. No source, tests, assets or licences were removed.
-
 | Revision | Team instruction | Scope / status |
 | --- | --- | --- |
-| Designer feedback (2026-10-03) | Archived hackathon-4-designer-feedback-prompt.md and its approved plan | Design assistant / 設計協作助手: rule-based interpretation, bounded heuristic proposals, isolated preview, rejection rounds, apply/undo, stale detection; development Skill at `.github/skills/fitin-layout-design/`; docs in DESIGN_ASSISTANT.md. Initially committed and pushed on `designer-feedback`; subsequently merged to main in `a2b93ae` on 2026-10-04. No deployment was performed by that session. Verification record in TEST_PLAN. |
+| Designer feedback (2026-10-03) | hackathon-4-designer-feedback-prompt.md and its approved plan | Design assistant / 設計協作助手: rule-based interpretation, bounded heuristic proposals, isolated preview, rejection rounds, apply/undo, stale detection; development Skill at `.github/skills/fitin-layout-design/`; docs in DESIGN_ASSISTANT.md. The brief said not to commit; the team's session instruction overrode that: committed on the new branch `designer-feedback` and pushed there only (not merged to main, not deployed). Verification record in TEST_PLAN. |
 | 3 UI polish (2026-10-03) | hackathon-3-ui-polish-prompt.md | Incremental shell, aligned views, tabbed inspector, truthful bilingual status/examples and lock deletion/history coverage; no commit/push/deployment requested or performed. Verification record in TEST_PLAN. |
 | 1 | First-version implementation prompt | Single-room fixed-centre sofa checker, delivered in commit 038ba1a |
 | 2 | hackathon-2-fixing-prompt.md | Whole-flat arbitrary-angle editor, live issues, generic locks/bounce, library and immediate baseline comparison; all feature milestones implemented |
