@@ -1,5 +1,18 @@
 # Test Plan (Revision 4, milestone 3)
 
+## Submission Cleanup Verification (2026-10-04)
+
+- Aligned the dev-only `eslint-config-next` package to 16.3.8, retaining ESLint 9.39.5 and Next.js 16.3.8. Lint, strict typecheck, all 463 tests in 38 files, and one final production build passed after cleanup.
+- No runtime source, assets or existing runtime lockfile entries changed. Only lint tooling, documentation and three archived working briefs were changed; original briefs remain in Git history at `a2b93ae`.
+- Local Markdown links passed validation. npm reported five high-severity audit findings; no forced audit fix or runtime dependency upgrade was attempted in this behavior-preserving cleanup.
+- No deployment, commit, push, physical-phone check or paid AI request was performed. Earlier browser observations below remain limited evidence, not a fresh certification of all UI paths.
+
+## Current Transport And Evidence Scope
+
+The AI look now uses one `POST /api/model3d` NDJSON stream for phases and the finished GLB. The browser reads the stream; only the server polls fal.ai. Earlier separate status/file routes and 4-second browser polling appear below as historical records, not current architecture or a live verification of the streaming transport. No paid AI call was made during submission-readiness review.
+
+The 2026-10-04 production smoke exercised demo examples, Before/After, a height warning, Undo, position-lock-disabled fields, and a Traditional Chinese mobile layout with no horizontal overflow. The mobile WebGL context was live but its sampled pixels were empty; this does not certify mobile scene rendering. Public deployment, physical phones and household/manual-method comparisons remain unverified.
+
 ## Cheap Verification Policy
 
 Run `npm run typecheck` and `npm run test:run` after meaningful changes, `npm run lint` before each commit, and `npm run build` only before milestone pushes. A check is limited to roughly three minutes; a stalled check is stopped and recorded as unverified before continuing. Browser automation is not the default. Reserve one final smoke per milestone with no more than five browser calls, no polling/screenshot loops and no repeated failing action beyond twice.
@@ -126,7 +139,7 @@ Additional state cases cover incomplete drafts, readonly Before, shared ceiling 
 - Design assistant (see DESIGN_ASSISTANT.md, Manual Acceptance Checklist A-I): on a physical phone and a laptop, both languages, the full demo; the stale banner after dragging an item, adding a lock, Reset Demo or switching plans during a session, and Restart from the latest layout with carried needs; Cancel during a search; keep-in-place over several rejections; the "no suitable proposal" variant with the sofa kept; proposals on Harmony and on a traced flat with shaped rooms (rotated or polygon rooms, hinge-defined doors); every chip and conflict choice; the toolbar Undo/Redo after applying; the item list, Selected item tab and issues while previewing; keyboard and screen-reader use of chips, tabs and the preview banner; whether households understand the reasons, trade-offs and "not checked" lists.
 
 - Selectable plans: complete source/PDF overlay review, unresolved bay-wall/service/vent/window mapping, real dimensions/height confirmation, and editing-zone/label readability at extreme zoom. Harmony remains an approximate partial reference, not an accurate building model. Every real door/window clearance and physical-phone gesture remains unverified.
-- Both plans: real product-photo consent/job/preview/replace/delete/undo across scenario switching; no live fal request was made. The current checkout lacks model3d status/download routes, so successful photo completion requires separate backend review; those routes were not changed. Historical GLB-upload documentation does not certify a current upload control.
+- Both plans: real product-photo consent/job/preview/replace/delete/undo across scenario switching; no live fal request was made in those browser checks. Verify successful photo completion through the current single streaming POST on the target host, including host timeout limits. Separate status/download routes are not required. Historical GLB-upload documentation does not certify a current upload control.
 - Revision 3 UI polish: physical-phone drag/pinch/dial and virtual-keyboard behavior; same-item drag/rotation/dimension edits must not switch inspector tabs or reset its scroll; every add/replace/delete and Before/After/baseline/reset workflow; remaining distance locks must keep enforcing their thresholds after another lock is removed; issue-click selection; optional look consent/progress/preview across hidden tabs and empty Before; keyboard tabs, skip link and screen-reader announcements; narrow laptop/tablet and 320 px layouts; browser zoom and formal AA contrast review.
 - Mobile 3D rendering after hiding/restoring/resizing needs manual confirmation. The bounded smoke observed a live WebGL context and a resized 326 x 358 backing buffer, but its mobile pixel sample was zero and its first canvas-width measurement preceded the renderer's resize. This is not evidence of successful mobile scene rendering. Desktop rendering was nonblank. The final empty-floor pan and look-panel lifetime preservation adjustments were typechecked and scoped-test checked, not browser-retested.
 

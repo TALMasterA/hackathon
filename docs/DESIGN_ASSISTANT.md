@@ -1,6 +1,6 @@
 # Design Assistant / 設計協作助手 (Designer Feedback Loop)
 
-Brief: `hackathon-4-designer-feedback-prompt.md`. Branch: `designer-feedback`.
+Brief: `hackathon-4-designer-feedback-prompt.md`, archived in Git history at `a2b93ae`. Initially delivered on `designer-feedback`, then merged to main in that commit on 2026-10-04.
 
 ## Purpose
 
