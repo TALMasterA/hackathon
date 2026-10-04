@@ -206,14 +206,14 @@ All room/wall/opening/window/item dimensions and centres are recorded in [docs/F
 
 Preset label:
 
-- English: **Concord 1 Option 1 — 2B reference scenario (simplified demo dimensions)**
-- Traditional Chinese: **康和一型第一款 — 2B 參考情境（簡化示範尺寸）**
+- English: **Harmony 1 Option 4**
+- Traditional Chinese: **和諧一型方案四**
 
 [Hong Kong Housing Authority standard-block typical floor plans](https://www.housingauthority.gov.hk/tc/global-elements/estate-locator/standard-block-typical-floor-plans/index.html)
 
-[Concord 1 official PDF](https://www.housingauthority.gov.hk/common/pdf/global-elements/estate-locator/standard-block-typical-floor-plans/01-Concord1.pdf)
+[Harmony 1 official PDF](https://www.housingauthority.gov.hk/common/pdf/global-elements/estate-locator/standard-block-typical-floor-plans/02-Harmony1.pdf)
 
-Concord 1 Option 1, 2B is a scenario reference only for the demo flat, which is a simplified approximation, not an exact reconstruction; no measurements were extracted for it. Housing Authority PDFs are typical full-floor plans with a metric scale bar but no dimension lines, so a flat can be measured from them approximately with **Read my floor plan**; individual flats and finishes may differ from the typical floor. No Housing Authority PDF is bundled or redistributed; the only derived picture in the repository is the isolated Harmony SVG reference under `public/plans/`. **Verify the dimensions of your own flat before making a purchase decision.**
+The selectable Harmony preset is an approximate, incomplete trace of page 4 of the official Harmony 1 plan; it is not a measured or certified reconstruction. The separate Current demo remains a simplified assumption inspired by Concord 1 Option 1, with no measurements extracted from its PDF. Housing Authority PDFs are typical full-floor plans with a metric scale bar but no dimension lines, so a flat can be measured approximately with **Read my floor plan**; individual flats and finishes may differ from the typical floor. No Housing Authority PDF is bundled or redistributed; the only derived picture in the repository is the isolated Harmony SVG reference under `public/plans/`. **Verify the dimensions of your own flat before making a purchase decision.**
 
 ## Testing
 
