@@ -4,9 +4,11 @@ import { containingRoom } from "../../lib/geometry/architecture";
 import { furnitureDraft, validateFurnitureDraft } from "../../lib/geometry/edit";
 import { validateInput } from "../../lib/geometry/input";
 import { normalizeAngle } from "../../lib/geometry/oriented";
-import { proposeItemEdit, validateDistanceLock, type LockSetupIssue } from "../../lib/geometry/locks";
-import type { EditorInputIssue, Flat, FlatFurniture, FurnitureDraft, Language, LayoutLocks, LayoutSnapshot, LockViolation, SuggestionReport } from "../../types/domain";
+import { distanceLockViolations, proposeItemEdit, validateDistanceLock, type LockSetupIssue } from "../../lib/geometry/locks";
+import { GEOMETRY_EPSILON_CM } from "../../lib/geometry/footprint";
+import type { EditorInputIssue, Flat, FlatFurniture, FurnitureDraft, Language, LayoutLocks, LayoutSnapshot, LockViolation, Position2D, SuggestionReport } from "../../types/domain";
 import { placeLibraryItem, suggestFurniture } from "./layout";
+import { layoutRevision } from "./revision";
 
 export type LayoutView = "before" | "after";
 
@@ -63,6 +65,13 @@ export function createEditorState(flat: Flat = DEMO_FLAT): EditorState {
   return { flat, current, baseline: copySnapshot(current), locks: { position: [], distance: [] }, selectedId: null, selectedRoomId: defaultRoomId(flat), focusedIds: [], language: "en", view: "after", draft: null, inputIssues: [], ceilingInput: String(flat.height), ceilingIssue: null, lockNotice: [], lockNoticeContext: "edit", lockSetupIssue: null, nextLockNumber: 1, nextItemNumber: 1, libraryFullRoomId: null, suggestionReport: null, cameraRevision: 0, past: [], future: [], gesture: null, coalesceKey: null };
 }
 
+/** A new pose for one existing item, as an accepted design-assistant proposal applies it. */
+export interface ItemTransform {
+  id: string;
+  position: Position2D;
+  orientation: number;
+}
+
 export type EditorAction =
   | { type: "select"; id: string; focusedIds?: string[] }
   | { type: "room"; id: string }
@@ -78,6 +87,7 @@ export type EditorAction =
   | { type: "replace-item"; templateId: string }
   | { type: "delete-item"; id: string }
   | { type: "suggest"; roomId: string | "all" }
+  | { type: "apply-layout"; transforms: readonly ItemTransform[]; expectedRevision: string }
   | { type: "baseline" }
   | { type: "view"; view: LayoutView }
   | { type: "reset" }
@@ -239,6 +249,8 @@ function applyEdit(state: EditorState, action: EditAction): EditorState {
       const suggestionReport: SuggestionReport = { roomId: action.roomId, added: result.added.map((item) => item.id), skipped: result.skipped.map(({ item, reason }) => ({ id: item.id, name: item.name, reason })) };
       return { ...state, current: result.added.length > 0 ? { ...state.current, furniture: [...state.current.furniture, ...result.added] } : state.current, suggestionReport, libraryFullRoomId: null, lockNotice: [] };
     }
+    case "apply-layout":
+      return applyLayout(state, action.transforms, action.expectedRevision);
     case "baseline":
       return state.view === "before" || state.inputIssues.length > 0 || state.ceilingIssue ? state : { ...state, baseline: copySnapshot(state.current), lockNotice: [] };
     case "view": {
@@ -249,6 +261,32 @@ function applyEdit(state: EditorState, action: EditAction): EditorState {
     case "reset":
       return { ...createEditorState(state.flat), language: state.language, cameraRevision: state.cameraRevision + 1, past: state.past, future: state.future };
   }
+}
+
+/**
+ * Moves and turns several existing items in one step (one undo entry). Nothing happens unless the
+ * layout is still the version the transforms were made for; a position or distance lock the new poses
+ * would break refuses the whole step, as for any edit. Only position and rotation change: ids, sizes,
+ * names, kinds and rooms stay as they are.
+ */
+function applyLayout(state: EditorState, transforms: readonly ItemTransform[], expectedRevision: string): EditorState {
+  if (state.view === "before" || transforms.length === 0 || layoutRevision(state.flat.id, state.current, state.locks) !== expectedRevision) return state;
+  const byId = new Map(transforms.map((transform) => [transform.id, transform]));
+  if (byId.size !== transforms.length || transforms.some((transform) => !state.current.furniture.some((item) => item.id === transform.id) || ![transform.position.x, transform.position.z, transform.orientation].every(Number.isFinite))) return state;
+  const furniture = state.current.furniture.map((item) => {
+    const transform = byId.get(item.id);
+    return transform ? { ...item, position: { x: transform.position.x, z: transform.position.z }, orientation: normalizeAngle(transform.orientation) } : item;
+  });
+  const violations: LockViolation[] = [];
+  for (const [index, item] of furniture.entries()) {
+    const previous = state.current.furniture[index];
+    const displacement = Math.hypot(item.position.x - previous.position.x, item.position.z - previous.position.z);
+    if (state.locks.position.includes(item.id) && displacement > GEOMETRY_EPSILON_CM) violations.push({ code: "lock.position", lockId: `position-${item.id}`, itemId: item.id, displacement });
+  }
+  violations.push(...distanceLockViolations(furniture, state.locks.distance.filter((lock) => byId.has(lock.firstId) || byId.has(lock.secondId))));
+  if (violations.length > 0) return { ...state, lockNotice: violations, lockNoticeContext: "edit" };
+  const selected = furniture.find((item) => item.id === state.selectedId);
+  return { ...state, current: { ...state.current, furniture }, draft: selected ? furnitureDraft(selected) : state.draft, inputIssues: [], lockNotice: [] };
 }
 
 /** A built-in plan, or "own": the one traced or opened flat, which the next trace or flat file replaces. */

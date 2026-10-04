@@ -20,6 +20,7 @@
 | Floor-plan analysis | `lib/floorplan/`, pure: pen widths, scale-tick snapping, dominant angle, wall-face snapping, opening measurement, frames between PDF points, crop pixels and centimetres, scale-bar and flat-type labels |
 | Flat building | `lib/floorplan/`, pure: trace model, walls from rooms, door/window attachment, validation, naming, normalisation, flat files |
 | Trace screen | `features/floor-trace/`: pdf.js or picture source, steps (picture, scale, flat box, AI or hand, review, check), its own reducer and undo history, analysis glue and the AI client |
+| Design assistant | `features/design-assistant/`, pure except the hook and panel: layout context and open zones, rule-based EN/繁中 interpretation, preference keys/merge/conflicts, measurable evaluation and validation (reusing `analyzeLayout`/`itemViolations` and the lock functions), a bounded chunked heuristic search, explanation templates, its own session reducer, and apply/undo through the editor's `apply-layout` action and undo; see DESIGN_ASSISTANT.md |
 | AI plan server | `POST /api/floorplan`: picture validation, its own rate limits, fal upload and vision request, reply parsing with one repair; with the AI look route, the only code that reads `FAL_KEY` |
 
 The App Router page retains a thin client entry. The only server code is the `/api/model3d` route for the optional AI look and the `/api/floorplan` route for the optional AI plan reading; there is no server action, database or calculation backend, and no layout data reaches the server. Geometry imports no React, Three.js or translations.
@@ -39,6 +40,8 @@ The reducer owns the flat, current furniture and ceiling, an independent baselin
 9. A wrapper around the reducer records document snapshots (current, baseline, locks, ID counters) in a 100-entry undo stack. Plan and dial drags are bracketed by gesture start/end actions so that each is one entry, and field typing coalesces by item and field. Unchanged documents never create entries.
 
 Switching the flat (`use-flat`) is handled before history: it starts a fresh document on the new flat, with no furniture, baseline, locks or undo history, and keeps the language. Reset keeps the current flat.
+
+The design assistant's session (baseline snapshot, preferences, feedback, proposals) is held next to the editor in its own reducer, like the looks map. A proposal preview is derived data: the workspace displays `previewProposal(current, proposal)` in both views with the committed layout as ghosts and editing paused; it is never dispatched and never changes the Before/After baseline. Only "Accept and apply" dispatches, as one `apply-layout` action guarded by `layoutRevision` (flat id, items, poses, sizes, ceiling, locks) and the locks; any mismatch leaves the layout unchanged. A changed revision or another plan marks the session stale.
 
 Plan zoom/pan and the shared room focus are view state held outside the reducer. Each room-focus request carries a sequence number; it fits the plan's view box and drives a 3D "focus" camera command, even for the already-focused room; free plan zoom stays local to the plan.
 

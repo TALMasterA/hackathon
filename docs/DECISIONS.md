@@ -1,5 +1,25 @@
 # Decisions
 
+## Design Assistant / 設計協作助手 (2026-10-03)
+
+Built from `hackathon-4-designer-feedback-prompt.md` and its approved plan. Smallest reasonable choices where the brief left room; flagged for team review.
+
+- **Placement.** A fourth inspector tab plus a toolbar button that opens it (the tabs become four columns, two by two under 360 px). No new screen or route.
+- **Modes.** Interpretation is a fixed rule list (EN / 繁中 including Cantonese); generation is a deterministic bounded search. The UI and docs say "rule-based", "heuristic" and "not AI". The existing fal.ai routes are not used and nothing is sent.
+- **Goals offered.** Only measurable ones: change little, keep an area open, two items closer, two items apart. "More walking space" for the whole room is reported as not measured, with a hint to choose an area, because no route or clearance model exists.
+- **Areas.** Two kinds only: a door's approach on the room's side (door width × depth) and the space in front of an item's front face (item width × depth, moving with the item; area outside the room counts as blocked so turning an item to a wall cannot "clear" it). Depths 60 / 90 / 120 cm are the user's choice and labelled as not a standard; text that names an area uses 90 cm and says so.
+- **Avoided spots and directions are filters, not costs**, and apply only to moved items (an item left at its original place is never pushed away by them). Radius: half the item's longer side, kept within 30–60 cm; direction tolerance 10°.
+- **Repeats.** Arrangements within 15 cm and 10° per item count as the same, so a grid step or two of jitter is not "new". Every shown proposal is avoided, not only rejected ones.
+- **"Too many changes"** sets a limit of the previous proposal's changed count minus one (at least one); a limit only ever tightens.
+- **"Keep this item here"** was added as a reason chip with an explicit choice between the original place and the proposal's place, because "keep it here" is ambiguous. The proposal's place is a hard pin for later rounds; it is not carried over a restart.
+- **Thresholds and ranking.** Area: improved by 0.05 m² or 25% (whichever is less, at least 0.01 m²), clear at 0.005 m². Pair: 10 cm, closer met at 1 cm. Ranking: goals improved, then gain minus the size of the change (×3 under "change little"), then a signature. These are internal and are not presented as design standards.
+- **Search size.** Grid step = shorter room side / 16 within 10–25 cm, at most 600 positions per direction, four quarter turns, singles plus limited two-item combinations, 8 s deadline, 12 ms slices with a yield (no worker). About 0.5–0.8 s for the demo living room in Node.
+- **Room membership.** An item whose stored room and centre disagree is excluded from moving and listed as unclear; moved items must stay inside the room polygon and keep their room id.
+- **One undo step.** Applying uses a new `apply-layout` editor action that changes only position and orientation, refuses another layout revision and any lock violation, and is one history entry; undo reuses the editor's undo, allowed from the assistant only when nothing changed after applying.
+- **Revision.** `layoutRevision` hashes the flat id, ceiling, every item's id, kind, size and pose (0.01 cm) and all locks, so any edit, lock change, reset or plan switch makes a session stale.
+- **Editing during a preview** is paused (plan drag, fields, library, locks, ceiling, Set baseline, toolbar and keyboard undo/redo) instead of isolating edits on the draft.
+- **Process.** The brief asked for no commit; the team's session instruction asked for a commit on a new branch `designer-feedback` and a push of that branch. That was done; main was not touched and nothing was deployed. The brief itself was added to the repository root like the earlier prompts.
+
 ## Read My Floor Plan: Rooms of Any Shape, Dragged Doors and Windows (2026-10-04)
 
 The team found the AI reading too weak to rely on, so tracing by hand had to do the work, and it only allowed boxes. They asked for rooms drawn by joining lines, at any angle (team choice over horizontal and vertical only), doors placed by dragging along the wall with a choice of hinge and opening side, and windows sized by the drag instead of a fixed width.

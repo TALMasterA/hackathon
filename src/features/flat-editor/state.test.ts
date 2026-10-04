@@ -475,3 +475,63 @@ describe("empty start and suggested furniture", () => {
     expect(editorReducer(before, { type: "suggest", roomId: "all" })).toBe(before);
   });
 });
+
+describe("applying several poses at once (design assistant)", () => {
+  it("moves and turns items in one undo step, keeping ids, sizes, names and rooms", async () => {
+    const { layoutRevision } = await import("./revision");
+    const state = furnishedState();
+    const expectedRevision = layoutRevision(state.flat.id, state.current, state.locks);
+    const transforms = [{ id: "living-sofa", position: { x: 100, z: 270 }, orientation: 0 }, { id: "living-side-table", position: { x: 200, z: 70 }, orientation: 450 }];
+    const applied = editorReducer(state, { type: "apply-layout", transforms, expectedRevision });
+    const sofa = applied.current.furniture.find((item) => item.id === "living-sofa")!;
+    const side = applied.current.furniture.find((item) => item.id === "living-side-table")!;
+    expect(sofa.position).toEqual({ x: 100, z: 270 });
+    expect(side.orientation).toBe(90);
+    for (const item of applied.current.furniture) {
+      const before = state.current.furniture.find((entry) => entry.id === item.id)!;
+      expect({ ...item, position: before.position, orientation: before.orientation }).toEqual(before);
+    }
+    expect(applied.past).toHaveLength(state.past.length + 1);
+    expect(applied.draft?.x).toBe("100");
+    const undone = editorReducer(applied, { type: "undo" });
+    expect(undone.current).toEqual(state.current);
+  });
+
+  it("does nothing for another revision, in Before, or for unknown items", async () => {
+    const { layoutRevision } = await import("./revision");
+    const state = furnishedState();
+    const revision = layoutRevision(state.flat.id, state.current, state.locks);
+    const transforms = [{ id: "living-sofa", position: { x: 100, z: 270 }, orientation: 0 }];
+    expect(editorReducer(state, { type: "apply-layout", transforms, expectedRevision: "stale" })).toBe(state);
+    const before = editorReducer(state, { type: "view", view: "before" });
+    expect(editorReducer(before, { type: "apply-layout", transforms, expectedRevision: revision }).current).toBe(state.current);
+    expect(editorReducer(state, { type: "apply-layout", transforms: [{ id: "nope", position: { x: 1, z: 1 }, orientation: 0 }], expectedRevision: revision })).toBe(state);
+  });
+
+  it("refuses the whole step when a position or distance lock would break", async () => {
+    const { layoutRevision } = await import("./revision");
+    const state = furnishedState();
+    const locked = editorReducer(state, { type: "position-lock", id: "living-sofa" });
+    const transforms = [{ id: "living-sofa", position: { x: 100, z: 270 }, orientation: 0 }, { id: "living-side-table", position: { x: 200, z: 70 }, orientation: 0 }];
+    const refused = editorReducer(locked, { type: "apply-layout", transforms, expectedRevision: layoutRevision(locked.flat.id, locked.current, locked.locks) });
+    expect(refused.current).toBe(locked.current);
+    expect(refused.lockNotice[0]).toMatchObject({ code: "lock.position", itemId: "living-sofa" });
+    const spaced = editorReducer(state, { type: "distance-lock", firstId: "living-sofa", secondId: "living-coffee-table", minimum: "30" });
+    const closer = [{ id: "living-coffee-table", position: { x: 250, z: 200 }, orientation: 0 }];
+    const blocked = editorReducer(spaced, { type: "apply-layout", transforms: closer, expectedRevision: layoutRevision(spaced.flat.id, spaced.current, spaced.locks) });
+    expect(blocked.current).toBe(spaced.current);
+    expect(blocked.lockNotice[0].code).toBe("lock.distance");
+  });
+
+  it("gives every edit, lock change and flat its own revision", async () => {
+    const { layoutRevision } = await import("./revision");
+    const state = furnishedState();
+    const revision = layoutRevision(state.flat.id, state.current, state.locks);
+    expect(layoutRevision(state.flat.id, copySnapshot(state.current), { position: [], distance: [] })).toBe(revision);
+    const moved = editorReducer(state, { type: "draft", field: "x", value: "251" });
+    expect(layoutRevision(moved.flat.id, moved.current, moved.locks)).not.toBe(revision);
+    const locked = editorReducer(state, { type: "position-lock", id: "living-sofa" });
+    expect(layoutRevision(locked.flat.id, locked.current, locked.locks)).not.toBe(revision);
+    expect(layoutRevision("another-flat", state.current, state.locks)).not.toBe(revision);
+  });
+});
