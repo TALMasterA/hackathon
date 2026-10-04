@@ -1,4 +1,4 @@
-import { Armchair, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { translate } from "@/i18n/dictionary";
 import type { Language } from "@/types/domain";
 
@@ -12,9 +12,9 @@ export function AppHeader({ language, onLanguage, onReset }: AppHeaderProps) {
   const text = (key: Parameters<typeof translate>[1]) => translate(language, key);
   return (
     <header className="app-header">
-      <a href="#main" className="wordmark" aria-label="FitIn">
-        <span className="brand-mark"><Armchair size={23} aria-hidden="true" /></span>
-        <span>FitIn<span className="brand-dot">.</span></span>
+      <a href="#main" className="wordmark" aria-label="FitIn 放得落">
+        <span className="brand-mark" lang="en">FitIn</span>
+        <span className="brand-dot" lang="zh-Hant">放得落</span>
       </a>
       <div className="header-actions">
         <div className="segmented language-switch" role="group" aria-label={text("app.language")}>

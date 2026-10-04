@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent, type ReactNode
 import { Maximize, ZoomIn, ZoomOut } from "lucide-react";
 import { clampView, clientToPlan, panBy, zoomAt, type PlanBox } from "@/components/plan/interaction";
 import type { Position2D } from "@/types/domain";
+import { INK } from "@/lib/theme";
 
 /**
  * A pointer tool: return true from `down` to take the pointer for a drag; otherwise the view pans,
@@ -185,7 +186,7 @@ export function PlanView({ width, height, image, label, zoomInLabel, zoomOutLabe
         <button type="button" className="icon-button" aria-label={fitLabel} title={fitLabel} onClick={() => setView(frame.home)}><Maximize size={18} aria-hidden="true" /></button>
       </div>
       <svg ref={svg} className="plan-view-canvas" viewBox={`${view.minX} ${view.minZ} ${view.width} ${view.height}`} role="group" aria-label={label} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onPointerLeave={() => tool?.hover?.(null, unit)}>
-        <rect x={frame.home.minX} y={frame.home.minZ} width={frame.home.width} height={frame.home.height} fill="#e5eae4" />
+        <rect x={frame.home.minX} y={frame.home.minZ} width={frame.home.width} height={frame.home.height} fill={INK.stock} />
         {image && <image href={image} x={0} y={0} width={width} height={height} preserveAspectRatio="none" />}
         {children?.(unit)}
       </svg>

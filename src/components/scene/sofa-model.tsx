@@ -1,6 +1,6 @@
 import { Edges } from "@react-three/drei";
 import type { Dimensions } from "@/types/domain";
-import { METRES_PER_CM } from "./palette";
+import { METRES_PER_CM, SELECTED_EDGE_COLOR } from "./palette";
 
 type VectorTuple = [number, number, number];
 
@@ -9,7 +9,7 @@ function SofaBox({ size, position, color, outline = false, opacity = 1 }: { size
     <mesh position={position}>
       <boxGeometry args={size} />
       <meshStandardMaterial color={color} roughness={0.85} transparent={opacity < 1} opacity={opacity} depthWrite={opacity === 1} />
-      {outline && <Edges color="#245f50" />}
+      {outline && <Edges color={SELECTED_EDGE_COLOR} />}
     </mesh>
   );
 }

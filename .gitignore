@@ -13,3 +13,8 @@ npm-debug.log*
 Thumbs.db
 # Third-party asset download (models are copied into public/models)
 kenney_furniture-kit.zip
+
+# Impeccable scratch files and review captures
+.impeccable/tmp/
+.impeccable/review/
+.impeccable/config.local.json

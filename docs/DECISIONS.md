@@ -279,9 +279,19 @@ Stable item IDs accompany names in the list and lock endpoint options so several
 
 ## Rendering And Existing Conventions
 
-Existing header, bilingual toggle, reset actions, palette/font conventions and sofa composition are preserved. Walls are translucent full-height boxes so all five rooms remain inspectable; collision geometry stays opaque mathematically. Colliding models are translucent red so exact floor regions can be seen. Numeric labels sit below camera-toolbar stacking and use no postprocessing/shadows. The 3D scene is client-only with demand rendering and capped pixel ratio; camera reset still flushes damping.
+Existing header actions, bilingual toggle, reset actions and sofa composition are preserved; the palette and type conventions were replaced on 2026-10-04 (see **Visual Redesign: Lexicon & Plate** below). Walls are translucent full-height boxes so all five rooms remain inspectable; collision geometry stays opaque mathematically. Colliding models are translucent red so exact floor regions can be seen. Numeric labels sit below camera-toolbar stacking and use no postprocessing/shadows. The 3D scene is client-only with demand rendering and capped pixel ratio; camera reset still flushes damping.
 
 No dependency upgrade was needed. Existing stable Next/React/R3F/Drei/Three/npm pins remain. ESLint 9 stays compatible with the pinned Next plugins despite its support-status warning; no peer bypass is used. The upstream Clock deprecation is not suppressed. No project licence or deployment config is added.
+
+## Visual Redesign: Lexicon & Plate (2026-10-04)
+
+At the team's request the whole interface was restyled with the Impeccable design skill into one consistent system, chosen by the team from a set of directions. It changes appearance only: every feature, behaviour, bilingual string, honesty label and data hook is unchanged.
+
+- The page is black serif type on white, structured only by hairline rules and a double head rule under the header; colour lives inside the two "plates" (the 2D plan and the 3D view, captioned I and II). Outside a plate, vermilion marks issues and errors only.
+- Drawing colours for the plan, 3D scene, trace views and rotation dial come from one module, `src/lib/theme.ts`; `components/scene/palette.ts` re-exports from it. The plan and the 3D view now share one collision red and one highlight red.
+- Type is the system serif stack (Sitka on Windows, Iowan Old Style or Charter on Apple devices) with 明體 for Traditional Chinese, so no font is fetched at runtime. Small capitals for headings switch off in Traditional Chinese, which has no case.
+- The head line under the header now carries the editing area and selected item (guide words) and the issue count, which moved out of the toolbar so the toolbar fits on one line at 1440 px.
+- The visual system is recorded in `DESIGN.md`; product context for design work is in `PRODUCT.md`.
 
 ## Decisions Needing Team Review
 

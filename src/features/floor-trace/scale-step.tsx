@@ -4,6 +4,7 @@ import { useState, type Dispatch } from "react";
 import { ArrowRight, Eraser, LoaderCircle } from "lucide-react";
 import { traceText, type TraceTranslationKey } from "@/i18n/trace";
 import { formatCm } from "@/i18n/dictionary";
+import { TRACE_INK } from "@/lib/theme";
 import { MAX_IMAGE_UPSCALE, TARGET_CM_PER_PX } from "@/lib/floorplan/frames";
 import type { PlanPoint } from "@/lib/floorplan/scale";
 import type { Language, Position2D } from "@/types/domain";
@@ -85,13 +86,13 @@ export function ScaleStep({ state, dispatch, source, overview, language }: Scale
       <PlanView width={source.width} height={source.height} image={overview} label={t("trace.plan")} zoomInLabel={t("trace.zoomIn")} zoomOutLabel={t("trace.zoomOut")} fitLabel={t("trace.fit")} hint={t("trace.panHint")} tool={tool}>
         {(unit) => (
           <>
-            {points[0] && points[1] && <line x1={points[0].x} y1={points[0].y} x2={points[1].x} y2={points[1].y} stroke="#b35c2e" strokeWidth={2 * unit} strokeDasharray={`${6 * unit} ${4 * unit}`} />}
+            {points[0] && points[1] && <line x1={points[0].x} y1={points[0].y} x2={points[1].x} y2={points[1].y} stroke={TRACE_INK.marker} strokeWidth={2 * unit} strokeDasharray={`${6 * unit} ${4 * unit}`} />}
             {points.map((point, index) => point && (
               <g key={index} className="trace-marker">
-                <circle cx={point.x} cy={point.y} r={MARKER_PX * unit} fill="none" stroke="#b35c2e" strokeWidth={2 * unit} />
-                <line x1={point.x} y1={point.y - MARKER_PX * 1.8 * unit} x2={point.x} y2={point.y + MARKER_PX * 1.8 * unit} stroke="#b35c2e" strokeWidth={unit} />
-                <line x1={point.x - MARKER_PX * 1.8 * unit} y1={point.y} x2={point.x + MARKER_PX * 1.8 * unit} y2={point.y} stroke="#b35c2e" strokeWidth={unit} />
-                <text x={point.x + MARKER_PX * 1.3 * unit} y={point.y - MARKER_PX * 1.3 * unit} fontSize={13 * unit} fill="#8a3f1c" fontWeight={700}>{index + 1}</text>
+                <circle cx={point.x} cy={point.y} r={MARKER_PX * unit} fill="none" stroke={TRACE_INK.marker} strokeWidth={2 * unit} />
+                <line x1={point.x} y1={point.y - MARKER_PX * 1.8 * unit} x2={point.x} y2={point.y + MARKER_PX * 1.8 * unit} stroke={TRACE_INK.marker} strokeWidth={unit} />
+                <line x1={point.x - MARKER_PX * 1.8 * unit} y1={point.y} x2={point.x + MARKER_PX * 1.8 * unit} y2={point.y} stroke={TRACE_INK.marker} strokeWidth={unit} />
+                <text x={point.x + MARKER_PX * 1.3 * unit} y={point.y - MARKER_PX * 1.3 * unit} fontSize={13 * unit} fill={TRACE_INK.markerText} fontWeight={700}>{index + 1}</text>
               </g>
             ))}
           </>
